@@ -1,44 +1,32 @@
 ---
-title: "Todd's Workspace"
-description: "Example contexts using windsorcli"
+title: "Home"
+description: "Welcome to Project Examples"
 ---
-<div align="center">
-  <h1>Todd's Workspace</h1>
+# Welcome to Project Examples
 
-  <p>
-    <img src="img/windsor-logo.png" alt="Windsor CLI Logo" style="width: 50%; height: auto;">
-  </p>
+Explore practical examples and guides from the [tvangundy/workspace](https://github.com/tvangundy/workspace) repository. You'll find implementations for infrastructure automation, technical solutions, and more. These examples are designed to be a good starting point for your own projects, with detailed implementation guides and reference architectures to help you get started.
 
-  <p>
-    <img src="https://img.shields.io/github/v/release/tvangundy/workspace" alt="GitHub release (latest by date)">
-    <img src="https://img.shields.io/github/actions/workflow/status/tvangundy/workspace/ci.yaml" alt="GitHub Workflow Status">
-  </p>
+## What You'll Find Here
 
-  <hr>
-</div>
-## Purpose
+| Category | Description | Key Features |
+|----------|-------------|--------------|
+| Implementation Examples | Real-world examples and guides | • Container orchestration<br>• Infrastructure as Code<br>• CI/CD pipelines<br>• Monitoring and observability<br>• Security implementations |
+| Infrastructure Solutions | Practical system setups | • Home automation systems<br>• Secure networking setups<br>• High-availability configurations<br>• Disaster recovery<br>• Performance optimization |
 
-The purpose of this repository is to demonstrate using the Windsor CLI/Blueprints.
+## Getting Started
 
+1. Review the [Installation Guide](install.md)
+2. Explore the [Examples](examples/index.md)
 
-## Contributing
+## Getting Help
 
-Contributions are welcome! To get started, fork the repository, create a new branch, make your changes, and submit a pull request. Ensure your code follows our standards and includes tests. Thank you for your contributions!
+- [GitHub Issues](https://github.com/tvangundy/workspace/issues)
+- [GitHub Discussions](https://github.com/tvangundy/workspace/discussions)
+- [Documentation Site](https://tvangundy.github.io)
 
-## License
+## Contact
 
-Todd's Workspace is licensed under the Mozilla Public License Version 2.0. See the [LICENSE](LICENSE) file for more details.
-
-## Contact Information
-
-If you have any questions or need further assistance, please feel free to open an issue on our GitHub repository.
-
-<div>
-  {{ next_footer('Installation', './install/index.html') }}
-</div>
-
-<script>
-  document.getElementById('nextButton').addEventListener('click', function() {
-    window.location.href = './install/index.html'; 
-  });
-</script>
+For questions or collaboration:
+- [LinkedIn](https://linkedin.com/in/tvangundy)
+- [GitHub](https://github.com/tvangundy)
+- [Email](mailto:tvangundy@gmail.com)

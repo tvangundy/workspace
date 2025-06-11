@@ -1,5 +1,12 @@
 nav:
-  - 'Home': index.md
-  - 'Installation': install.md
-  - 'Contexts':
-    - 'HomeAssistant': contexts/homeassistant.md
+  - Home: index.md
+  - Installation: install.md
+  - Examples:
+    - Overview: examples/index.md
+    - Home Assistant: examples/homeassistant.md
+    - WireGuard: examples/wireguard.md
+    - Tailscale: examples/tailscale.md
+    - Sidero Omni: examples/sidero-omni.md
+    - AWS Web Cluster: examples/aws-web-cluster.md
+    - Ethereum: examples/ethereum.md
+    - Hybrid Cloud: examples/hybrid-cloud.md

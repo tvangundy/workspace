@@ -3,10 +3,25 @@
 version: '3'
 
 vars:
-  GREETING: Hello, World!
+  EXAMPLES_DIR: examples
 
 tasks:
   default:
-    cmds:
-      - echo "{{.GREETING}}"
     silent: true
+    cmds:
+      - echo "Welcome to Project Examples!"
+      - echo "Available examples:"
+      - |
+        for dir in {{.EXAMPLES_DIR}}/*/; do
+          if [ -f "${dir}Taskfile.yml" ]; then
+            echo "- $(basename ${dir%/})"
+          fi
+        done
+      - echo ""
+      - echo "To work with an example:"
+      - echo "1. cd {{.EXAMPLES_DIR}}/<example-name>"
+      - echo "2. Read the README.md for detailed instructions"
+      - echo "3. Run the tasks"
+      - echo ""
+      - echo "Visit https://tvangundy.github.io"
+
