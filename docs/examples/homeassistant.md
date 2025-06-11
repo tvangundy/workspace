@@ -127,9 +127,3 @@ services:
      usb_path: /dev/ttyACM0
      database_path: /config/zigbee.db
    ```
-
-## Next Steps
-
-- Try the [WireGuard Example](../wireguard)
-- Explore [Advanced Configurations](../../advanced)
-- Review [Best Practices](../../best-practices)
