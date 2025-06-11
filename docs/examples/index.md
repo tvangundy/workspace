@@ -9,17 +9,28 @@ A collection of practical implementations and infrastructure projects.
 
 ## Example Projects
 
-| Project | Description | Features |
-|---------|-------------|----------|
-| [Home Assistant](homeassistant.md) | A complete home automation setup | • Container-based deployment<br>• SSL/TLS configuration<br>• Persistent storage management<br>• Add-on integration<br>• Monitoring and logging<br>• High-availability setup<br>• Backup and restore procedures |
-| [WireGuard](wireguard.md) | A secure VPN solution | • Automated key management<br>• Client configuration<br>• DNS integration<br>• NAT traversal<br>• Security best practices |
-| [Tailscale](tailscale.md) | A modern VPN solution | • Zero-configuration setup<br>• Mesh networking<br>• Access control lists<br>• MagicDNS integration<br>• Cross-platform support |
-| [Sidero Omni](sidero-omni.md) | A bare metal Kubernetes solution | • Automated provisioning<br>• Hardware management<br>• Cluster lifecycle management<br>• Resource optimization<br>• High availability |
-| [AWS Web Cluster](aws-web-cluster.md) | A scalable web application infrastructure | • Multi-AZ deployment<br>• Auto-scaling configuration<br>• Load balancing<br>• Database replication<br>• Monitoring and alerting |
-| [Ethereum](ethereum.md) | A blockchain development environment | • Local development chain<br>• Smart contract deployment<br>• Testing framework<br>• Monitoring tools<br>• Gas optimization |
-| [Hybrid Cloud](hybrid-cloud.md) | A multi-cloud infrastructure | • Cross-cloud deployment<br>• Unified monitoring<br>• Data synchronization<br>• Security policies<br>• Cost optimization |
-
 *Note: All examples are currently under development.*
+
+### 🏠 [Home Assistant](homeassistant.md)
+A complete home automation setup with container-based deployment, SSL/TLS configuration, persistent storage management, add-on integration, monitoring and logging, high-availability setup, and backup/restore procedures.
+
+### 🔒 [WireGuard](wireguard.md)
+A secure VPN solution featuring automated key management, client configuration, DNS integration, NAT traversal, and security best practices.
+
+### 🌐 [Tailscale](tailscale.md)
+A modern VPN solution offering zero-configuration setup, mesh networking, access control lists, MagicDNS integration, and cross-platform support.
+
+### ⚙️ [Sidero Omni](sidero-omni.md)
+A bare metal Kubernetes solution providing automated provisioning, hardware management, cluster lifecycle management, resource optimization, and high availability.
+
+### ☁️ [AWS Web Cluster](aws-web-cluster.md)
+A scalable web application infrastructure with multi-AZ deployment, auto-scaling configuration, load balancing, database replication, and monitoring/alerting.
+
+### ⛓️ [Ethereum](ethereum.md)
+A blockchain development environment including local development chain, smart contract deployment, testing framework, monitoring tools, and gas optimization.
+
+### 🔄 [Hybrid Cloud](hybrid-cloud.md)
+A multi-cloud infrastructure featuring cross-cloud deployment, unified monitoring, data synchronization, security policies, and cost optimization.
 
 ## Getting Started
 

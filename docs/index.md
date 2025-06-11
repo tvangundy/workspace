@@ -8,10 +8,11 @@ Explore practical examples and guides from the [tvangundy/workspace](https://git
 
 ## What You'll Find Here
 
-| Category | Description | Key Features |
-|----------|-------------|--------------|
-| Implementation Examples | Real-world examples and guides | • Container orchestration<br>• Infrastructure as Code<br>• CI/CD pipelines<br>• Monitoring and observability<br>• Security implementations |
-| Infrastructure Solutions | Practical system setups | • Home automation systems<br>• Secure networking setups<br>• High-availability configurations<br>• Disaster recovery<br>• Performance optimization |
+### 🚀 Implementation Examples
+Real-world examples and guides covering container orchestration, infrastructure as code, CI/CD pipelines, monitoring and observability, and security implementations.
+
+### 🏗️ Infrastructure Solutions
+Practical system setups including home automation systems, secure networking setups, high-availability configurations, disaster recovery, and performance optimization.
 
 ## Getting Started
 
