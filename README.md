@@ -15,22 +15,18 @@ A collection of practical implementations, automation solutions, and infrastruct
 2. Explore the [Examples Documentation](https://tvangundy.github.io/examples) to find an implementation that interests you
 3. Follow the example-specific instructions in its README.md
 
-## Adding New Examples
+## How to use the examples
 
-Each example in this repository follows a consistent structure to ensure maintainability and ease of use. Here's how to add a new example:
+Each example directory contains a Taskfile.yml and a README.md. To get started, read the README.md for specific instructions and run the 'task' command to execute predefined tasks.
 
-### File Structure
+### File Structure for each example
 
 ```
 examples/
-└── your-example/          # Example directory
+└── < example-name >/      # Example directory
     ├── Taskfile.yml       # Task definitions for the example
     ├── README.md          # Example-specific documentation
     └── ...                # Additional example files
-
-docs/
-└── examples/
-    └── your-example.md    # Detailed documentation
 ```
 
 ### Required Components
@@ -55,12 +51,28 @@ docs/
 ## Repository Structure
 
 ```
-├── examples/             # Implementation examples
-│   └── homeassistant/    # Home Assistant setup
 ├── docs/                 # Documentation
 │   ├── examples/         # Example documentation
+│   │   ├── aws-web-cluster.md
+│   │   ├── ethereum.md
+│   │   ├── homeassistant.md
+│   │   ├── hybrid-cloud.md
+│   │   ├── index.md
+│   │   ├── sidero-omni.md
+│   │   ├── tailscale.md
+│   │   └── wireguard.md
 │   └── install.md        # Installation guide
-└── Taskfile.yml          # Task definitions
+├── examples/             # Implementation examples
+│   ├── aws-web-cluster/
+│   ├── ethereum/
+│   ├── homeassistant/
+│   ├── hybrid-cloud/
+│   ├── sidero-omni/
+│   ├── tailscale/
+│   └── wireguard/
+├── mkdocs.yml           # MkDocs configuration
+├── overrides/           # MkDocs theme customizations
+└── Taskfile.yml         # Task definitions
 ```
 
 ## Contributing
