@@ -2,7 +2,7 @@ nav:
   - Home: index.md
   - Installation: install.md
   - Examples:
-    - Overview: examples/index.md
+    - Introduction: examples/index.md
     - Home Assistant: examples/homeassistant.md
     - WireGuard: examples/wireguard.md
     - Tailscale: examples/tailscale.md
