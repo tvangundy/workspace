@@ -37,7 +37,7 @@ git --version
 ```
 
 #### 4. Windsor CLI
-- Follow the [Windsor CLI installation guide](https://windsorcli.github.io/installation/)
+- Follow the [Windsor CLI installation guide](https://windsorcli.github.io/install/)
 - Verify installation:
 
 ```bash
