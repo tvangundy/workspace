@@ -10,7 +10,7 @@ Get started with the project examples by following these installation steps. You
 
 Before you begin, ensure you have the following installed:
 
-#### 1. Docker and Docker Compose
+#### Docker and Docker Compose
 - [Install Docker](https://docs.docker.com/get-docker/)
 - [Install Docker Compose](https://docs.docker.com/compose/install/)
 - Verify installation:
@@ -20,7 +20,7 @@ docker --version
 docker compose version
 ```
 
-#### 2. Aqua
+#### Aqua
 - [Install Aqua](https://aquaproj.github.io/docs/overview/quick-start)
 - Verify installation:
 
@@ -28,7 +28,7 @@ docker compose version
 aqua --version
 ```
 
-#### 3. Git
+#### Git
 - [Install Git](https://git-scm.com/downloads)
 - Verify installation:
 
@@ -36,7 +36,7 @@ aqua --version
 git --version
 ```
 
-#### 4. Windsor CLI
+#### Windsor CLI
 - Follow the [Windsor CLI installation guide](https://windsorcli.github.io/install/)
 - Verify installation:
 
@@ -48,18 +48,18 @@ windsor --version
 
 Now that you have all the prerequisites installed, let's set up your workspace. This will create a local development environment with all the necessary tools and configurations to run the examples.
 
-#### 1. Clone the Repository
+#### Clone the Repository
 ```bash
 git clone https://github.com/tvangundy/workspace.git
 cd workspace
 ```
 
-#### 2. Install Dependencies
+#### Install Dependencies
 ```bash
 aqua install
 ```
 
-#### 3. Run Task
+#### Run Task
 ```bash
 task
 ```
