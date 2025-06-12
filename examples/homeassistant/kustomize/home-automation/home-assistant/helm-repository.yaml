@@ -1,0 +1,10 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: home-assistant
+  namespace: home-assistant
+spec:
+  interval: 10m
+  timeout: 5m
+  url: https://small-hack.github.io/home-assistant-chart/

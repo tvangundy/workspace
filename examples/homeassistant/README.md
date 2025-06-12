@@ -13,37 +13,17 @@ Before you begin, ensure you have:
   - USB Zigbee adapter
   - Appropriate permissions for USB access
 
-## Quick Start
+# Quick Start
 
-1. Navigate to the example directory:
-   ```bash
-   cd examples/homeassistant
-   ```
+```
+windsor init local
+windsor up --install
+kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123
 
-2. View available tasks:
-   ```bash
-   task --list
-   ```
+Visit: http://localhost:8123
 
-3. Initialize the environment:
-   ```bash
-   task setup
-   ```
-
-4. Start Home Assistant:
-   ```bash
-   task run
-   ```
-
-5. Run integration tests:
-   ```bash
-   task test
-   ```
-
-6. Clean up resources:
-   ```bash
-   task clean
-   ```
+windsor down 
+```
 
 ## Documentation
 

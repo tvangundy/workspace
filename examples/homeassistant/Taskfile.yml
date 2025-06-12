@@ -1,23 +1,20 @@
 version: '3'
 
 tasks:
+
   default:
+    desc: Follow these steps to bring up Home Assistant
     cmds:
-      - echo "Ethereum Development Environment (Coming Soon)"
-      - echo "This example is under development. Check back later for implementation details."
+      - echo ""
+      - echo "To bring up Home Assistant, run the following commands:"
+      - echo "  windsor init local"
+      - echo "  windsor up --install"
+      - echo "  kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123"
+      - echo "  open http://localhost:8123"
+      - echo ""
+      - echo "To stop Home Assistant, run the following command:"
+      - echo "  windsor down"
+      - echo ""
+    silent: true
 
-  setup:
-    cmds:
-      - echo "Setup task coming soon"
 
-  run:
-    cmds:
-      - echo "Run task coming soon"
-
-  test:
-    cmds:
-      - echo "Test task coming soon"
-
-  clean:
-    cmds:
-      - echo "Clean task coming soon" 
