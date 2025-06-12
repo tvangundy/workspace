@@ -4,7 +4,7 @@ description: "Welcome to Project Examples"
 ---
 # Welcome to Project Examples
 
-A collection of practical implementations of cloud infrastructure projects.
+A collection of practical implementations for cloud infrastructure projects.
 
 This collection of example projects comes from the [workspace repository](https://github.com/tvangundy/workspace) and features infrastructure automation, technical solutions, and more. Each example represents real-world solutions that can be easily adapted for your own projects. The collection continues to grow as new technologies and approaches are explored. Feel free to use these examples as a starting point for your own projects.
 
