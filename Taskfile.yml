@@ -5,6 +5,11 @@ version: '3'
 vars:
   EXAMPLES_DIR: examples
 
+includes:
+  docker: tasks/docker.yaml
+  vhs: tasks/vhs.yaml
+  talos: tasks/talos.yaml
+
 tasks:
   default:
     silent: true

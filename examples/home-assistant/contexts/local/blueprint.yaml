@@ -4,7 +4,7 @@ metadata:
   name: local
   description: This blueprint outlines resources in the local context
 repository:
-  url: http://git.test/git/homeassistant
+  url: http://git.test/git/workspace
   ref:
     branch: main
   secretName: flux-system

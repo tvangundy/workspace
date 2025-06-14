@@ -6,15 +6,24 @@ description: "Home Assistant deployment on Talos"
 
 ## Overview
 
-The Home Assistant example provides a production-ready setup for running Home Assistant with:
+The Home Assistant example provides a production-ready deployment of Home Assistant on Talos, with persistent storage and Kubernetes-based management. Out of the box, you get a working Home Assistant instance accessible via port 8123, with data stored persistently and reproducible setup using Windsor CLI and Kustomize.
 
-- WIP: Automatic SSL configuration
-- WIP: Persistent storage
-- WIP: Add-on support
-- WIP: Integration with other services
-- WIP: Backup and restore capabilities
+**Planned Features:**
 
-The `home-automation` folder is structured to organize the configuration and resources needed for deploying Home Assistant using the Windsor CLI. Below is a tree view of the `home-automation` directory and a description of the files within the `home-assistant` subfolder.
+- Automatic SSL configuration
+- Add-on support
+- Integration with other services
+- Backup and restore capabilities
+
+## Getting Started
+
+After deploying Home Assistant, you'll be greeted with the onboarding screen where you can set up your initial configuration. This includes creating your admin account, setting your location, and configuring basic system settings.
+
+![home-assistant-onboarding](../img/home-assistant/home-assistant-onboarding.png)
+
+## Directory Structure Details
+
+The `home-automation` folder is structured to organize the configuration and resources needed for deploying Home Assistant using the [Windsor CLI](https://windsorcli.io). Below is a tree view of the `home-automation` directory and a description of the files within the `home-assistant` subfolder.
 
 ```
 home-automation/
@@ -36,8 +45,6 @@ home-automation/
 ├── windsor.yaml              # Windsor project configuration
 └── README.md                 # Project documentation
 ```
-
-## Directory Structure Details
 
 ### Root Level Files
 - `Taskfile.yml`: Contains task definitions for common operations like initialization, startup, and shutdown
@@ -71,7 +78,7 @@ Houses all Kubernetes manifests and Kustomize overlays. The structure follows a 
 Contains Infrastructure as Code (IaC) configurations for provisioning the underlying infrastructure.
 
 ### Configuration
-The Home Assistant specific configuration settings for `windsor.yaml` and `contexts/local/blueprint.yaml` are as follows:
+The Home Assistant specific configuration settings are as follows:
 
 #### windsor.yaml
 
@@ -99,6 +106,7 @@ kustomize:
 5. Persistent data is stored in the `.volumes/` directory
 
 This structure allows for:
+
 - Clear separation of concerns
 - Easy environment-specific customization
 - Persistent data storage
@@ -111,52 +119,31 @@ This structure allows for:
 ```
 windsor init local
 ```
+![Windsor Init Process](../img/home-assistant/windsor-init.gif)
+
 ### Bring up a cluster and install all kustomizations
 ```
 windsor up --install
 ```
+![Windsor Up Process](../img/home-assistant/windsor-up.gif)
 
 ### Access Home Assistant via Port Forwarding
 ```
 kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123
 ```
-```sh
-local::homeassistant ✨ kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123
-Forwarding from 0.0.0.0:8123 -> 8123
-Handling connection for 8123
-Handling connection for 8123
-Handling connection for 8123
-Handling connection for 8123
-Handling connection for 8123
-```
+![Port Forwarding Process](../img/home-assistant/port-forwarding.gif)
 
 ### Wait for ha pod to become ready
 
-```bash
-local::homeassistant ✨ kubectl get pods -A
-NAMESPACE                       NAME                                                       READY   STATUS              RESTARTS        AGE
-home-assistant                  home-assistant-5d9f74d895-858dr                            1/1     Running             0               95s
-kube-system                     coredns-578d4f8ffc-sgzdp                                   1/1     Running             0               2m22s
-...
-```
+![Check HA Pod](../img/home-assistant/check-ha-pod.gif)
 
 ### Visit: http://localhost:8123
 ```
 open http://localhost:8123
 ```
 
-![home-assistant-onboarding](../img/home-assistant-onboarding.png)
-
 ### Stop the cluster
 ```
 windsor down 
 ```
-```bash
-local::homeassistant ✨ windsor down
-✔ 🗑️  Initializing Terraform in cluster/talos - Done
-✔ 🗑️  Planning Terraform destruction in cluster/talos - Done
-✔ 🗑️  Destroying Terraform resources in cluster/talos - Done
-✔ 📦 Running docker compose down - Done
-Windsor environment torn down successfully.
-local::homeassistant ✨ 
-```
+![Windsor Down Process](../img/home-assistant/windsor-down.gif)

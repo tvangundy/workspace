@@ -1,0 +1,34 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  make-windsor-init-gif:
+    desc: Builds all gif files
+    cmds:
+      - vhs docs/img/home-assistant/vhs/windsor-init.tape -o docs/img/home-assistant/windsor-init.gif
+
+  make-windsor-up-gif:
+    desc: Builds all gif files
+    cmds:
+      - vhs docs/img/home-assistant/vhs/windsor-up.tape -o docs/img/home-assistant/windsor-up.gif
+
+  make-port-forwarding-gif:
+    desc: Builds all gif files
+    cmds:
+      - vhs docs/img/home-assistant/vhs/port-forwarding.tape -o docs/img/home-assistant/port-forwarding.gif
+
+  make-windsor-down-gif:
+    desc: Builds all gif files
+    cmds:
+      - vhs docs/img/home-assistant/vhs/windsor-down.tape -o docs/img/home-assistant/windsor-down.gif
+
+  make-check-ha-pod-gif:
+    desc: Builds all gif files
+    cmds:
+      - vhs docs/img/home-assistant/vhs/check-ha-pod.tape -o docs/img/home-assistant/check-ha-pod.gif
+
+  help:
+    desc: Show help
+    cmds:
+      - echo "Also see [vhs docs](https://pkg.go.dev/github.com/charmbracelet/vhs#readme-tutorial)"

@@ -4,13 +4,13 @@ description: "Welcome to Project Examples"
 ---
 # Welcome to Project Examples
 
-A collection of practical implementations for cloud infrastructure projects.
+A curated collection of production-ready infrastructure implementations and automation solutions. These examples demonstrate real-world applications of modern cloud technologies, container orchestration, and infrastructure-as-code practices. Each project is designed to be both educational and immediately useful, providing practical solutions that can be adapted for your own infrastructure needs.
 
 This collection of example projects comes from the [workspace repository](https://github.com/tvangundy/workspace) and features infrastructure automation, technical solutions, and more. Each example represents real-world solutions that can be easily adapted for your own projects. The collection continues to grow as new technologies and approaches are explored. Feel free to use these examples as a starting point for your own projects.
 
 *Note: All examples are currently under development.*
 
-### 🏠 [Home Assistant](./examples/homeassistant.md)
+### 🏠 [Home Assistant](./examples/home-assistant.md)
 A complete home automation setup with container-based deployment, SSL/TLS configuration, persistent storage management, add-on integration, monitoring and logging, high-availability setup, and backup/restore procedures.
 
 ### 🔒 [WireGuard](./examples/wireguard.md)

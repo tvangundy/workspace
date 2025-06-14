@@ -27,7 +27,7 @@ windsor down
 
 ## Documentation
 
-For detailed documentation, visit the [Home Assistant Example Guide](../docs/examples/homeassistant.md).
+For detailed documentation, visit the [Home Assistant Example Guide](../docs/examples/home-assistant.md).
 
 ## Getting Help
 
@@ -43,8 +43,8 @@ The example uses the following configuration:
 # windsor.yaml
 version: '1.0'
 services:
-  homeassistant:
-    image: homeassistant/home-assistant:latest
+  home-assistant:
+    image: home-assistant/home-assistant:latest
     ports:
       - "8123:8123"
     volumes:

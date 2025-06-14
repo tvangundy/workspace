@@ -2,11 +2,11 @@
 # managed by windsor cli
 .windsor/
 .volumes/
-terraform/**/backend_override.tf
-contexts/**/.terraform/
-contexts/**/.tfstate/
-contexts/**/.kube/
-contexts/**/.talos/
-contexts/**/.omni/
-contexts/**/.aws/
-contexts/**/.azure/
+backend_override.tf
+.terraform/
+.tfstate/
+.kube/
+.talos/
+.omni/
+.aws/
+.azure/

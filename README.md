@@ -55,7 +55,7 @@ examples/
 │   ├── examples/         # Example documentation
 │   │   ├── aws-web-cluster.md
 │   │   ├── ethereum.md
-│   │   ├── homeassistant.md
+│   │   ├── home-assistant.md
 │   │   ├── hybrid-cloud.md
 │   │   ├── index.md
 │   │   ├── sidero-omni.md
@@ -65,7 +65,7 @@ examples/
 ├── examples/             # Implementation examples
 │   ├── aws-web-cluster/
 │   ├── ethereum/
-│   ├── homeassistant/
+│   ├── home-assistant/
 │   ├── hybrid-cloud/
 │   ├── sidero-omni/
 │   ├── tailscale/

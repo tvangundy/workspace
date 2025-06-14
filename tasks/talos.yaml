@@ -1,0 +1,20 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  health-controlplane:
+    desc: Health check the controlplane
+    cmds:
+      - talosctl health --endpoints 127.0.0.1:50000,127.0.0.1:50001 --nodes controlplane-1 
+
+  health-worker:
+    desc: Health check the worker
+    cmds:
+      - talosctl health --endpoints 127.0.0.1:50000,127.0.0.1:50001 --nodes worker-1
+
+  fetch-node-server-certificate:
+    desc: Fetch the server certificate from the node
+    cmds:
+      - openssl s_client -connect 127.0.0.1:50000 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
+  
