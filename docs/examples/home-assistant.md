@@ -23,7 +23,7 @@ After deploying Home Assistant, you'll be greeted with the onboarding screen whe
 
 ## Directory Structure Details
 
-The `home-automation` folder is structured to organize the configuration and resources needed for deploying Home Assistant using the [Windsor CLI](https://windsorcli.io). Below is a tree view of the `home-automation` directory and a description of the files within the `home-assistant` subfolder.
+The `home-automation` folder is structured to organize the configuration and resources needed for deploying Home Assistant using the [Windsor CLI](https://windsorcli.github.io). Below is a tree view of the `home-automation` directory and a description of the files within the `home-assistant` subfolder.
 
 ```
 home-automation/

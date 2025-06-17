@@ -21,7 +21,7 @@ docker compose version
 ```
 
 #### Aqua
-- [Install Aqua](https://aquaproj.github.io/docs/overview/quick-start)
+- [Install Aqua](https://aquaproj.github.io/docs/install)
 - Verify installation:
 
 ```bash
@@ -37,7 +37,7 @@ git --version
 ```
 
 #### Windsor CLI
-- Follow the [Windsor CLI installation guide](https://windsorcli.github.io/install/)
+- Follow the [Windsor CLI installation guide](https://windsorcli.github.io/latest/install/)
 - Verify installation:
 
 ```bash
