@@ -80,16 +80,6 @@ Contains Infrastructure as Code (IaC) configurations for provisioning the underl
 ### Configuration
 The Home Assistant specific configuration settings are as follows:
 
-#### windsor.yaml
-
-```yaml
-      workers:
-        hostports:
-        - 51820:31820/udp
-    dns:
-      enabled: false
-```
-
 #### blueprint.yaml
 ```yaml
 kustomize:

@@ -1,23 +1,15 @@
+# https://taskfile.dev
+
 version: '3'
 
 includes:
-  talos: ../../tasks/talos.yaml
+  docker: ../../tasks/docker.yaml
 
 tasks:
 
   default:
-    desc: Follow these steps to bring up Home Assistant
     cmds:
-      - echo ""
-      - echo "To bring up Home Assistant, run the following commands:"
-      - echo "  windsor init local"
-      - echo "  windsor up --install"
-      - echo "  kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123"
-      - echo "  open http://localhost:8123"
-      - echo ""
-      - echo "To stop Home Assistant, run the following command:"
-      - echo "  windsor down"
-      - echo ""
+      - echo "windsor init local"
+      - echo "windsor up --install --verbose"
+      - echo "kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123 &"
     silent: true
-
-

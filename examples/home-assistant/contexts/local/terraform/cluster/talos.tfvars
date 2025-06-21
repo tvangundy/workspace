@@ -5,7 +5,7 @@
 # kubernetes_version = "1.33.1"
 
 # The talos version to deploy.
-# talos_version = "1.10.3"
+# talos_version = "1.10.4"
 
 # The name of the cluster.
 cluster_name = "talos"
@@ -69,9 +69,6 @@ common_config_patches = <<EOF
       "registry.test":
         "endpoints":
         - "http://registry.test:5000"
-  "time":
-    "servers":
-      - "pool.ntp.org"
 EOF
 
 

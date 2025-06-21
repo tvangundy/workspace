@@ -69,9 +69,6 @@ common_config_patches = <<EOF
       "registry.test":
         "endpoints":
         - "http://registry.test:5000"
-  "time":
-    "servers":
-      - "pool.ntp.org"
 EOF
 
 

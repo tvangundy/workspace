@@ -1,7 +1,7 @@
 version: v1alpha1
 contexts:
   local:
-    id: wgmr0fgc
+    id: wb6xexb2
     blueprint: full
     docker:
       enabled: true
@@ -51,13 +51,12 @@ contexts:
         - 8443:30443/tcp
         - 9292:30292/tcp
         - 8053:30053/udp
-        - 51820:31820/udp
         volumes:
         - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
     network:
       cidr_block: 10.5.0.0/16
     dns:
-      enabled: false
+      enabled: true
       domain: test
       forward:
       - 10.5.0.1:8053

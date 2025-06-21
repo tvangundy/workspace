@@ -5,10 +5,10 @@
 # flux_namespace = "system-gitops"
 
 # The version of Flux Helm chart to install
-# flux_helm_version = "2.15.0"
+# flux_helm_version = "2.16.0"
 
 # The version of Flux to install
-# flux_version = "2.6.0"
+# flux_version = "2.6.2"
 
 # The private key to use for SSH authentication
 # ssh_private_key = "(sensitive)"
