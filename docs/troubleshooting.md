@@ -28,3 +28,42 @@ verification failure' while trying to verify candidate authority certificate 'ta
 - If running Talos in a VM, make sure the VM host's clock is also correct.
 
 After correcting time, retry your Talos commands. 
+
+## Docker Compose Command Not Found (Ubuntu)
+If you encounter the following error on Ubuntu systems:
+
+```
+Error: Error running container runtime Up command: Error executing command  [up --detach --remove-orphans]: command start failed: exec: no command
+```
+
+This typically occurs because Windsor is looking for the standalone `docker-compose` command, but only the newer `docker compose` (with a space) is available.
+
+**To fix:**
+
+1. **Install the standalone docker-compose binary:**
+   ```bash
+   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   sudo chmod +x /usr/local/bin/docker-compose
+   ```
+
+2. **Verify the installation:**
+   ```bash
+   docker-compose --version
+   ```
+
+3. **Ensure the binary is in your PATH:**
+   ```bash
+   echo $PATH | grep /usr/local/bin
+   ```
+
+4. **Retry Windsor commands:**
+   ```bash
+   windsor up
+   ```
+
+**Alternative solution:** If you prefer to use only the newer `docker compose` command, you can create a symlink:
+```bash
+sudo ln -sf /usr/bin/docker /usr/local/bin/docker-compose
+```
+
+This will allow Windsor to find the docker-compose command it expects while using the newer Docker Compose implementation.

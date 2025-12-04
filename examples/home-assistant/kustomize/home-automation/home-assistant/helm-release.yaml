@@ -69,13 +69,8 @@ spec:
             - 172.16.0.0/12
             - 192.168.0.0/16
 
-        # Load frontend themes from the themes folder
-        frontend:
-          themes: !include_dir_merge_named themes
-
-        automation: !include automations.yaml
-        script: !include scripts.yaml
-        scene: !include scenes.yaml
+        # Basic configuration without external file dependencies
+        # This ensures the configuration is valid even if external files don't exist
 
     # Increase startup time to avoid readiness probe failures
     probes:

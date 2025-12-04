@@ -11,8 +11,8 @@ A collection of practical implementations, automation solutions, and infrastruct
 
 ## Getting Started
 
-1. Review the [Installation Guide](https://tvangundy.github.io/install) to set up your environment
-2. Explore the [Examples Documentation](https://tvangundy.github.io/examples) to find an implementation that interests you
+1. Review the [Installation Guide](./docs/install) to set up your environment
+2. Explore the 'examples' folder to find an implementation that interests you
 3. Follow the example-specific instructions in its README.md
 
 ## How to use the examples
