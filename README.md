@@ -1,9 +1,11 @@
-# Project Examples
+# Workspace
 
-A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides examples and real-world implementations that can be used as a reference for your own projects.
+A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides both **deployment recipes** (step-by-step guides to build your own) and **working examples** (reference implementations you can compare against) for infrastructure deployments.
 
 ## What You'll Find Here
 
+- **Deployment Recipes**: Step-by-step guides that walk you through building complete deployments from the ground up
+- **Working Examples**: Production-ready implementations that serve as reference code and are used for regression testing
 - Real-world implementation examples
 - Infrastructure automation solutions
 - Security and networking configurations
@@ -11,9 +13,22 @@ A collection of practical implementations, automation solutions, and infrastruct
 
 ## Getting Started
 
-1. Review the [Installation Guide](./docs/install) to set up your environment
-2. Explore the 'examples' folder to find an implementation that interests you
-3. Follow the example-specific instructions in its README.md
+1. Review the [Installation Guide](./docs/install.md) to set up your environment
+2. **Choose your approach**:
+   - **Learn by building**: Follow a [deployment recipe](./docs/deployments/index.md) to build your own deployment step-by-step
+   - **Use as reference**: Explore the [examples](./docs/examples/index.md) folder to find working implementations you can adapt
+3. **Compare and verify**: If you followed a recipe, compare your implementation with the corresponding example to verify it matches the reference
+
+## Examples vs. Deployment Recipes
+
+This workspace provides two complementary resources:
+
+- **Deployment Recipes** (`/docs/deployments/`): Instructional guides that teach you **how** to build deployments. Follow these step-by-step to understand each part of the process and create your own implementation.
+
+- **Examples** (`/examples/`): Working, production-ready deployments that serve as reference implementations. Use these to **compare** your implementation against a tested, working solution. The examples are also used for regression testing to ensure patterns remain functional.
+
+By following a deployment recipe, you'll build your own deployment step-by-step. You can then compare your implementation with the corresponding example to verify it matches the reference implementation and understand any differences.
+
 
 ## How to use the examples
 
@@ -52,6 +67,11 @@ examples/
 
 ```
 ├── docs/                 # Documentation
+│   ├── deployments/      # Deployment recipe guides
+│   │   ├── bootstrapping/  # Node bootstrapping guides
+│   │   ├── home-assistant/ # Home Assistant deployment guide
+│   │   ├── runners/        # GitHub Actions runner setup guides
+│   │   └── index.md        # Deployment recipes overview
 │   ├── examples/         # Example documentation
 │   │   ├── aws-web-cluster.md
 │   │   ├── ethereum.md
@@ -62,7 +82,7 @@ examples/
 │   │   ├── tailscale.md
 │   │   └── wireguard.md
 │   └── install.md        # Installation guide
-├── examples/             # Implementation examples
+├── examples/             # Working reference implementations
 │   ├── aws-web-cluster/
 │   ├── ethereum/
 │   ├── home-assistant/

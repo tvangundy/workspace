@@ -1,5 +1,23 @@
-# Quick Start
+# Home Assistant Deployments
 
+# Initialize the windsor cli workspace
+```
+windsor init rpi
+```
+
+# Single Raspberry Pi cluster
+
+   ```
+   $ flux install --namespace=flux-system
+   ```
+
+# Setup a single raspberry pi cluster 
+
+1. Acquire the home assistant workspace from the workspace repository and place in the home assistant workspace directory (prod-home-assistant)
+2. Add aws backend to the home assistant workspace
+3. Prepare the target devices for home assistant
+4. Bootstrap the home assistant workspace
+5. Setup the home assistant 
 
 # Setup and run home assistant locally
 
