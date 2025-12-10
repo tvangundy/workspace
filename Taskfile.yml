@@ -14,7 +14,7 @@ tasks:
   default:
     silent: true
     cmds:
-      - echo "Welcome to Project Examples!"
+      - echo "Welcome to Workspace Documentation!"
       - echo "Available examples:"
       - |
         for dir in {{.EXAMPLES_DIR}}/*/; do

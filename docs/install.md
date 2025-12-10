@@ -4,7 +4,7 @@ description: "Installation Guide"
 ---
 # Installation Guide
 
-Get started with the project examples by following these installation steps. You'll need a few basic tools installed on your development workstation to run the examples and explore the documentation.
+Get started with the workspace by following these installation steps. You'll need a few basic tools installed on your development workstation to run the examples and explore the documentation.
 
 ## Prerequisites
 
