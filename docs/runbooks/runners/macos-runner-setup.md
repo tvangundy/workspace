@@ -2,9 +2,6 @@
 
 This guide covers setting up a macOS-based GitHub Actions runner on Apple Silicon (ARM64) Mac devices.
 
-## Quick Start
-
-For detailed instructions, see the [macOS Runner Setup Guide](../devices.md#macos-runner-arm64).
 
 ## Prerequisites
 

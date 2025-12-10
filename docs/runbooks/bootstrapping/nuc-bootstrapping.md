@@ -204,4 +204,3 @@ After successfully bootstrapping your Intel NUC:
 - [Talos Linux Documentation](https://www.talos.dev/)
 - [Talos Image Factory](https://factory.talos.dev)
 - [Installation Guide](../../install.md)
-- [Getting Help](../../README.md#getting-help)

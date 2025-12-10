@@ -63,10 +63,10 @@ aqua install
 
 Available examples:
 
-- [AWS Web Cluster](../examples/aws-web-cluster/README.md)
-- [Ethereum](../examples/ethereum/README.md)
-- [Home Assistant](../examples/home-assistant/README.md)
-- [Hybrid Cloud](../examples/hybrid-cloud/README.md)
-- [Sidero Omni](../examples/sidero-omni/README.md)
-- [Tailscale](../examples/tailscale/README.md)
-- [Wireguard](../examples/wireguard/README.md)
+- [AWS Web Cluster](./examples/aws-web-cluster.md)
+- [Ethereum](./examples/ethereum.md)
+- [Home Assistant](./examples/home-assistant.md)
+- [Hybrid Cloud](./examples/hybrid-cloud.md)
+- [Sidero Omni](./examples/sidero-omni.md)
+- [Tailscale](./examples/tailscale.md)
+- [Wireguard](./examples/wireguard.md)

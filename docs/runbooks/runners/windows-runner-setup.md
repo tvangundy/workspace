@@ -2,10 +2,6 @@
 
 This guide covers setting up a Windows-based GitHub Actions runner on Intel NUC (x86_64) devices.
 
-## Quick Start
-
-For detailed instructions, see the [Windows Runner Setup Guide](../devices.md#windows-runner-x86_64).
-
 ## Prerequisites
 
 - Intel NUC hardware

@@ -10,4 +10,16 @@ nav:
     - AWS Web Cluster: examples/aws-web-cluster.md
     - Ethereum: examples/ethereum.md
     - Hybrid Cloud: examples/hybrid-cloud.md
+  - Runbooks:
+    - Introduction: runbooks/README.md
+    - Bootstrapping:
+      - Introduction: runbooks/bootstrapping/README.md
+      - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
+      - Intel NUC: runbooks/bootstrapping/nuc-bootstrapping.md
+      - Sidero Omni: runbooks/bootstrapping/omni-bootstrapping.md
+    - GitHub Actions Runners:
+      - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
+      - Windows: runbooks/runners/windows-runner-setup.md
+      - macOS: runbooks/runners/macos-runner-setup.md
+    - Home Assistant: runbooks/home-assistant/README.md
   - Troubleshooting: troubleshooting.md

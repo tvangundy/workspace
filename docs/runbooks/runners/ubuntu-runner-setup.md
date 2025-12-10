@@ -2,10 +2,6 @@
 
 This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices.
 
-## Quick Start
-
-For detailed instructions, see the [Ubuntu Runner Setup Guide](../devices.md#ubuntu-runner-arm64x86_64).
-
 ## Prerequisites
 
 - Raspberry Pi or Intel NUC hardware

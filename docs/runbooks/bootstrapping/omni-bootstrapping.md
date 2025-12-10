@@ -2,9 +2,6 @@
 
 This guide covers the setup of Raspberry Pi devices for use in Talos Kubernetes clusters managed by Sidero Omni.
 
-## Quick Start
-
-For detailed instructions, see the [Device Setup Guide](../devices.md#step-2-prepare-raspberry-pi-for-cluster).
 
 ## Prerequisites
 
@@ -62,11 +59,4 @@ task bootstrap
 # Verify
 kubectl get nodes
 ```
-
-## Additional Resources
-
-- [Complete Device Setup Guide](../devices.md)
-- [Device Task Reference](../devices.md#device-task-reference)
-- [Talos Linux Documentation](https://www.talos.dev/latest/)
-- [Sidero Omni Documentation](https://omni.siderolabs.com/docs/)
 
