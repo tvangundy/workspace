@@ -6,12 +6,15 @@ vars:
   EXAMPLES_DIR: examples
 
 includes:
-  docker: tasks/docker.yaml
-  vhs: tasks/vhs.yaml
-  talos: tasks/talos.yaml
+  workspace: ./tasks/workspace
+  sops: ./tasks/sops
+  device: ./tasks/device
+  docker: tasks/docker
+  vhs: tasks/vhs
+  talos: tasks/talos
 
 tasks:
-  default:
+  how-to-examples:
     silent: true
     cmds:
       - echo "Welcome to Workspace Documentation!"
@@ -29,4 +32,25 @@ tasks:
       - echo "3. Run the tasks"
       - echo ""
       - echo "Visit https://tvangundy.github.io"
+
+  default:
+    cmds:
+      - |
+        echo ""
+        echo "Namespace sensitive tasks"
+        echo ""
+        echo "    task <namespace>:help"
+        echo ""
+        echo "Available namespaces"
+        echo ""
+        echo "workspace, device, sops, docker, vhs, talos"
+        echo ""
+        echo "To run a task:"
+        echo "    task <namespace>:<task>"
+        echo ""
+        echo "Example:"
+        echo "    task sops:decrypt -- <file>"
+        echo "    task device:list-disks"
+        echo "    task docker:clean"
+    silent: true
 

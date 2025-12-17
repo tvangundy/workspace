@@ -1,0 +1,119 @@
+---
+version: "3"
+
+vars:
+  CONTEXTS_ROOT: "{{.PROJECT_ROOT}}/contexts"
+  DEFAULT_AWS_PROFILE: "public"
+
+  CONTEXT: 
+    sh: windsor context get
+
+  SECRETS_YAML: "{{.CONTEXTS_ROOT}}/{{.CONTEXT}}/secrets.yaml"
+  ENC_SECRETS_YAML: "{{.CONTEXTS_ROOT}}/{{.CONTEXT}}/secrets.enc.yaml"
+
+env:
+  TF_PROJECT_SRC: "{{.TERRAFORM_ROOT}}/sops"
+
+tasks:
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Context
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  set-context:
+    desc: "Sets the sops context"
+    cmds: 
+      - |
+        windsor init --context sops --backend s3 --config-dir {{.CONTEXTS_ROOT}}/sops/sops --aws-profile {{.DEFAULT_AWS_PROFILE}}
+    silent: true
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Terraform
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  init:
+    desc: "Init deployment to AWS"
+    cmds: 
+      - |
+        cd $TF_PROJECT_SRC
+        eval "$(windsor env)"
+        terraform init -upgrade
+    silent: true
+
+  plan:
+    desc: "Plan deployment to AWS"
+    cmds: 
+      - |
+        cd $TF_PROJECT_SRC
+        eval "$(windsor env)"
+        terraform init -upgrade
+        terraform plan
+    silent: true
+
+  apply:
+    desc: "Deploys the sops resources to AWS"
+    cmds: 
+      - |
+        cd $TF_PROJECT_SRC
+        eval "$(windsor env)"
+        terraform init -upgrade 
+        terraform plan
+        terraform apply 
+    silent: true
+    
+  output:
+    desc: "Prints out sops state"
+    cmds: 
+      - |
+        cd $TF_PROJECT_SRC
+        eval "$(windsor env)"
+        terraform init
+        terraform output
+    silent: true  
+
+  destroy:
+    desc: "Takes down the AWS sops infrastructure"
+    cmds: 
+      - |
+        cd $TF_PROJECT_SRC
+        eval "$(windsor env)"
+        terraform init
+        terraform destroy
+    silent: true
+
+  #---------------------------------------------------------------------------------------------------------------------
+  # sops
+  #---------------------------------------------------------------------------------------------------------------------
+
+  generate-secrets-file:
+    desc: Generates a new secrets file for the current context
+    cmds:
+      - |
+        mkdir -p {{.CONTEXTS_ROOT}}/{{.CONTEXT}}
+        echo "TEST_ENV_VAR: value" > {{.SECRETS_YAML}}
+        echo "Generated: {{.SECRETS_YAML}}"
+    silent: true
+
+  encrypt-secrets-file:
+    desc: Encrypts the secrets file
+    cmds:
+      - |
+        sops -e --output {{.ENC_SECRETS_YAML}} {{.SECRETS_YAML}}
+    silent: true
+
+  help:
+    desc: "Prints this help message"
+    cmds:
+      - |
+        echo ""
+        echo " KMS Key and state bucket"
+        echo "    task sops:set-context"
+        echo "    task sops:apply"
+        echo "    task sops:destroy"
+        echo ""
+        echo " SOPS Operations"
+        echo "  task sops:generate-secrets-file"
+        echo "  task sops:encrypt-secrets-file"
+        echo ""      
+    silent: true
+

@@ -1,9 +1,0 @@
-# https://taskfile.dev
-
-version: '3'
-
-tasks:
-  clean:
-    desc: Clean up Docker images and containers
-    cmds:
-      - docker kill $(docker ps -q) && docker system prune -af

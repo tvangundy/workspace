@@ -1,10 +1,10 @@
 # Workspace
 
-A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides both **deployment recipes** (step-by-step guides to build your own) and **working examples** (reference implementations you can compare against) for infrastructure deployments.
+A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides both **runbooks** (step-by-step guides to build your own) and **working examples** (reference implementations you can compare against) for infrastructure deployments.
 
 ## What You'll Find Here
 
-- **Deployment Recipes**: Step-by-step guides that walk you through building complete deployments from the ground up
+- **Runbooks**: Step-by-step guides that walk you through building complete deployments from the ground up
 - **Working Examples**: Production-ready implementations that serve as reference code and are used for regression testing
 - Real-world implementation examples
 - Infrastructure automation solutions
@@ -15,19 +15,77 @@ A collection of practical implementations, automation solutions, and infrastruct
 
 1. Review the [Installation Guide](./docs/install.md) to set up your environment
 2. **Choose your approach**:
-   - **Learn by building**: Follow a [deployment recipe](./docs/deployments/index.md) to build your own deployment step-by-step
+   - **Learn by building**: Follow a [runbook](./docs/runbooks/README.md) to build your own deployment step-by-step
    - **Use as reference**: Explore the [examples](./docs/examples/index.md) folder to find working implementations you can adapt
-3. **Compare and verify**: If you followed a recipe, compare your implementation with the corresponding example to verify it matches the reference
+3. **Compare and verify**: If you followed a runbook, compare your implementation with the corresponding example to verify it matches the reference
 
-## Examples vs. Deployment Recipes
+## Using Taskfile
+
+This workspace uses [Taskfile](https://taskfile.dev) to organize and run common commands. Tasks are organized into namespaces and placed in the `./tasks` folder, making it easy to discover and execute common operations.
+
+### Namespace Syntax
+
+Tasks are organized into namespaces using the `namespace:task` syntax. For example:
+
+```bash
+# Run a task from the sops namespace
+task sops:decrypt -- <file>
+
+# Run a task from the device namespace
+task device:list-disks
+
+# Run a task from the docker namespace
+task docker:clean
+```
+
+### Viewing Available Tasks
+
+To see available tasks in a namespace, use the `help` command:
+
+```bash
+task <namespace>:help
+```
+
+For example:
+```bash
+task sops:help
+task device:help
+```
+
+### Dry Run Mode
+
+To see what command would be executed without actually running it, use the `--dry` flag:
+
+```bash
+task <namespace>:<task> --dry
+```
+
+This is particularly useful for understanding what a task does before executing it, or for debugging task definitions.
+
+### Task Organization
+
+Tasks are organized into namespaces and stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml`:
+
+```
+tasks/
+├── sops/          # SOPS encryption/decryption tasks
+├── device/        # Device management tasks
+├── docker/        # Docker-related tasks
+├── vhs/           # VHS terminal recording tasks
+└── talos/         # Talos cluster tasks
+```
+
+This pattern keeps related tasks grouped together and makes it easy to add new namespaces as needed.
+
+## Examples vs. Runbooks
 
 This workspace provides two complementary resources:
 
-- **Deployment Recipes** (`/docs/deployments/`): Instructional guides that teach you **how** to build deployments. Follow these step-by-step to understand each part of the process and create your own implementation.
+- **Runbooks** (`/docs/runbooks/`): Instructional guides that teach you **how** to build deployments. Follow these step-by-step to understand each part of the process and create your own implementation.
 
 - **Examples** (`/examples/`): Working, production-ready deployments that serve as reference implementations. Use these to **compare** your implementation against a tested, working solution. The examples are also used for regression testing to ensure patterns remain functional.
 
-By following a deployment recipe, you'll build your own deployment step-by-step. You can then compare your implementation with the corresponding example to verify it matches the reference implementation and understand any differences.
+By following a runbook, you'll build your own deployment step-by-step. You can then compare your implementation with the corresponding example to verify it matches the reference implementation and understand any differences.
 
 
 ## How to use the examples
@@ -67,11 +125,11 @@ examples/
 
 ```
 ├── docs/                 # Documentation
-│   ├── deployments/      # Deployment recipe guides
+│   ├── runbooks/         # Runbook guides
 │   │   ├── bootstrapping/  # Node bootstrapping guides
 │   │   ├── home-assistant/ # Home Assistant deployment guide
 │   │   ├── runners/        # GitHub Actions runner setup guides
-│   │   └── index.md        # Deployment recipes overview
+│   │   └── README.md       # Runbooks overview
 │   ├── examples/         # Example documentation
 │   │   ├── aws-web-cluster.md
 │   │   ├── ethereum.md
@@ -90,9 +148,15 @@ examples/
 │   ├── sidero-omni/
 │   ├── tailscale/
 │   └── wireguard/
+├── tasks/               # Namespaced task definitions
+│   ├── sops/            # SOPS encryption/decryption tasks
+│   ├── device/          # Device management tasks
+│   ├── docker/          # Docker-related tasks
+│   ├── vhs/             # VHS terminal recording tasks
+│   └── talos/           # Talos cluster tasks
 ├── mkdocs.yml           # MkDocs configuration
 ├── overrides/           # MkDocs theme customizations
-└── Taskfile.yml         # Task definitions
+└── Taskfile.yml         # Main task definitions with namespace includes
 ```
 
 ## Contributing

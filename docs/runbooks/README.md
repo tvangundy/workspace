@@ -30,6 +30,9 @@ By following a runbook, you'll end up with a deployment that implements the same
 
 The following runbooks are available:
 
+### 🚀 [Initialize Workspace](./workspace/init.md)
+Step-by-step guide for initializing a new workspace using the workspace initialization task and Windsor CLI. This is typically the first step when starting a new project, covering workspace structure creation, directory setup, and Windsor CLI initialization with proper context configuration.
+
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
 
@@ -42,6 +45,7 @@ Step-by-step guides for setting up self-hosted GitHub Actions runners on various
 - **[Ubuntu Runner Setup](./runners/ubuntu-runner-setup.md)**: Configure Ubuntu-based runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices
 - **[Windows Runner Setup](./runners/windows-runner-setup.md)**: Set up Windows-based runners on Intel NUC (x86_64) devices
 - **[macOS Runner Setup](./runners/macos-runner-setup.md)**: Configure macOS-based runners on Apple Silicon (ARM64) Mac devices
+
 
 ### More Runbooks Coming Soon
 

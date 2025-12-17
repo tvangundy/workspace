@@ -1,0 +1,59 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  initialize:
+    desc: Initialize the workspace
+    cmds:
+      - |
+        set -euo pipefail
+
+        WORKSPACE_NAME="${1:-test-workspace}"
+        WORKSPACE_PATH="${2:-../$WORKSPACE_NAME}"
+        WORKSPACE_REPO_URL="https://github.com/tvangundy/workspace.git"
+
+        echo "Initializing workspace..."
+        echo "Workspace name: ${WORKSPACE_NAME}"
+        echo "Workspace path: ${WORKSPACE_PATH}"
+        echo ""
+
+        mkdir -p "${WORKSPACE_PATH}"
+
+        # If it's already a git repo, pull latest. Otherwise, clone into an empty directory.
+        if [ -d "${WORKSPACE_PATH}/.git" ]; then
+          echo "Existing git repository detected. Pulling latest changes..."
+          git -C "${WORKSPACE_PATH}" pull --ff-only
+        else
+          if [ -n "$(ls -A "${WORKSPACE_PATH}" 2>/dev/null)" ]; then
+            echo "Error: ${WORKSPACE_PATH} exists and is not empty, and is not a git repo."
+            echo "Refusing to overwrite. Choose an empty directory or remove existing contents."
+            exit 1
+          fi
+
+          echo "Cloning ${WORKSPACE_REPO_URL} into ${WORKSPACE_PATH}..."
+          git clone "${WORKSPACE_REPO_URL}" "${WORKSPACE_PATH}"
+        fi
+
+        echo ""
+        echo "Workspace initialized successfully."
+    silent: true
+
+  clean:
+    desc: Clean up Docker images and containers
+    cmds:
+      - docker kill $(docker ps -q) && docker system prune -af
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # workspace
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  help:
+    desc: Workspace releated commands
+    cmds:
+      - |
+        echo "Workspace"
+        echo ""
+        echo "    task workspace:initialize -- <workspace-name> <workspace-global-path>"
+        echo "    task workspace:clean"
+    silent: true

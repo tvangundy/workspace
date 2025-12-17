@@ -18,3 +18,13 @@ tasks:
     cmds:
       - openssl s_client -connect 127.0.0.1:50000 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
   
+  help:
+    desc: Talos releated commands
+    cmds:
+      - |
+        echo "Talos"
+        echo ""
+        echo "    task talos:health-controlplane"
+        echo "    task talos:health-worker"
+        echo "    task talos:fetch-node-server-certificate"
+    silent: true

@@ -29,6 +29,16 @@ tasks:
       - vhs docs/img/home-assistant/vhs/check-ha-pod.tape -o docs/img/home-assistant/check-ha-pod.gif
 
   help:
-    desc: Show help
+    desc: VHS related commands
     cmds:
-      - echo "Also see [vhs docs](https://pkg.go.dev/github.com/charmbracelet/vhs#readme-tutorial)"
+      - |
+        echo "VHS"
+        echo ""
+        echo "    task vhs:make-windsor-init-gif"
+        echo "    task vhs:make-windsor-up-gif"
+        echo "    task vhs:make-port-forwarding-gif"
+        echo "    task vhs:make-windsor-down-gif"
+        echo "    task vhs:make-check-ha-pod-gif"
+        echo ""
+        echo "Also see [vhs docs](https://pkg.go.dev/github.com/charmbracelet/vhs#readme-tutorial)"
+    silent: true

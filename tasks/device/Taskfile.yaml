@@ -1,0 +1,69 @@
+version: "3"
+
+tasks:
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Device
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  decompress-image:
+    desc: Decompresses the Talos image
+    cmds:
+      - |
+        echo ARGS: {{.CLI_ARGS}}
+        # xz -d {{.CLI_ARGS}}
+      
+  list-disks:
+    desc: Lists the sdcards
+    cmds:
+      - diskutil list
+      # - sudo fdisk -l
+      # udisksctl status
+    silent: true
+
+  write-disk:
+    desc: Writes the Talos image to the USB drive
+    cmds:
+      - |
+        sudo dd if=$RAW_FILE of={{.USB_DISK}} conv=fsync
+      # - sudo dd if=$RAW_FILE of={{.USB_DISK}}  conv=fsync bs=4M
+    silent: true
+    
+  unmount-disk:
+    desc: Unmounts the USB disk
+    cmds:
+      - |
+        diskutil unmountDisk {{.USB_DISK}}
+        # if on rpi, stop the automount service
+        # sudo systemctl stop udisks2 
+        # sudo umount /dev/sdb
+    silent: true
+    
+  eject-disk:
+    desc: Ejects the USB disk
+    cmds:
+      - |
+        diskutil eject {{.USB_DISK}}
+        # sudo eject /dev/sdb
+    silent: true
+
+  format-xfs:
+    desc: Formats the USB disk (Requires Linux)
+    cmds:
+      - echo "Unmount the USB drives in ubuntu"
+      - sudo mkfs.xfs /dev/sda
+      - sudo mkfs.ext4 /dev/sda
+      - sudo apt-get install xfsprogs
+    silent: true
+
+  help:
+    desc: Device releated commands
+    cmds:
+      - |
+        echo "Device"
+        echo ""
+        echo "    task device:list-disks"
+        echo "    task [nuc|rpi]:write-disk"
+        echo "    task device:unmount-disk"
+        echo "    task device:eject-disk"
+    silent: true
