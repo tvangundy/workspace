@@ -48,6 +48,7 @@ task <namespace>:help
 
 For example:
 ```bash
+task workspace:help
 task sops:help
 task device:help
 ```

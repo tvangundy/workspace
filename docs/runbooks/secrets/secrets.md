@@ -11,7 +11,7 @@ This runbook walks you through setting up and managing encrypted secrets using S
 
 - [Windsor CLI](https://windsorcli.github.io/latest/install/) installed and configured
 - [SOPS](https://github.com/getsops/sops) installed
-- An initialized workspace (see [Initialize Workspace](./workspace/init.md))
+- An initialized workspace (see [Initialize Workspace](../workspace/init.md))
 - Access to your workspace directory
 
 ## Overview
@@ -294,10 +294,10 @@ If you encounter encryption errors:
 If `windsor init secrets` fails:
 
 1. **Verify workspace**: Ensure you're in a valid Windsor workspace directory
-2. **Check for parent .windsor**: Ensure you're not nested under another workspace (see [Initialize Workspace](./workspace/init.md) for details)
+2. **Check for parent .windsor**: Ensure you're not nested under another workspace (see [Initialize Workspace](../workspace/init.md) for details)
 
 ## Related Documentation
 
-- [Initialize Workspace](./workspace/init.md) - Setting up a new workspace
+- [Initialize Workspace](../workspace/init.md) - Setting up a new workspace
 - [SOPS Documentation](https://github.com/getsops/sops)
 - [Windsor CLI Documentation](https://windsorcli.github.io/latest/)

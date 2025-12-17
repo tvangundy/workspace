@@ -127,6 +127,5 @@ If you encounter permission errors:
 
 ## Related Documentation
 
-- [Windsor CLI Installation Guide](../install.md#windsor-cli)
 - [Home Assistant Runbook](../home-assistant/README.md) - Example of workspace initialization in practice
 - [Windsor CLI Documentation](https://windsorcli.github.io/latest/)
