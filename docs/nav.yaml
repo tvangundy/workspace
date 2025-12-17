@@ -12,9 +12,8 @@ nav:
     - Hybrid Cloud: examples/hybrid-cloud.md
   - Runbooks:
     - Introduction: runbooks/README.md
-    - Workspace: runbooks/workspace/README.md
-    - Initialize Workspace: runbooks/workspace/init.md
-    - Secrets Management: runbooks/secrets/README.md
+    - Workspace Initialization: runbooks/workspace/init.md
+    - Secrets Management: runbooks/secrets/secrets.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
