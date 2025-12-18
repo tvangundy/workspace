@@ -18,11 +18,11 @@ This runbook walks you through setting up and managing encrypted secrets using S
 
 The secrets management process involves:
 
-1. **Create a secrets context** using `windsor init secrets`
+1. **Create a secrets context** using `windsor init <context>`
 2. **Generate a secrets file** using `task sops:generate-secrets-file`
 3. **Edit the secrets file** with your actual secret values
 4. **Encrypt the secrets file** using `task sops:encrypt-secrets-file`
-5. **Configure blueprint.yaml and windsor.yaml** to reference the secrets
+5. **Configure  contexts/windsor.yaml** to reference the secrets
 6. **Verify secrets** are available using `windsor env`
 
 ## Step 1: Create the Secrets Context
@@ -31,30 +31,30 @@ First, navigate to your workspace directory and create a new context called "sec
 
 ```bash
 cd /path/to/your/workspace
-windsor init secrets
+windsor init <context>
 ```
 
-This command creates a new context directory structure under `contexts/secrets/` with the necessary configuration files.
+This command creates a new context directory structure under `contexts/$WINDSOR_CONTEXT/` with the necessary configuration files.
 
 ## Step 2: Generate the Secrets File
 
-Generate a template secrets file for the secrets context:
+Generate a template secrets file for the current context:
 
 ```bash
 task sops:generate-secrets-file
 ```
 
 This command:
-- Creates the `contexts/secrets/` directory if it doesn't exist
+- Creates the `contexts/$WINDSOR_CONTEXT/` directory if it doesn't exist
 - Generates a `secrets.yaml` file with a sample secret (`TEST_ENV_VAR: value`)
-- The file is created at `contexts/secrets/secrets.yaml`
+- The file is created at `contexts/$WINDSOR_CONTEXT/secrets.yaml`
 
 ### Verify the Generated File
 
 You can verify the file was created:
 
 ```bash
-cat contexts/secrets/secrets.yaml
+cat contexts/$WINDSOR_CONTEXT/secrets.yaml
 ```
 
 You should see:
@@ -64,15 +64,15 @@ TEST_ENV_VAR: value
 
 ## Step 3: Edit the Secrets File
 
-Edit the `contexts/secrets/secrets.yaml` file to add your actual secrets. You can use any text editor:
+Edit the `contexts/$WINDSOR_CONTEXT/secrets.yaml` file to add your actual secrets. You can use any text editor:
 
 ```bash
 # Using your preferred editor
-vim contexts/secrets/secrets.yaml
+vim contexts/$WINDSOR_CONTEXT/secrets.yaml
 # or
-nano contexts/secrets/secrets.yaml
+nano contexts/$WINDSOR_CONTEXT/secrets.yaml
 # or
-code contexts/secrets/secrets.yaml
+code contexts/$WINDSOR_CONTEXT/secrets.yaml
 ```
 
 ### Example Secrets File
@@ -98,8 +98,8 @@ task sops:encrypt-secrets-file
 ```
 
 This command:
-- Encrypts `contexts/secrets/secrets.yaml`
-- Creates `contexts/secrets/secrets.enc.yaml` (the encrypted version)
+- Encrypts `contexts/$WINDSOR_CONTEXT/secrets.yaml`
+- Creates `contexts/$WINDSOR_CONTEXT/secrets.enc.yaml` (the encrypted version)
 - Uses your configured SOPS encryption keys (typically AWS KMS or age keys)
 
 ### Verify the Encrypted File
@@ -107,74 +107,30 @@ This command:
 You should see the encrypted file:
 
 ```bash
-ls -la contexts/secrets/
+ls -la contexts/$WINDSOR_CONTEXT/
 ```
 
 You should see both:
 - `secrets.yaml` (unencrypted - keep this secure!)
 - `secrets.enc.yaml` (encrypted - safe to commit)
 
-## Step 5: Configure blueprint.yaml
+## Step 5: Configure Windsor to inject the secrets
 
-To make the secrets available in your deployment, you need to reference them in your context's `blueprint.yaml` file.
+To make the secrets available in your deployment, you need to reference them in your context's `windsor.yaml` file.
 
-Edit `contexts/secrets/blueprint.yaml` and add a `secrets` section. Here's an example:
-
-```yaml
-kind: Blueprint
-apiVersion: blueprints.windsorcli.dev/v1alpha1
-metadata:
-  name: secrets
-  description: Secrets context for encrypted configuration
-secrets:
-  - name: secrets
-    path: contexts/secrets/secrets.enc.yaml
-    type: sops
-```
-
-### Key Configuration Points
-
-- **`name`**: A name for this secrets source (can be anything descriptive)
-- **`path`**: The path to the encrypted secrets file relative to the workspace root
-- **`type`**: Set to `sops` to indicate SOPS-encrypted format
-
-## Step 6: Configure windsor.yaml
-
-The `windsor.yaml` file in your context directory controls how Windsor processes the secrets. Edit `contexts/secrets/windsor.yaml`:
-
-```yaml
-id: <your-context-id>
-provider: generic
-secrets:
-  enabled: true
-  sources:
-    - name: secrets
-      type: sops
-      path: contexts/secrets/secrets.enc.yaml
-```
-
-### Alternative: Root windsor.yaml
-
-If you want secrets available across all contexts, you can also configure them in the root `windsor.yaml` file at the workspace root:
 
 ```yaml
 secrets:
-  enabled: true
-  sources:
-    - name: secrets
-      type: sops
-      path: contexts/secrets/secrets.enc.yaml
+  sops:
+    enabled: true
+environment:
+  TEST_ENV_VAR: ${{ sops.TEST_ENV_VAR }}
 ```
 
-## Step 7: Set the Context and Verify
+## Step 6: Verify
 
-Set the secrets context as active:
 
-```bash
-windsor context set secrets
-```
-
-Now verify that your secrets are available by running:
+Verify that your secrets are available by running:
 
 ```bash
 windsor env
@@ -208,26 +164,28 @@ Here's a complete example of the entire process:
 cd /Users/$USER/Developer/my-workspace
 
 # Step 2: Create secrets context
-windsor init secrets
+windsor init <context>
 
 # Step 3: Generate secrets file template
 task sops:generate-secrets-file
 
 # Step 4: Edit secrets file (add your actual secrets)
-vim contexts/secrets/secrets.yaml
+vim contexts/$WINDSOR_CONTEXT/secrets.yaml
 
 # Step 5: Encrypt the secrets file
 task sops:encrypt-secrets-file
 
-# Step 6: Configure blueprint.yaml
-# Edit contexts/secrets/blueprint.yaml to add secrets section
+# Step 6: Configure windsor.yaml
+# Edit contexts/$WINDSOR_CONTEXT/windsor.yaml to enable secrets
+# Add this to the end of windsor.yaml
+secrets:
+  sops:
+    enabled: true
+environment:
+  TEST_ENV_VAR: ${{ sops.TEST_ENV_VAR }}
 
-# Step 7: Configure windsor.yaml
-# Edit contexts/secrets/windsor.yaml to enable secrets
-
-# Step 8: Set context and verify
-windsor context set secrets
-windsor env | grep DATABASE_PASSWORD
+# Step 7: Verify
+windsor env | grep TEST_ENV_VAR
 ```
 
 ## Additional SOPS Operations
@@ -237,7 +195,7 @@ windsor env | grep DATABASE_PASSWORD
 To view the contents of an encrypted file without decrypting it permanently:
 
 ```bash
-sops contexts/secrets/secrets.enc.yaml
+sops contexts/$WINDSOR_CONTEXT/secrets.enc.yaml
 ```
 
 ### Editing Encrypted Secrets
@@ -245,7 +203,7 @@ sops contexts/secrets/secrets.enc.yaml
 SOPS allows you to edit encrypted files directly:
 
 ```bash
-sops contexts/secrets/secrets.enc.yaml
+sops contexts/$WINDSOR_CONTEXT/secrets.enc.yaml
 ```
 
 This will:
@@ -258,7 +216,7 @@ This will:
 To decrypt the file for inspection (without editing):
 
 ```bash
-sops -d contexts/secrets/secrets.enc.yaml
+sops -d contexts/$WINDSOR_CONTEXT/secrets.enc.yaml
 ```
 
 ## Best Practices
@@ -275,10 +233,10 @@ sops -d contexts/secrets/secrets.enc.yaml
 
 If secrets don't appear when running `windsor env`:
 
-1. **Verify context is set**: Run `windsor context get` to confirm you're using the secrets context
+1. **Verify context is set**: Run `windsor context get` to confirm you're using the current context
 2. **Check blueprint.yaml**: Ensure the secrets section is correctly configured
 3. **Check windsor.yaml**: Verify secrets are enabled and the path is correct
-4. **Verify file exists**: Confirm `contexts/secrets/secrets.enc.yaml` exists
+4. **Verify file exists**: Confirm `contexts/$WINDSOR_CONTEXT/secrets.enc.yaml` exists
 5. **Check SOPS keys**: Ensure you have access to the SOPS encryption keys
 
 ### SOPS Encryption Errors
@@ -291,7 +249,7 @@ If you encounter encryption errors:
 
 ### Context Not Found
 
-If `windsor init secrets` fails:
+If `windsor init <context>` fails:
 
 1. **Verify workspace**: Ensure you're in a valid Windsor workspace directory
 2. **Check for parent .windsor**: Ensure you're not nested under another workspace (see [Initialize Workspace](../workspace/init.md) for details)

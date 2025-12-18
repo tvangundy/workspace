@@ -2,7 +2,7 @@
 version: "3"
 
 vars:
-  CONTEXTS_ROOT: "{{.PROJECT_ROOT}}/contexts"
+  CONTEXTS_ROOT: "{{.WINDSOR_PROJECT_ROOT}}/contexts"
   DEFAULT_AWS_PROFILE: "public"
 
   CONTEXT: 

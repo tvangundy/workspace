@@ -1,66 +1,38 @@
-# Home Assistant Deployments
+# Home Assistant Runbook
 
-# Initialize the windsor cli workspace
+This runbook guides you through deploying Home Assistant on a Raspberry Pi using Windsor CLI. Home Assistant is a powerful open-source home automation platform that puts local control and privacy first.
+
+## Introduction
+
+Before you can deploy Home Assistant, you need to complete the following prerequisites:
+
+1. **Initialize a Workspace**: Set up your Windsor workspace structure. Follow the [Initialize Workspace](./workspace/init.md) runbook to create a new workspace and configure it with Windsor CLI.
+
+```bash
+task workspace:initialize -- home-assistant ../home-assistant
 ```
+2. **Initialize the Windsor Context**:
+
+After completing the workspace initialization and node bootstrapping, initialize the Home Assistant context for your Raspberry Pi:
+
+```bash
 windsor init rpi
 ```
 
-# Single Raspberry Pi cluster
+3. **Setup secrets**: Configure encrypted secrets for your deployment. Follow the [Managing Secrets with SOPS](./secrets/secrets.md) runbook to set up and manage your secrets. 
 
-   ```
-   $ flux install --namespace=flux-system
-   ```
+Use the windsor context command to confirm the current context is 'rpi'
 
-# Setup a single raspberry pi cluster 
-
-1. Acquire the home assistant workspace from the workspace repository and place in the home assistant workspace directory (prod-home-assistant)
-2. Add aws backend to the home assistant workspace
-3. Prepare the target devices for home assistant
-4. Bootstrap the home assistant workspace
-5. Setup the home assistant 
-
-# Setup and run home assistant locally
-
-```
-windsor init local
-windsor up --install --verbose
-kubectl port-forward --address 0.0.0.0 svc/home-assistant -n home-assistant 8123:8123
-
-Visit: http://localhost:8123
+```bash
+windsor context get
 ```
 
-# Home Assistant in Kubernetes
+We will be adding secrets going forward so use the windsor env command to confirm secrets are setup.
+  
+```bash
+windsor env
+```
 
-https://ohmydevops.l3st-tech.com/posts/deploy-homeassistant-kubernetes/?utm_source=chatgpt.com
-
-## Using Helm Chart
-https://github.com/pajikos/home-assistant-helm-chart/blob/main/charts/home-assistant/README.md
+4. **Bootstrap Your Nodes**: Prepare your Raspberry Pi devices for Kubernetes deployment. Follow the [Bootstrapping Nodes](./bootstrapping/README.md) runbook to install Talos and prepare your cluster nodes.
 
 
-# MailU
-https://mailu.io/2024.06/
-
-# Hetzner 
-https://community.hetzner.com/tutorials/setup-your-own-scalable-kubernetes-cluster
-
-# WireGuard
-
-https://www.wireguard.com/#conceptual-overview
-https://www.jeroenbaten.nl/the-complete-guide-to-setting-up-a-multi-peer-wireguard-vpn/
-https://docs.netgate.com/pfsense/en/latest/recipes/wireguard-s2s.html
-https://github.com/wg-easy/wg-easy
-https://community.hetzner.com/tutorials/installing-wireguard-ui-using-docker-compose
-
-## Linux Server
-https://github.com/linuxserver/docker-wireguard
-
-Good video
-https://www.youtube.com/watch?v=c2vOleGvJ_Y
-
-Google: myipaddress, 104.54.72.210
-
-Open the port in the compose file on the router
-
-Use this to see the ports are available after docker compose up
-
-$ docker container ls 

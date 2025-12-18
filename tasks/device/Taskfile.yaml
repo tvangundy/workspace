@@ -1,11 +1,63 @@
 version: "3"
 
+vars:
+  RPI_IMAGE_SCHEMATIC_ID: "metal-arm64-omni-windsor-v1.7.0"
+  RPI_IMAGE_VERSION: "v1.11.5"
+  RPI_IMAGE_ARCH: "metal-arm64"
+
 tasks:
 
   #-----------------------------------------------------------------------------------------------------------------------
   # Device
   #-----------------------------------------------------------------------------------------------------------------------
 
+  download-image:
+    desc: Downloads the Talos image
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.RPI_IMAGE_ARCH}}" ]; then
+          echo "Error: RPI_IMAGE_ARCH variable is not defined"
+          echo "RPI_IMAGE_ARCH should be set in the task variables (e.g., metal-arm64, metal-amd64)"
+          exit 1
+        fi
+        
+        if [ -z "{{.RPI_IMAGE_SCHEMATIC_ID}}" ]; then
+          echo "Error: RPI_IMAGE_SCHEMATIC_ID variable is not defined"
+          echo "RPI_IMAGE_SCHEMATIC_ID should be set in the task variables"
+          exit 1
+        fi
+        
+        if [ -z "{{.RPI_IMAGE_VERSION}}" ]; then
+          echo "Error: RPI_IMAGE_VERSION variable is not defined"
+          echo "RPI_IMAGE_VERSION should be set in the task variables (e.g., v1.11.5)"
+          exit 1
+        fi
+      
+        DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
+        ARCH_DIR="${DEVICES_DIR}/{{.RPI_IMAGE_ARCH}}"
+        IMAGE_FILE="${ARCH_DIR}/{{.RPI_IMAGE_ARCH}}.raw"
+        IMAGE_XZ="${IMAGE_FILE}.xz"
+        
+        # Create devices directory structure
+        mkdir -p "${ARCH_DIR}"
+        
+        # Download the image
+        curl -L -o "${IMAGE_XZ}" https://factory.talos.dev/image/{{.RPI_IMAGE_SCHEMATIC_ID}}/{{.RPI_IMAGE_VERSION}}/{{.RPI_IMAGE_ARCH}}.raw.xz
+        
+        # Decompress the image
+        xz -d "${IMAGE_XZ}"
+        
+        echo "Image downloaded to: ${IMAGE_FILE}"
+      
   decompress-image:
     desc: Decompresses the Talos image
     cmds:
@@ -25,14 +77,51 @@ tasks:
     desc: Writes the Talos image to the USB drive
     cmds:
       - |
-        sudo dd if=$RAW_FILE of={{.USB_DISK}} conv=fsync
-      # - sudo dd if=$RAW_FILE of={{.USB_DISK}}  conv=fsync bs=4M
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.RPI_IMAGE_ARCH}}" ]; then
+          echo "Error: RPI_IMAGE_ARCH variable is not defined"
+          echo "RPI_IMAGE_ARCH should be set in the task variables (e.g., metal-arm64, metal-amd64)"
+          exit 1
+        fi
+        
+        if [ -z "{{.USB_DISK}}" ]; then
+          echo "Error: USB_DISK variable is not defined"
+          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "Use 'task device:list-disks' to see available disks"
+          exit 1
+        fi
+        
+        RAW_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/{{.RPI_IMAGE_ARCH}}/{{.RPI_IMAGE_ARCH}}.raw"
+        if [ ! -f "${RAW_FILE}" ]; then
+          echo "Error: Image file not found at ${RAW_FILE}"
+          echo "Run 'task device:download-image' first to download the image"
+          exit 1
+        fi
+        sudo dd if="${RAW_FILE}" of={{.USB_DISK}} conv=fsync
+      # - sudo dd if="${RAW_FILE}" of={{.USB_DISK}}  conv=fsync bs=4M
     silent: true
     
   unmount-disk:
     desc: Unmounts the USB disk
     cmds:
       - |
+        set -euo pipefail
+        
+        if [ -z "{{.USB_DISK}}" ]; then
+          echo "Error: USB_DISK variable is not defined"
+          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "Use 'task device:list-disks' to see available disks"
+          exit 1
+        fi
+        
         diskutil unmountDisk {{.USB_DISK}}
         # if on rpi, stop the automount service
         # sudo systemctl stop udisks2 
@@ -43,6 +132,15 @@ tasks:
     desc: Ejects the USB disk
     cmds:
       - |
+        set -euo pipefail
+        
+        if [ -z "{{.USB_DISK}}" ]; then
+          echo "Error: USB_DISK variable is not defined"
+          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "Use 'task device:list-disks' to see available disks"
+          exit 1
+        fi
+        
         diskutil eject {{.USB_DISK}}
         # sudo eject /dev/sdb
     silent: true

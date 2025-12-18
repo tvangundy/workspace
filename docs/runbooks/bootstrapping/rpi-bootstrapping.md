@@ -25,27 +25,30 @@ Before starting, ensure you have:
 - **talosctl installed**: See the [Installation Guide](../../install.md) for setup instructions
 - **Physical access**: To insert the boot media and power on the device
 
+## Step 1: Determine Talos Image and set environment variables
+
+Visit the [Talos image factory](https://factory.talos.dev) to determine the image and set the following in the windsor.yaml file
+
+```yaml
+environment:
+  RPI_IMAGE_SCHEMATIC_ID: ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
+  RPI_IMAGE_VERSION: v1.11.6
+  RPI_IMAGE_ARCH: metal-arm64
+  USB_DISK: nothing
+```
+
 ## Step 1: Download the Talos Image
 
 Download the ARM64 Talos image from the [Talos image factory](https://factory.talos.dev). The image factory generates custom images based on your configuration requirements.
 
 ```bash
-curl -LO https://factory.talos.dev/image/<image id>/v1.11.5/metal-arm64.raw.xz
+task device:download-image
 ```
 
 **Note**: The URL above is an example. Visit the [image factory](https://factory.talos.dev) to generate an image URL specific to your configuration needs.
 
-## Step 2: Decompress the Image
 
-The downloaded image is compressed in XZ format. Decompress it before writing to your boot media:
-
-```bash
-xz -d metal-arm64.raw.xz
-```
-
-This will create a `metal-arm64.raw` file that you'll write to your USB memory device or SD card.
-
-## Step 3: Prepare the Boot Media
+## Step 2: Prepare the Boot Media
 
 ### Identify Your USB Memory Device or SD Card
 
@@ -99,7 +102,7 @@ diskutil eject /dev/disk4
 sudo eject /dev/sdX
 ```
 
-## Step 4: Boot the Raspberry Pi
+## Step 3: Boot the Raspberry Pi
 
 1. **Insert the boot media**: Insert the USB memory device or SD card into your Raspberry Pi
 2. **Connect network**: Ensure the Raspberry Pi is connected to your network via Ethernet (recommended) or Wi-Fi
@@ -109,7 +112,7 @@ sudo eject /dev/sdX
 
 **Note**: If you have an HDMI display attached and it shows only a rainbow splash screen, try using the other HDMI port (the one closest to the power/USB-C port on Raspberry Pi 4).
 
-## Step 5: Configure the Cluster
+## Step 4: Configure the Cluster
 
 Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
 
