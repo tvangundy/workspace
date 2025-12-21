@@ -68,8 +68,9 @@ tasks:
       # udisksctl status
     silent: true
 
+  
   write-disk:
-    desc: Writes the Talos image to the USB drive
+    desc: Writes the Talos image to one or more USB drives
     cmds:
       - |
         set -euo pipefail
@@ -89,10 +90,45 @@ tasks:
         
         if [ -z "{{.USB_DISK}}" ]; then
           echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
           echo "Use 'task device:list-disks' to see available disks"
           exit 1
         fi
+        
+        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          DISK_COUNT="${1:-1}"
+          
+          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
+            echo "Error: disk_count must be a positive integer (minimum 1)"
+            echo "Usage: task device:write-disk [-- <disk_count>]"
+            echo "Example: task device:write-disk -- 2"
+            exit 1
+          fi
+          # When argument provided, disk_count represents total number of disks
+          TOTAL_DISKS=${DISK_COUNT}
+        else
+          # No arguments provided, default to 1 disk (write only to base disk)
+          TOTAL_DISKS=1
+        fi
+        
+        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
+        BASE_DISK="{{.USB_DISK}}"
+        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
+          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
+          echo "Current value: ${BASE_DISK}"
+          exit 1
+        fi
+        
+        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
+        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
+        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
+          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
+          exit 1
+        fi
+        DISK_PREFIX="/dev/disk"
         
         RAW_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/{{.RPI_IMAGE_ARCH}}/{{.RPI_IMAGE_ARCH}}.raw"
         if [ ! -f "${RAW_FILE}" ]; then
@@ -100,44 +136,221 @@ tasks:
           echo "Run 'task device:download-image' first to download the image"
           exit 1
         fi
-        sudo dd if="${RAW_FILE}" of={{.USB_DISK}} conv=fsync
-      # - sudo dd if="${RAW_FILE}" of={{.USB_DISK}}  conv=fsync bs=4M
+        
+        echo "Writing image to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
+        echo ""
+        
+        # Write to each disk
+        for ((i=0; i<TOTAL_DISKS; i++)); do
+          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
+          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
+          
+          echo "Writing to ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
+          sudo dd if="${RAW_FILE}" of="${CURRENT_DISK}" conv=fsync
+          
+          if [ $? -eq 0 ]; then
+            echo "Successfully wrote image to ${CURRENT_DISK}"
+          else
+            echo "Error: Failed to write image to ${CURRENT_DISK}"
+            exit 1
+          fi
+          echo ""
+        done
+        
+        echo "Successfully wrote image to all ${TOTAL_DISKS} disk(s)"
     silent: true
     
   unmount-disk:
-    desc: Unmounts the USB disk
+    desc: Unmounts one or more USB disks
     cmds:
       - |
         set -euo pipefail
         
         if [ -z "{{.USB_DISK}}" ]; then
           echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
           echo "Use 'task device:list-disks' to see available disks"
           exit 1
         fi
         
-        diskutil unmountDisk {{.USB_DISK}}
+        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          DISK_COUNT="${1:-1}"
+          
+          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
+            echo "Error: disk_count must be a positive integer (minimum 1)"
+            echo "Usage: task device:unmount-disk [-- <disk_count>]"
+            exit 1
+          fi
+          # When argument provided, disk_count represents total number of disks
+          TOTAL_DISKS=${DISK_COUNT}
+        else
+          # No arguments provided, default to 1 disk (unmount only base disk)
+          TOTAL_DISKS=1
+        fi
+        
+        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
+        BASE_DISK="{{.USB_DISK}}"
+        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
+          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
+          echo "Current value: ${BASE_DISK}"
+          exit 1
+        fi
+        
+        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
+        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
+        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
+          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
+          exit 1
+        fi
+        DISK_PREFIX="/dev/disk"
+        
+        
+        echo "Unmounting ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
+        echo ""
+        
+        # Unmount each disk
+        for ((i=0; i<TOTAL_DISKS; i++)); do
+          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
+          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
+          
+          echo "Unmounting ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
+          diskutil unmountDisk "${CURRENT_DISK}" || {
+            echo "Warning: Failed to unmount ${CURRENT_DISK} (may already be unmounted)"
+          }
+          echo ""
+        done
+        
+        echo "Unmounting completed for ${TOTAL_DISKS} disk(s)"
         # if on rpi, stop the automount service
         # sudo systemctl stop udisks2 
         # sudo umount /dev/sdb
     silent: true
     
   eject-disk:
-    desc: Ejects the USB disk
+    desc: Ejects one or more USB disks
+    depends:
+      - unmount-disk
     cmds:
       - |
         set -euo pipefail
         
         if [ -z "{{.USB_DISK}}" ]; then
           echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the disk device (e.g., /dev/disk2)"
+          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
           echo "Use 'task device:list-disks' to see available disks"
           exit 1
         fi
         
-        diskutil eject {{.USB_DISK}}
+        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          DISK_COUNT="${1:-1}"
+          
+          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
+            echo "Error: disk_count must be a positive integer (minimum 1)"
+            echo "Usage: task device:eject-disk [-- <disk_count>]"
+            exit 1
+          fi
+          # When argument provided, disk_count represents total number of disks
+          TOTAL_DISKS=${DISK_COUNT}
+        else
+          # No arguments provided, default to 1 disk (eject only base disk)
+          TOTAL_DISKS=1
+        fi
+        
+        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
+        BASE_DISK="{{.USB_DISK}}"
+        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
+          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
+          echo "Current value: ${BASE_DISK}"
+          exit 1
+        fi
+        
+        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
+        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
+        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
+          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
+          exit 1
+        fi
+        DISK_PREFIX="/dev/disk"
+        
+        
+        echo "Ejecting ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
+        echo ""
+        
+        # Eject each disk
+        for ((i=0; i<TOTAL_DISKS; i++)); do
+          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
+          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
+          
+          echo "Ejecting ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
+          diskutil eject "${CURRENT_DISK}" || {
+            echo "Warning: Failed to eject ${CURRENT_DISK}"
+          }
+          echo ""
+        done
+        
+        echo "Ejection completed for ${TOTAL_DISKS} disk(s)"
         # sudo eject /dev/sdb
+    silent: true
+
+  apply-talos-cluster:
+    desc: Applies the Talos cluster configuration
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        # Parse IP addresses from CLI_ARGS
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: At least one IP address is required"
+          echo "Usage: task device:apply-talos-cluster -- <ip1> [<ip2> ... <ipN>]"
+          echo "Example: task device:apply-talos-cluster -- 192.168.2.111 192.168.2.125"
+          exit 1
+        fi
+        
+        # Build nodes argument from CLI_ARGS
+        eval set -- ${CLI_ARGS_STR}
+        NODES_ARG=""
+        for ip in "$@"; do
+          # Basic IP validation
+          if [[ ! "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "Error: Invalid IP address format: ${ip}"
+            exit 1
+          fi
+          NODES_ARG="${NODES_ARG} ${ip}"
+        done
+        
+        # Remove leading space
+        NODES_ARG="${NODES_ARG# }"
+        
+        echo "Applying Talos configuration to nodes: ${NODES_ARG}"
+        talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+    silent: true
+
+  talos-dashboard:
+    desc: Runs the Talos dashboard
+    cmds:
+      - |
+        talosctl dashboard --nodes {{.CLI_ARGS}} 
+    silent: true
+
+  retrieve-kubeconfig:
+    desc: Retrieves the kubeconfig
+    cmds:
+      - |
+        talosctl kubeconfig --nodes {{.CLI_ARGS}}
     silent: true
 
   format-xfs:
@@ -157,7 +370,10 @@ tasks:
         echo ""
         echo "    task device:download-image"
         echo "    task device:list-disks"
-        echo "    task [nuc|rpi]:write-disk"
-        echo "    task device:unmount-disk"
-        echo "    task device:eject-disk"
+        echo "    task device:write-disk [-- <disk_count>]"
+        echo "    task device:unmount-disk [-- <disk_count>]"
+        echo "    task device:eject-disk [-- <disk_count>]"
+        echo "    task device:apply-talos-cluster -- <ip1> [<ip2> ... <ipN>]"
+        echo "    task device:talos-dashboard -- <ip1> [<ip2> ... <ipN>]"
+        echo "    task device:retrieve-kubeconfig -- <ip1> [<ip2> ... <ipN>]"
     silent: true

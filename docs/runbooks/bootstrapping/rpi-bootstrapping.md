@@ -25,7 +25,7 @@ Before starting, ensure you have:
 - **talosctl installed**: See the [Installation Guide](../../install.md) for setup instructions
 - **Physical access**: To insert the boot media and power on the device
 
-## Step 1: Determine Talos Image and set environment variables
+## Step 1: Set Environment variables
 
 ### Get rpi image info
 
@@ -45,10 +45,9 @@ environment:
 
   CLUSTER_NAME: "home-assistant"
 
-  RPI_0_IP_ADDRESS: "192.168.2.111"
-  RPI_0_MACHINE_ID: "30303031-3030-3030-3239-626363326635"
-  RPI_1_IP_ADDRESS: "192.168.2.125"
-  RPI_1_MACHINE_ID: "30303031-3030-3030-6231-343966373630"
+  CONTROL_PLANE_IP: "192.168.2.31"
+  WORKER_0_IP: "192.168.2.111"
+  WORKER_1_IP: "192.168.2.125"
 
   USB_DISK: "/dev/disk4"
 
@@ -68,22 +67,38 @@ task device:download-image
 
 Write the decompressed image to your USB memory device or SD card. This process will erase all existing data on the device.
 
+**Single disk** (default):
 ```bash
 task device:write-disk
 ```
 
+**Multiple disks**: To write the image to multiple disks simultaneously, specify the total number of disks. For example, to write to 2 disks starting from the disk specified in `USB_DISK`:
+```bash
+task device:write-disk -- 2
+```
+
+This will write to the base disk (e.g., `/dev/disk4`) and the next sequential disk (e.g., `/dev/disk5`). The `USB_DISK` environment variable should be set to the first disk in the sequence.
+
 ### Eject the Boot Media
 
-After writing completes, safely eject the device:
+After writing completes, safely eject the device(s):
 
+**Single disk** (default):
 ```bash
 task device:eject-disk
 ```
 
-## Step 4: Boot the Raspberry Pi
+**Multiple disks**: To eject multiple disks, specify the total number of disks:
+```bash
+task device:eject-disk -- 2
+```
+
+The `eject-disk` task will automatically unmount the disks before ejecting them.
+
+## Step 4: Boot the Raspberry Pi's 
 
 1. **Insert the boot media**: Insert the USB memory device or SD card into your Raspberry Pi
-2. **Connect network**: Ensure the Raspberry Pi is connected to your network via Ethernet (recommended) or Wi-Fi
+2. **Connect network**: Ensure the Raspberry Pi is connected to your network via Ethernet (recommended)
 3. **Power on**: Connect power to the Raspberry Pi and turn it on
 4. **Wait for boot**: The device will boot from the USB memory device/SD card. Wait for the boot process to complete
 5. **Find the IP address**: The device will display its IP address on the console, or you can find it via your router's DHCP client list
@@ -95,15 +110,8 @@ task device:eject-disk
 Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
 
 ```bash
-talosctl apply-config --insecure --mode=interactive --nodes <node-ip-address>
+task apply-talos-cluster -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 ```
-
-Replace `<node-ip-address>` with the actual IP address of your Raspberry Pi.
-
-The interactive mode will guide you through:
-- Setting up the cluster (for the first node) or joining an existing cluster
-- Configuring network settings
-- Setting up authentication
 
 Once the configuration is applied, Talos will form the cluster (if this is the first node) or join the existing cluster.
 
@@ -112,7 +120,8 @@ Once the configuration is applied, Talos will form the cluster (if this is the f
 After the cluster is configured and running, retrieve the admin kubeconfig to interact with your cluster:
 
 ```bash
-talosctl kubeconfig
+task retrieve-kubeconfig -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+
 ```
 
 This command will download the kubeconfig and merge it with your default kubeconfig file (typically `~/.kube/config`). You can now use `kubectl` to interact with your cluster:
@@ -121,6 +130,27 @@ This command will download the kubeconfig and merge it with your default kubecon
 kubectl get nodes
 kubectl get pods --all-namespaces
 ```
+
+## Step 7: Checkout the Talos Dashboard
+
+```bash
+task talos-dashboard -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+```
+
+## Step 8: Unmount the ISO
+
+Unplug your installation USB drive or unmount the ISO. This prevents you from accidentally installing to the USB drive and makes it clearer which disk to select for installation.
+
+## Step 9: Learn About Your Installation Disks
+
+When you first boot your machine from the ISO, Talos runs temporarily in memory. This means that your Talos nodes, configurations, and cluster membership won’t survive reboots or power cycles.
+However, once you apply the machine configuration (which you’ll do later in this guide), you’ll install Talos, its complete operating system, and your configuration to a specified disk for permanent storage.
+Run this command to view all the available disks on your control plane:
+
+```bash
+talosctl get disks --insecure --nodes $CONTROL_PLANE_IP
+```
+
 
 ## Verification
 
