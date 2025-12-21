@@ -10,10 +10,11 @@ Before you can deploy Home Assistant, you need to complete the following prerequ
 
 ```bash
 task workspace:initialize -- home-assistant ../home-assistant
+cd ../home-assistant
 ```
 2. **Initialize the Windsor Context**:
 
-After completing the workspace initialization and node bootstrapping, initialize the Home Assistant context for your Raspberry Pi:
+Initialize a new context called rpi
 
 ```bash
 windsor init rpi
@@ -36,3 +37,26 @@ windsor env
 4. **Bootstrap Your Nodes**: Prepare your Raspberry Pi devices for Kubernetes deployment. Follow the [Bootstrapping Nodes](./bootstrapping/README.md) runbook to install Talos and prepare your cluster nodes.
 
 
+```bash
+
+rpi::home-assistant ✨ windsor env
+BUILD_ID=251221.787.1
+CLUSTER_NAME=home-assistant
+K8S_AUTH_KUBECONFIG=/Users/$USER/Developer/home-assistant/contexts/rpi/.kube/config
+KUBECONFIG=/Users/$USER/Developer/home-assistant/contexts/rpi/.kube/config
+KUBE_CONFIG_PATH=/Users/$USER/Developer/home-assistant/contexts/rpi/.kube/config
+RPI_0_IP_ADDRESS=192.168.2.111
+RPI_0_MACHINE_ID=30303031-3030-3030-3239-626363326635
+RPI_1_IP_ADDRESS=192.168.2.125
+RPI_1_MACHINE_ID=30303031-3030-3030-6231-343966373630
+RPI_IMAGE_ARCH=metal-arm64
+RPI_IMAGE_SCHEMATIC_ID=ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
+RPI_IMAGE_VERSION=v1.11.6
+USB_DISK=/dev/disk4
+WINDSOR_CONTEXT=rpi
+WINDSOR_CONTEXT_ID=wwqc3epv
+WINDSOR_MANAGED_ALIAS=
+WINDSOR_MANAGED_ENV=WINDSOR_CONTEXT,WINDSOR_CONTEXT_ID,BUILD_ID,WINDSOR_PROJECT_ROOT,WINDSOR_SESSION_TOKEN,WINDSOR_MANAGED_ENV,WINDSOR_MANAGED_ALIAS
+WINDSOR_PROJECT_ROOT=/Users/$USER/Developer/home-assistant
+WINDSOR_SESSION_TOKEN=kbq2FGB
+```

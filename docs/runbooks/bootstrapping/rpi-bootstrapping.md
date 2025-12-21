@@ -27,17 +27,34 @@ Before starting, ensure you have:
 
 ## Step 1: Determine Talos Image and set environment variables
 
-Visit the [Talos image factory](https://factory.talos.dev) to determine the image and set the following in the windsor.yaml file
+### Get rpi image info
+
+Visit the [Talos image factory](https://factory.talos.dev) to determine the image information and set the environment variables appropriately in the following in the windsor.yaml file
+
+### Determine the target disk for image copy
+
+Use the ```task device:list-disks``` command to get a list of disks.  Set the USB_DISK environment variable as shown below.
+
+### Add these lines to ./contexts/<<context>>/windsor.yaml
 
 ```yaml
 environment:
   RPI_IMAGE_SCHEMATIC_ID: ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9
   RPI_IMAGE_VERSION: v1.11.6
   RPI_IMAGE_ARCH: metal-arm64
-  USB_DISK: nothing
+
+  CLUSTER_NAME: "home-assistant"
+
+  RPI_0_IP_ADDRESS: "192.168.2.111"
+  RPI_0_MACHINE_ID: "30303031-3030-3030-3239-626363326635"
+  RPI_1_IP_ADDRESS: "192.168.2.125"
+  RPI_1_MACHINE_ID: "30303031-3030-3030-6231-343966373630"
+
+  USB_DISK: "/dev/disk4"
+
 ```
 
-## Step 1: Download the Talos Image
+## Step 2: Download the Talos Image
 
 Download the ARM64 Talos image from the [Talos image factory](https://factory.talos.dev). The image factory generates custom images based on your configuration requirements.
 
@@ -45,64 +62,25 @@ Download the ARM64 Talos image from the [Talos image factory](https://factory.ta
 task device:download-image
 ```
 
-**Note**: The URL above is an example. Visit the [image factory](https://factory.talos.dev) to generate an image URL specific to your configuration needs.
-
-
-## Step 2: Prepare the Boot Media
-
-### Identify Your USB Memory Device or SD Card
-
-First, identify the device identifier for your USB memory device or SD card:
-
-```bash
-# macOS
-diskutil list
-
-# Linux
-lsblk
-# or
-fdisk -l
-```
-
-Look for your USB memory device or SD card in the list. It will typically appear as `/dev/disk4` (macOS) or `/dev/sdX` (Linux). **Be very careful** to identify the correct device, as writing to the wrong device will destroy data.
+## Step 3: Prepare the Boot Media
 
 ### Write the Image to Boot Media
 
 Write the decompressed image to your USB memory device or SD card. This process will erase all existing data on the device.
 
 ```bash
-# macOS - Unmount the device first (replace disk4 with your device identifier)
-diskutil unmountDisk /dev/disk4
-
-# macOS - Write the image (replace disk4 with your device identifier)
-sudo dd if=metal-arm64.raw of=/dev/rdisk4 conv=fsync bs=4M status=progress
-
-# Linux - Unmount the device first (replace sdX with your device identifier)
-sudo umount /dev/sdX*
-
-# Linux - Write the image (replace sdX with your device identifier)
-sudo dd if=metal-arm64.raw of=/dev/sdX conv=fsync bs=4M status=progress
+task device:write-disk
 ```
-
-**Important Notes:**
-- Use `/dev/rdisk4` on macOS (raw disk) for faster writes
-- The `status=progress` flag shows write progress (may not be available on all systems)
-- This process can take several minutes depending on the size of your media
-- Do not remove the device during the write process
 
 ### Eject the Boot Media
 
 After writing completes, safely eject the device:
 
 ```bash
-# macOS
-diskutil eject /dev/disk4
-
-# Linux
-sudo eject /dev/sdX
+task device:eject-disk
 ```
 
-## Step 3: Boot the Raspberry Pi
+## Step 4: Boot the Raspberry Pi
 
 1. **Insert the boot media**: Insert the USB memory device or SD card into your Raspberry Pi
 2. **Connect network**: Ensure the Raspberry Pi is connected to your network via Ethernet (recommended) or Wi-Fi
@@ -112,7 +90,7 @@ sudo eject /dev/sdX
 
 **Note**: If you have an HDMI display attached and it shows only a rainbow splash screen, try using the other HDMI port (the one closest to the power/USB-C port on Raspberry Pi 4).
 
-## Step 4: Configure the Cluster
+## Step 5: Configure the Cluster
 
 Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
 
@@ -182,17 +160,6 @@ Your Raspberry Pi should appear as a node in the cluster, and all system pods sh
 - Verify `talosctl` is installed and up to date
 - Check network connectivity between your computer and the Raspberry Pi
 - Review Talos logs: `talosctl logs --follow`
-
-## Next Steps
-
-After successfully bootstrapping your Raspberry Pi:
-
-1. **Add additional nodes**: Follow the same process to add more nodes to your cluster
-2. **Configure storage**: Set up persistent storage for your workloads
-3. **Deploy applications**: Start deploying your applications to the cluster
-4. **Set up monitoring**: Configure monitoring and logging for your cluster
-
-## Additional Resources
 
 - [Talos Linux Documentation](https://www.talos.dev/)
 - [Talos Image Factory](https://factory.talos.dev)

@@ -6,11 +6,24 @@ tasks:
   initialize:
     desc: Initialize the workspace
     cmds:
-      - |
+      - | 
         set -euo pipefail
 
-        WORKSPACE_NAME="${1:-test-workspace}"
-        WORKSPACE_PATH="${2:-../$WORKSPACE_NAME}"
+        # Parse CLI_ARGS - use eval to properly handle quoted arguments
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        
+        # Extract arguments from CLI_ARGS
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          # Use eval to properly parse arguments (handles spaces and quotes)
+          eval set -- ${CLI_ARGS_STR}
+          WORKSPACE_NAME="${1:-test-workspace}"
+          WORKSPACE_PATH="${2:-../$WORKSPACE_NAME}"
+        else
+          # Use defaults if no CLI_ARGS provided
+          WORKSPACE_NAME="test-workspace"
+          WORKSPACE_PATH="../${WORKSPACE_NAME}"
+        fi
+        
         WORKSPACE_REPO_URL="https://github.com/tvangundy/workspace.git"
 
         echo "Initializing workspace..."
