@@ -35,7 +35,7 @@ Visit the [Talos image factory](https://factory.talos.dev) to determine the imag
 
 Use the ```task device:list-disks``` command to get a list of disks.  Set the USB_DISK environment variable as shown below.
 
-### Add these lines to ./contexts/<<context>>/windsor.yaml
+### Add these lines to ./contexts/`<context>`/windsor.yaml
 
 ```yaml
 environment:
@@ -110,7 +110,7 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
 
 ```bash
-task apply-talos-cluster -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+task device:apply-talos-cluster -- $CONTROL_PLANE_IP
 ```
 
 Once the configuration is applied, Talos will form the cluster (if this is the first node) or join the existing cluster.
@@ -120,7 +120,7 @@ Once the configuration is applied, Talos will form the cluster (if this is the f
 After the cluster is configured and running, retrieve the admin kubeconfig to interact with your cluster:
 
 ```bash
-task retrieve-kubeconfig -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 
 ```
 
@@ -134,7 +134,7 @@ kubectl get pods --all-namespaces
 ## Step 7: Checkout the Talos Dashboard
 
 ```bash
-task talos-dashboard -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+task device:talos-dashboard -- $CONTROL_PLANE_IP
 ```
 
 ## Step 8: Unmount the ISO
@@ -148,9 +148,47 @@ However, once you apply the machine configuration (which you’ll do later in th
 Run this command to view all the available disks on your control plane:
 
 ```bash
-talosctl get disks --insecure --nodes $CONTROL_PLANE_IP
+task device:get-disks -- $CONTROL_PLANE_IP
 ```
 
+## Step 10: Generate Talos Configuration
+
+Generate the Talos configuration files (`controlplane.yaml` and `worker.yaml`) using the Talos configuration generator. This command creates the necessary configuration files for your cluster.
+
+```bash
+task device:generate-talosconfig -- <install-disk>
+```
+
+Replace `<install-disk>` with the disk device where Talos will be installed (e.g., `/dev/sda` or `/dev/nvme0n1`). You can determine the correct disk by reviewing the output from Step 9.
+
+**Example:**
+```bash
+task device:generate-talosconfig -- /dev/sda
+```
+
+This will generate:
+- `controlplane.yaml` - Configuration for control plane nodes
+- `worker.yaml` - Configuration for worker nodes
+- `talosconfig.yaml` - Client configuration file (saved to `contexts/<context>/.talos/talosconfig.yaml`)
+
+## Step 11: Apply Talos Configuration
+
+Apply the generated configuration to your nodes. This installs Talos to the specified disk and configures the cluster.
+
+```bash
+task device:apply-configuration -- <control-plane-ip> <worker-ip1> [<worker-ip2> ...]
+```
+
+**Example with 1 control plane and 2 workers:**
+```bash
+task device:apply-configuration -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+```
+
+This command will:
+1. Apply `controlplane.yaml` to the control plane node
+2. Apply `worker.yaml` to each worker node specified
+
+After the configuration is applied, Talos will be installed to the disk and your cluster will be permanently configured. The nodes will reboot and join the cluster.
 
 ## Verification
 
