@@ -68,7 +68,6 @@ tasks:
       # udisksctl status
     silent: true
 
-  
   write-disk:
     desc: Writes the Talos image to one or more USB drives
     cmds:
@@ -137,27 +136,277 @@ tasks:
           exit 1
         fi
         
-        echo "Writing image to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
+        # Verify image file exists and has reasonable size
+        IMAGE_SIZE=$(stat -f%z "${RAW_FILE}" 2>/dev/null || stat -c%s "${RAW_FILE}" 2>/dev/null || echo "0")
+        if [ "${IMAGE_SIZE}" -lt 1000000 ]; then
+          echo "Error: Image file appears to be too small (${IMAGE_SIZE} bytes). Please download the image first."
+          exit 1
+        fi
+        echo "Image file size: $(numfmt --to=iec-i --suffix=B ${IMAGE_SIZE} 2>/dev/null || echo "${IMAGE_SIZE} bytes")"
+        echo ""
+        echo "Writing image to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK} in parallel..."
         echo ""
         
-        # Write to each disk
+        # Temporarily disable -u for parallel processing (arrays and $!)
+        set +u
+        
+        # Arrays to track background processes
+        declare -a PIDS=()
+        declare -a DISKS=()
+        declare -a LOG_FILES=()
+        
+        # Check if disks are mounted and warn
         for ((i=0; i<TOTAL_DISKS; i++)); do
           CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
           CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
           
-          echo "Writing to ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
-          sudo dd if="${RAW_FILE}" of="${CURRENT_DISK}" conv=fsync
-          
-          if [ $? -eq 0 ]; then
-            echo "Successfully wrote image to ${CURRENT_DISK}"
-          else
-            echo "Error: Failed to write image to ${CURRENT_DISK}"
-            exit 1
+          # Check if disk is mounted (macOS)
+          if mount | grep -q "${CURRENT_DISK}"; then
+            echo "Warning: ${CURRENT_DISK} appears to be mounted. Unmount it first with:"
+            echo "  diskutil unmountDisk ${CURRENT_DISK}"
+            echo "  Or run: task device:unmount-disk${TOTAL_DISKS:+" -- ${TOTAL_DISKS}"}"
           fi
-          echo ""
+        done
+        echo ""
+        
+        # Start writing to all disks in parallel
+        for ((i=0; i<TOTAL_DISKS; i++)); do
+          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
+          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
+          LOG_FILE="/tmp/dd_${CURRENT_DISK_NUM}.log"
+          
+          DISKS+=("${CURRENT_DISK}")
+          LOG_FILES+=("${LOG_FILE}")
+          
+          # Clear/create log file
+          > "${LOG_FILE}"
+          
+          echo "Starting write to ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
+          
+          # Start dd in background and capture PID
+          (
+            echo "[${CURRENT_DISK}] Starting write process at $(date)" >> "${LOG_FILE}" 2>&1
+            echo "[${CURRENT_DISK}] Image: ${RAW_FILE} (${IMAGE_SIZE} bytes)" >> "${LOG_FILE}" 2>&1
+            echo "[${CURRENT_DISK}] Target: ${CURRENT_DISK}" >> "${LOG_FILE}" 2>&1
+            
+            # Verify disk exists and is a block device
+            if [ ! -b "${CURRENT_DISK}" ] && [ ! -c "${CURRENT_DISK}" ]; then
+              echo "[${CURRENT_DISK}] Error: ${CURRENT_DISK} is not a block device" >> "${LOG_FILE}" 2>&1
+              echo "[${CURRENT_DISK}] Check that the disk exists and is not mounted" >> "${LOG_FILE}" 2>&1
+              exit 1
+            fi
+            
+            echo "[${CURRENT_DISK}] Disk device verified, starting image write..." >> "${LOG_FILE}" 2>&1
+            # Use status=progress to show real-time progress, and bs=4M for better performance
+            # Redirect all output to log file
+            sudo dd if="${RAW_FILE}" of="${CURRENT_DISK}" bs=4M conv=fsync status=progress >> "${LOG_FILE}" 2>&1
+            EXIT_CODE=$?
+            echo "[${CURRENT_DISK}] dd completed at $(date) with exit code: ${EXIT_CODE}" >> "${LOG_FILE}" 2>&1
+            
+            # Verify the write actually happened by checking disk can be read
+            if [ ${EXIT_CODE} -eq 0 ]; then
+              echo "[${CURRENT_DISK}] Verifying write..." >> "${LOG_FILE}" 2>&1
+              # Check that we can read from the disk (verifies write happened)
+              if sudo dd if="${CURRENT_DISK}" of=/dev/null bs=1M count=1 2>/dev/null >/dev/null 2>&1; then
+                echo "[${CURRENT_DISK}] Write completed and verified successfully" >> "${LOG_FILE}" 2>&1
+              else
+                echo "[${CURRENT_DISK}] Write reported success but verification failed" >> "${LOG_FILE}" 2>&1
+                EXIT_CODE=1
+              fi
+            else
+              echo "[${CURRENT_DISK}] Write failed with exit code ${EXIT_CODE}" >> "${LOG_FILE}" 2>&1
+            fi
+            exit ${EXIT_CODE}
+          ) &
+          
+          # Capture PID
+          PIDS+=($!)
         done
         
-        echo "Successfully wrote image to all ${TOTAL_DISKS} disk(s)"
+        # Re-enable -u for error checking
+        set -u
+        
+        echo ""
+        echo "All write processes started. Monitoring progress..."
+        echo "Note: This may take several minutes depending on disk speed and image size."
+        echo ""
+        
+        # Wait a moment for log files to be created
+        sleep 1
+        
+        # Wait for all background processes and collect results
+        set +u  # Temporarily disable -u for array access
+        FAILED=0
+        
+        # Start background processes to tail log files and show progress
+        TAIL_PIDS=()
+        for ((j=0; j<${#LOG_FILES[@]}; j++)); do
+          LOG_FILE=${LOG_FILES[$j]}
+          DISK=${DISKS[$j]}
+          # Start tail in background to show log updates with disk label
+          # Use a different sed delimiter (|) to avoid issues with / in disk path
+          (
+            while [ ! -f "${LOG_FILE}" ]; do
+              sleep 0.1
+            done
+            tail -f "${LOG_FILE}" 2>/dev/null | sed "s|^|[${DISK}] |" || true
+          ) &
+          TAIL_PIDS+=($!)
+        done
+        
+        # Wait for all write processes
+        for ((i=0; i<${#PIDS[@]}; i++)); do
+          PID=${PIDS[$i]}
+          DISK=${DISKS[$i]}
+          LOG_FILE=${LOG_FILES[$i]}
+          
+          if [ -z "${PID}" ] || [ -z "${DISK}" ]; then
+            echo "Error: Failed to track process for disk ${i}"
+            FAILED=1
+            continue
+          fi
+          
+          # Record start time
+          START_TIME=$(date +%s)
+          
+          # Wait a moment and check if process is running
+          sleep 2
+          if ! kill -0 ${PID} 2>/dev/null; then
+            echo "Error: Process ${PID} for ${DISK} is not running!"
+            echo "  Checking log file for errors..."
+            if [ -f "${LOG_FILE}" ]; then
+              echo "  Full log contents:"
+              cat "${LOG_FILE}" | sed 's/^/    /'
+            else
+              echo "  Log file does not exist: ${LOG_FILE}"
+            fi
+            FAILED=1
+            continue
+          fi
+          
+          # Show initial log contents to verify it's working
+          if [ -f "${LOG_FILE}" ] && [ -s "${LOG_FILE}" ]; then
+            echo "  [${DISK}] Process is running. Initial log output:"
+            head -n 5 "${LOG_FILE}" | sed "s|^|    [${DISK}] |"
+          fi
+          
+          # Wait for this specific process
+          wait ${PID}
+          EXIT_CODE=$?
+          
+          # Check how long it took
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          # Show full log contents
+          echo ""
+          echo "  [${DISK}] Write completed in ${DURATION} seconds (exit code: ${EXIT_CODE})"
+          
+          # Check if log shows actual progress/bytes written
+          BYTES_WRITTEN=""
+          if [ -f "${LOG_FILE}" ]; then
+            # Look for dd progress output (e.g., "2355101696 bytes (2.4 GB, 2.2 GiB) copied")
+            BYTES_WRITTEN=$(grep -oE '[0-9]+ bytes.*copied' "${LOG_FILE}" | tail -n 1 || echo "")
+            
+            if [ -z "${BYTES_WRITTEN}" ]; then
+              # Try to find any progress line
+              BYTES_WRITTEN=$(grep -iE '(bytes|MB|GB|MiB|GiB).*(copied|transferred)' "${LOG_FILE}" | tail -n 1 || echo "")
+            fi
+            
+            if [ -n "${BYTES_WRITTEN}" ]; then
+              echo "  [${DISK}] dd reported: ${BYTES_WRITTEN}"
+            else
+              echo "  [${DISK}] Warning: No progress output found in log - dd may not have written data"
+              echo "  [${DISK}] Full log contents:"
+              cat "${LOG_FILE}" | sed "s|^|    [${DISK}] |"
+            fi
+          fi
+          
+          # If it completed in less than 10 seconds, it probably didn't actually write
+          if [ ${DURATION} -lt 10 ] && [ ${EXIT_CODE} -eq 0 ]; then
+            echo "  ⚠ [${DISK}] Warning: Write completed in ${DURATION} seconds - this seems too fast!"
+            echo "    Expected duration: ~$((IMAGE_SIZE / 10000000)) seconds at 10MB/s"
+            echo "    This may indicate the write did not actually occur"
+          fi
+          
+          # Kill the corresponding tail process
+          if [ -n "${TAIL_PIDS[$i]}" ]; then
+            kill ${TAIL_PIDS[$i]} 2>/dev/null || true
+            wait ${TAIL_PIDS[$i]} 2>/dev/null || true
+          fi
+          
+          echo ""
+          if [ ${EXIT_CODE} -eq 0 ]; then
+            # Verify the write actually happened by comparing disk contents with image
+            echo "  [${DISK}] Verifying write..."
+            IMAGE_SIZE=$(stat -f%z "${RAW_FILE}" 2>/dev/null || stat -c%s "${RAW_FILE}" 2>/dev/null || echo "0")
+            
+            if [ "${IMAGE_SIZE}" != "0" ]; then
+              # Read first 1MB from both image and disk and compare
+              IMAGE_SAMPLE=$(sudo dd if="${RAW_FILE}" bs=1M count=1 2>/dev/null | sha256sum | cut -d' ' -f1)
+              DISK_SAMPLE=$(sudo dd if="${DISK}" bs=1M count=1 2>/dev/null | sha256sum | cut -d' ' -f1)
+              
+              if [ -z "${IMAGE_SAMPLE}" ] || [ -z "${DISK_SAMPLE}" ]; then
+                echo "  ✗ [${DISK}] Verification failed: Could not read samples for comparison"
+                FAILED=1
+              elif [ "${IMAGE_SAMPLE}" = "${DISK_SAMPLE}" ]; then
+                # Also check a sample from the middle of the image
+                MIDDLE_OFFSET=$((IMAGE_SIZE / 2 / 1048576))
+                IMAGE_MIDDLE=$(sudo dd if="${RAW_FILE}" bs=1M skip=${MIDDLE_OFFSET} count=1 2>/dev/null | sha256sum | cut -d' ' -f1)
+                DISK_MIDDLE=$(sudo dd if="${DISK}" bs=1M skip=${MIDDLE_OFFSET} count=1 2>/dev/null | sha256sum | cut -d' ' -f1)
+                
+                if [ "${IMAGE_MIDDLE}" = "${DISK_MIDDLE}" ]; then
+                  echo "  ✓ [${DISK}] Write verified successfully!"
+                  echo "    - First 1MB matches source image"
+                  echo "    - Middle section matches source image"
+                  echo "    - Image size: $(numfmt --to=iec-i --suffix=B ${IMAGE_SIZE} 2>/dev/null || echo "${IMAGE_SIZE} bytes")"
+                else
+                  echo "  ✗ [${DISK}] Verification failed: Middle section does not match"
+                  echo "    - First 1MB matches, but middle section differs"
+                  echo "    - This suggests a partial or corrupted write"
+                  FAILED=1
+                fi
+              else
+                echo "  ✗ [${DISK}] Verification failed: First 1MB does not match source image"
+                echo "    - Image sample: ${IMAGE_SAMPLE:0:16}..."
+                echo "    - Disk sample:  ${DISK_SAMPLE:0:16}..."
+                echo "    - This suggests the write did not actually occur"
+                FAILED=1
+              fi
+            else
+              echo "  ✗ [${DISK}] Cannot verify: Could not determine image size"
+              FAILED=1
+            fi
+          else
+            echo "✗ Failed to write image to ${DISK} (exit code: ${EXIT_CODE})"
+            echo "  Check log: ${LOG_FILE}"
+            if [ -f "${LOG_FILE}" ]; then
+              echo "  Last 20 lines of log:"
+              tail -n 20 "${LOG_FILE}" | sed 's/^/    /'
+            fi
+            FAILED=1
+          fi
+        done
+        
+        # Kill any remaining tail processes
+        for TAIL_PID in "${TAIL_PIDS[@]}"; do
+          kill ${TAIL_PID} 2>/dev/null || true
+        done
+        
+        set -u  # Re-enable -u
+        
+        echo ""
+        
+        # Clean up log files on success
+        if [ ${FAILED} -eq 0 ]; then
+          for LOG_FILE in "${LOG_FILES[@]}"; do
+            rm -f "${LOG_FILE}"
+          done
+          echo "Successfully wrote image to all ${TOTAL_DISKS} disk(s)"
+        else
+          echo "One or more disk writes failed. Check the logs above for details."
+          exit 1
+        fi
     silent: true
     
   unmount-disk:
@@ -298,46 +547,6 @@ tasks:
         # sudo eject /dev/sdb
     silent: true
 
-  # apply-talos-cluster:
-  #   desc: Applies the Talos cluster configuration
-  #   cmds:
-  #     - |
-  #       set -euo pipefail
-        
-  #       # Validate required variables
-  #       if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-  #         echo "Error: WINDSOR_CONTEXT variable is not defined"
-  #         echo "Set the context using: windsor context set <context>"
-  #         exit 1
-  #       fi
-        
-  #       # Parse IP addresses from CLI_ARGS
-  #       CLI_ARGS_STR="{{.CLI_ARGS}}"
-  #       if [ -z "${CLI_ARGS_STR}" ]; then
-  #         echo "Error: At least one IP address is required"
-  #         echo "Usage: task device:apply-talos-cluster -- <ip1> [<ip2> ... <ipN>]"
-  #         echo "Example: task device:apply-talos-cluster -- 192.168.2.111 192.168.2.125"
-  #         exit 1
-  #       fi
-        
-  #       # Build nodes argument from CLI_ARGS
-  #       eval set -- ${CLI_ARGS_STR}
-  #       NODES_ARG=""
-  #       for ip in "$@"; do
-  #         # Basic IP validation
-  #         if [[ ! "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-  #           echo "Error: Invalid IP address format: ${ip}"
-  #           exit 1
-  #         fi
-  #         NODES_ARG="${NODES_ARG} ${ip}"
-  #       done
-        
-  #       # Remove leading space
-  #       NODES_ARG="${NODES_ARG# }"
-        
-  #       echo "Applying Talos configuration to nodes: ${NODES_ARG}"
-  #       talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig
-  #   silent: true
   get-disks:
     desc: Gets the disks
     cmds:
@@ -382,7 +591,7 @@ tasks:
         
         # Apply configuration to control plane
         echo "Applying control plane configuration to: ${CONTROL_PLANE_IP}"
-        talosctl apply-config --insecure --nodes "${CONTROL_PLANE_IP}" --file controlplane.yaml
+        talosctl apply-config --insecure --nodes "${CONTROL_PLANE_IP}" --file contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/controlplane.yaml
         
         # Apply configuration to worker nodes (if any)
         shift  # Remove control plane IP from arguments
@@ -396,7 +605,7 @@ tasks:
               exit 1
             fi
             echo "Applying config to worker node: ${ip}"
-            talosctl apply-config --insecure --nodes "${ip}" --file worker.yaml
+            talosctl apply-config --insecure --nodes "${ip}" --file contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/worker.yaml
           done
         else
           echo "No worker nodes specified"

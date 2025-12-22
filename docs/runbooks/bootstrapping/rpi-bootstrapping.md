@@ -204,7 +204,7 @@ task device:set-endpoints -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 Wait for your control plane node to finish booting, then bootstrap your etcd cluster by running:
 
 ```bash
-task device:bootstrap-etc-cluster $CONTROL_PLANE_IP
+task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
 ```
 
 Note: Run this command ONCE on a SINGLE control plane node. If you have multiple control plane nodes, you can choose any of them.
