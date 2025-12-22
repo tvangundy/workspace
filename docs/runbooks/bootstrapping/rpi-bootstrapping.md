@@ -105,7 +105,7 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 **Note**: If you have an HDMI display attached and it shows only a rainbow splash screen, try using the other HDMI port (the one closest to the power/USB-C port on Raspberry Pi 4).
 
-## Step 5: Configure the Cluster
+<!-- ## Step 5: Configure the Cluster
 
 Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
 
@@ -135,7 +135,7 @@ kubectl get pods --all-namespaces
 
 ```bash
 task device:talos-dashboard -- $CONTROL_PLANE_IP
-```
+``` -->
 
 ## Step 8: Unmount the ISO
 
@@ -189,6 +189,55 @@ This command will:
 2. Apply `worker.yaml` to each worker node specified
 
 After the configuration is applied, Talos will be installed to the disk and your cluster will be permanently configured. The nodes will reboot and join the cluster.
+
+
+
+## Step 12: Set your endpoints
+
+Set your endpoints with this:
+```bash
+task device:set-endpoints -- $CONTROL_PLANE_IP
+```
+​
+## Step 13: Bootstrap Your Etcd Cluster
+
+Wait for your control plane node to finish booting, then bootstrap your etcd cluster by running:
+
+```bash
+task device:bootstrap-etc-cluster $CONTROL_PLANE_IP
+```
+
+Note: Run this command ONCE on a SINGLE control plane node. If you have multiple control plane nodes, you can choose any of them.
+​
+## Step 14: Get Kubernetes Access
+
+Download your kubeconfig file to start using kubectl.
+
+```bash
+task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
+```
+​
+## Step 15: Check Cluster Health
+
+Run the following command to check the health of your nodes:
+
+```bash
+task device:cluster-health -- $CONTROL_PLANE_IP
+```
+​
+## Step 16: Verify Node Registration
+
+Confirm that your nodes are registered in Kubernetes:
+
+```bash
+kubectl get nodes
+```
+
+You should see your control plane and worker nodes listed with a Ready status.
+​
+Next Steps
+
+Congratulations! You now have a working Kubernetes cluster on Talos Linux.
 
 ## Verification
 

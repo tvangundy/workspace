@@ -298,70 +298,46 @@ tasks:
         # sudo eject /dev/sdb
     silent: true
 
-  apply-talos-cluster:
-    desc: Applies the Talos cluster configuration
-    cmds:
-      - |
-        set -euo pipefail
+  # apply-talos-cluster:
+  #   desc: Applies the Talos cluster configuration
+  #   cmds:
+  #     - |
+  #       set -euo pipefail
         
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
+  #       # Validate required variables
+  #       if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+  #         echo "Error: WINDSOR_CONTEXT variable is not defined"
+  #         echo "Set the context using: windsor context set <context>"
+  #         exit 1
+  #       fi
         
-        # Parse IP addresses from CLI_ARGS
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -z "${CLI_ARGS_STR}" ]; then
-          echo "Error: At least one IP address is required"
-          echo "Usage: task device:apply-talos-cluster -- <ip1> [<ip2> ... <ipN>]"
-          echo "Example: task device:apply-talos-cluster -- 192.168.2.111 192.168.2.125"
-          exit 1
-        fi
+  #       # Parse IP addresses from CLI_ARGS
+  #       CLI_ARGS_STR="{{.CLI_ARGS}}"
+  #       if [ -z "${CLI_ARGS_STR}" ]; then
+  #         echo "Error: At least one IP address is required"
+  #         echo "Usage: task device:apply-talos-cluster -- <ip1> [<ip2> ... <ipN>]"
+  #         echo "Example: task device:apply-talos-cluster -- 192.168.2.111 192.168.2.125"
+  #         exit 1
+  #       fi
         
-        # Build nodes argument from CLI_ARGS
-        eval set -- ${CLI_ARGS_STR}
-        NODES_ARG=""
-        for ip in "$@"; do
-          # Basic IP validation
-          if [[ ! "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            echo "Error: Invalid IP address format: ${ip}"
-            exit 1
-          fi
-          NODES_ARG="${NODES_ARG} ${ip}"
-        done
+  #       # Build nodes argument from CLI_ARGS
+  #       eval set -- ${CLI_ARGS_STR}
+  #       NODES_ARG=""
+  #       for ip in "$@"; do
+  #         # Basic IP validation
+  #         if [[ ! "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+  #           echo "Error: Invalid IP address format: ${ip}"
+  #           exit 1
+  #         fi
+  #         NODES_ARG="${NODES_ARG} ${ip}"
+  #       done
         
-        # Remove leading space
-        NODES_ARG="${NODES_ARG# }"
+  #       # Remove leading space
+  #       NODES_ARG="${NODES_ARG# }"
         
-        echo "Applying Talos configuration to nodes: ${NODES_ARG}"
-        talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
-    silent: true
-
-  talos-dashboard:
-    desc: Runs the Talos dashboard
-    cmds:
-      - |
-        talosctl dashboard --nodes {{.CLI_ARGS}} 
-    silent: true
-
-  retrieve-kubeconfig:
-    desc: Retrieves the kubeconfig
-    cmds:
-      - |
-        talosctl kubeconfig --nodes {{.CLI_ARGS}}
-    silent: true
-
-  format-xfs:
-    desc: Formats the USB disk (Requires Linux)
-    cmds:
-      - echo "Unmount the USB drives in ubuntu"
-      - sudo mkfs.xfs /dev/sda
-      - sudo mkfs.ext4 /dev/sda
-      - sudo apt-get install xfsprogs
-    silent: true
-
+  #       echo "Applying Talos configuration to nodes: ${NODES_ARG}"
+  #       talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+  #   silent: true
   get-disks:
     desc: Gets the disks
     cmds:
@@ -373,7 +349,7 @@ tasks:
     desc: Generates the Talos configuration
     cmds:
       - |
-        talosctl gen config {{.CLUSTER_NAME}} https://{{.CONTROL_PLANE_IP}}:6443 --install-disk {{.CLI_ARGS}} --config contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        talosctl gen config {{.CLUSTER_NAME}} https://{{.CONTROL_PLANE_IP}}:6443 --install-disk {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
     silent: true
 
   apply-configuration:
@@ -427,6 +403,50 @@ tasks:
         echo "Configuration applied successfully"
     silent: true
 
+  set-endpoints:
+    desc: Sets the endpoints
+    cmds:
+      - |
+        talosctl --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml config endpoints {{.CLI_ARGS}}
+    silent: true
+
+  bootstrap-etc-cluster:    
+    desc: Bootstraps the etcd cluster
+    cmds:
+      - |
+        talosctl bootstrap --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+    silent: true
+
+  retrieve-kubeconfig:
+    desc: Retrieves the kubeconfig
+    cmds:
+      - |
+        talosctl kubeconfig {{.KUBECONFIG_FILE}} --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+    silent: true
+
+  cluster-health:
+    desc: Checks the cluster health
+    cmds:
+      - |
+        talosctl health --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+    silent: true
+
+  talos-dashboard:
+    desc: Runs the Talos dashboard
+    cmds:
+      - |
+        talosctl dashboard --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+    silent: true
+
+  format-xfs:
+    desc: Formats the USB disk (Requires Linux)
+    cmds:
+      - echo "Unmount the USB drives in ubuntu"
+      - sudo mkfs.xfs /dev/sda
+      - sudo mkfs.ext4 /dev/sda
+      - sudo apt-get install xfsprogs
+    silent: true
+
   help:
     desc: Device releated commands
     cmds:
@@ -438,10 +458,15 @@ tasks:
         echo "    task device:write-disk [-- <disk_count>]"
         echo "    task device:unmount-disk [-- <disk_count>]"
         echo "    task device:eject-disk [-- <disk_count>]"
-        echo "    task device:apply-talos-cluster -- <control-plane-ip>"
+        # echo "    task device:apply-talos-cluster -- <control-plane-ip>"
         echo "    task device:get-disks -- <control-plane-ip>"
         echo "    task device:generate-talosconfig -- <control-plane-ip>"
         echo "    task device:apply-configuration -- <control-plane-ip> <worker-ip1> <worker-ip2> ..."
+        echo "    task device:set-endpoints -- <control-plane-ip>"
+        echo "    task device:bootstrap-etc-cluster -- <control-plane-ip>"
+        echo "    task device:retrieve-kubeconfig -- <control-plane-ip>"
+        echo "    task device:cluster-health -- <control-plane-ip>"
+        echo "    task device:talos-dashboard -- <control-plane-ip>"
 
         # echo "    task device:talos-dashboard -- <control-plane-ip> <worker-ip1> <worker-ip2> ..."
         # echo "    task device:retrieve-kubeconfig -- <control-plane-ip> <worker-ip1> <worker-ip2> ..."
