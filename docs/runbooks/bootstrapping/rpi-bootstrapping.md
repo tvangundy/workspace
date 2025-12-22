@@ -51,6 +51,8 @@ environment:
 
   USB_DISK: "/dev/disk4"
 
+  TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
+
 ```
 
 ## Step 2: Download the Talos Image
