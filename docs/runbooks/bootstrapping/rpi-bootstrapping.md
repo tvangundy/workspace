@@ -74,7 +74,7 @@ task device:write-disk
 
 **Multiple disks**: To write the image to multiple disks simultaneously, specify the total number of disks. For example, to write to 2 disks starting from the disk specified in `USB_DISK`:
 ```bash
-task device:write-disk -- 2
+task device:write-disk -- 3
 ```
 
 This will write to the base disk (e.g., `/dev/disk4`) and the next sequential disk (e.g., `/dev/disk5`). The `USB_DISK` environment variable should be set to the first disk in the sequence.
@@ -90,7 +90,7 @@ task device:eject-disk
 
 **Multiple disks**: To eject multiple disks, specify the total number of disks:
 ```bash
-task device:eject-disk -- 2
+task device:eject-disk -- 3
 ```
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
@@ -105,43 +105,11 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 **Note**: If you have an HDMI display attached and it shows only a rainbow splash screen, try using the other HDMI port (the one closest to the power/USB-C port on Raspberry Pi 4).
 
-<!-- ## Step 5: Configure the Cluster
-
-Once the Raspberry Pi has booted and you have its IP address, apply the Talos configuration:
-
-```bash
-task device:apply-talos-cluster -- $CONTROL_PLANE_IP
-```
-
-Once the configuration is applied, Talos will form the cluster (if this is the first node) or join the existing cluster.
-
-## Step 6: Retrieve the Kubeconfig
-
-After the cluster is configured and running, retrieve the admin kubeconfig to interact with your cluster:
-
-```bash
-task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
-
-```
-
-This command will download the kubeconfig and merge it with your default kubeconfig file (typically `~/.kube/config`). You can now use `kubectl` to interact with your cluster:
-
-```bash
-kubectl get nodes
-kubectl get pods --all-namespaces
-```
-
-## Step 7: Checkout the Talos Dashboard
-
-```bash
-task device:talos-dashboard -- $CONTROL_PLANE_IP
-``` -->
-
-## Step 8: Unmount the ISO
+## Step 5: Unmount the ISO
 
 Unplug your installation USB drive or unmount the ISO. This prevents you from accidentally installing to the USB drive and makes it clearer which disk to select for installation.
 
-## Step 9: Learn About Your Installation Disks
+## Step 6: Learn About Your Installation Disks
 
 When you first boot your machine from the ISO, Talos runs temporarily in memory. This means that your Talos nodes, configurations, and cluster membership won’t survive reboots or power cycles.
 However, once you apply the machine configuration (which you’ll do later in this guide), you’ll install Talos, its complete operating system, and your configuration to a specified disk for permanent storage.
@@ -151,33 +119,24 @@ Run this command to view all the available disks on your control plane:
 task device:get-disks -- $CONTROL_PLANE_IP
 ```
 
-## Step 10: Generate Talos Configuration
+## Step 7: Generate Talos Configuration
 
 Generate the Talos configuration files (`controlplane.yaml` and `worker.yaml`) using the Talos configuration generator. This command creates the necessary configuration files for your cluster.
 
 ```bash
-task device:generate-talosconfig -- <install-disk>
-```
-
-Replace `<install-disk>` with the disk device where Talos will be installed (e.g., `/dev/sda` or `/dev/nvme0n1`). You can determine the correct disk by reviewing the output from Step 9.
-
-**Example:**
-```bash
 task device:generate-talosconfig -- /dev/sda
 ```
+
+Replace `/dev/sda` with the disk device where Talos will be installed (e.g., `/dev/sda` or `/dev/nvme0n1`). You can determine the correct disk by reviewing the output from Step 6.
 
 This will generate:
 - `controlplane.yaml` - Configuration for control plane nodes
 - `worker.yaml` - Configuration for worker nodes
-- `talosconfig.yaml` - Client configuration file (saved to `contexts/<context>/.talos/talosconfig.yaml`)
+- `talosconfig.yaml` - Client configuration file (saved to `contexts/<context>/.talos/talosconfig`)
 
-## Step 11: Apply Talos Configuration
+## Step 8: Apply Talos Configuration
 
 Apply the generated configuration to your nodes. This installs Talos to the specified disk and configures the cluster.
-
-```bash
-task device:apply-configuration -- <control-plane-ip> <worker-ip1> [<worker-ip2> ...]
-```
 
 **Example with 1 control plane and 2 workers:**
 ```bash
@@ -192,14 +151,14 @@ After the configuration is applied, Talos will be installed to the disk and your
 
 
 
-## Step 12: Set your endpoints
+## Step 9: Set your endpoints
 
 Set your endpoints with this:
 ```bash
 task device:set-endpoints -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 ```
 ​
-## Step 13: Bootstrap Your Etcd Cluster
+## Step 10: Bootstrap Your Etcd Cluster
 
 Wait for your control plane node to finish booting, then bootstrap your etcd cluster by running:
 
@@ -209,7 +168,7 @@ task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
 
 Note: Run this command ONCE on a SINGLE control plane node. If you have multiple control plane nodes, you can choose any of them.
 ​
-## Step 14: Get Kubernetes Access
+## Step 11: Get Kubernetes Access
 
 Download your kubeconfig file to start using kubectl.
 
@@ -217,7 +176,7 @@ Download your kubeconfig file to start using kubectl.
 task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 ```
 ​
-## Step 15: Check Cluster Health
+## Step 12: Check Cluster Health
 
 Run the following command to check the health of your nodes:
 
@@ -225,7 +184,7 @@ Run the following command to check the health of your nodes:
 task device:cluster-health -- $CONTROL_PLANE_IP
 ```
 ​
-## Step 16: Verify Node Registration
+## Step 13: Verify Node Registration
 
 Confirm that your nodes are registered in Kubernetes:
 
