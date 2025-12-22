@@ -196,7 +196,7 @@ After the configuration is applied, Talos will be installed to the disk and your
 
 Set your endpoints with this:
 ```bash
-task device:set-endpoints -- $CONTROL_PLANE_IP
+task device:set-endpoints -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 ```
 ​
 ## Step 13: Bootstrap Your Etcd Cluster

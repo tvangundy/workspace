@@ -336,7 +336,7 @@ tasks:
   #       NODES_ARG="${NODES_ARG# }"
         
   #       echo "Applying Talos configuration to nodes: ${NODES_ARG}"
-  #       talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+  #       talosctl apply-config --insecure --mode=interactive --nodes ${NODES_ARG} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig
   #   silent: true
   get-disks:
     desc: Gets the disks
@@ -349,7 +349,10 @@ tasks:
     desc: Generates the Talos configuration
     cmds:
       - |
-        talosctl gen config {{.CLUSTER_NAME}} https://{{.CONTROL_PLANE_IP}}:6443 --install-disk {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        mkdir -p contexts/{{.WINDSOR_CONTEXT}}/.talos
+        mkdir -p contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
+        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
+        talosctl gen config {{.CLUSTER_NAME}} https://{{.CONTROL_PLANE_IP}}:6443 --install-disk {{.CLI_ARGS}} --talosconfig ../../.talos/talosconfig
     silent: true
 
   apply-configuration:
@@ -407,35 +410,38 @@ tasks:
     desc: Sets the endpoints
     cmds:
       - |
-        talosctl --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml config endpoints {{.CLI_ARGS}}
+        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
+        talosctl --talosconfig ../../.talos/talosconfig config endpoints {{.CLI_ARGS}}
     silent: true
 
   bootstrap-etc-cluster:    
     desc: Bootstraps the etcd cluster
     cmds:
       - |
-        talosctl bootstrap --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
+        talosctl bootstrap --nodes {{.CLI_ARGS}} --talosconfig ../../.talos/talosconfig
     silent: true
 
   retrieve-kubeconfig:
     desc: Retrieves the kubeconfig
     cmds:
       - |
-        talosctl kubeconfig {{.KUBECONFIG_FILE}} --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
+        talosctl kubeconfig {{.KUBECONFIG_FILE}} --nodes {{.CLI_ARGS}} --talosconfig ../../.talos/talosconfig
     silent: true
 
   cluster-health:
     desc: Checks the cluster health
     cmds:
       - |
-        talosctl health --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        talosctl health --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig
     silent: true
 
   talos-dashboard:
     desc: Runs the Talos dashboard
     cmds:
       - |
-        talosctl dashboard --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig.yaml
+        talosctl dashboard --nodes {{.CLI_ARGS}} --talosconfig contexts/{{.WINDSOR_CONTEXT}}/.talos/talosconfig
     silent: true
 
   format-xfs:
@@ -460,7 +466,7 @@ tasks:
         echo "    task device:eject-disk [-- <disk_count>]"
         # echo "    task device:apply-talos-cluster -- <control-plane-ip>"
         echo "    task device:get-disks -- <control-plane-ip>"
-        echo "    task device:generate-talosconfig -- <control-plane-ip>"
+        echo "    task device:generate-talosconfig -- <install-disk>"
         echo "    task device:apply-configuration -- <control-plane-ip> <worker-ip1> <worker-ip2> ..."
         echo "    task device:set-endpoints -- <control-plane-ip>"
         echo "    task device:bootstrap-etc-cluster -- <control-plane-ip>"
