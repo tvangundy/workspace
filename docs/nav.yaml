@@ -15,8 +15,8 @@ nav:
     - Workspace Initialization: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
     - Bootstrapping:
-      - Incus: runbooks/incus/incus-setup.md
       - Introduction: runbooks/bootstrapping/README.md
+      - Incus: runbooks/incus/incus-setup.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
       - Intel NUC: runbooks/bootstrapping/nuc-bootstrapping.md
       - Sidero Omni: runbooks/bootstrapping/omni-bootstrapping.md
