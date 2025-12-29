@@ -39,6 +39,9 @@ Instructions for bootstrapping Talos clusters and preparing devices for deployme
 ### 🏠 [Home Assistant](./home-assistant/README.md)
 Complete guide for deploying a home automation platform with container-based deployment, SSL/TLS configuration, persistent storage, and high-availability setup.
 
+### 🐳 [Incus Setup](./incus/incus-setup.md)
+Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
+
 ### 🏃 GitHub Actions Runners
 Step-by-step guides for setting up self-hosted GitHub Actions runners on various platforms. These runbooks cover installing and configuring runners on Windows, Ubuntu, and macOS systems, enabling you to run CI/CD workflows on your own infrastructure.
 

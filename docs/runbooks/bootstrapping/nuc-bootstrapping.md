@@ -6,11 +6,12 @@ This guide walks you through bootstrapping a Talos Linux cluster on an Intel NUC
 
 Bootstrapping an Intel NUC with Talos Linux involves:
 
-1. **Downloading the Talos image**: Getting the x86_64 image from the Talos image factory
-2. **Preparing the boot media**: Writing the image to a USB memory device
-3. **Initial boot**: Booting the Intel NUC from the prepared USB media
-4. **Cluster configuration**: Applying the Talos configuration to form or join a cluster
-5. **Retrieving access**: Getting the kubeconfig to interact with your cluster
+1. **Setting environment variables**: Configuring the workspace with image and cluster information
+2. **Downloading the Talos image**: Getting the x86_64 image from the Talos image factory
+3. **Preparing the boot media**: Writing the image to a USB memory device
+4. **Initial boot**: Booting the Intel NUC from the prepared USB media
+5. **Cluster configuration**: Applying the Talos configuration to form or join a cluster
+6. **Retrieving access**: Getting the kubeconfig to interact with your cluster
 
 The USB memory device serves as both the boot media and the initial storage for the Talos operating system. After the initial boot, the device will run entirely from this media.
 
@@ -24,85 +25,92 @@ Before starting, ensure you have:
 - **Network connectivity**: The Intel NUC must be able to connect to your network
 - **talosctl installed**: See the [Installation Guide](../../install.md) for setup instructions
 - **Physical access**: To insert the boot media and power on the device
+- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
 
-## Step 1: Download the Talos Image
+## Step 1: Set Environment Variables
+
+### Get NUC Image Info
+
+Visit the [Talos image factory](https://factory.talos.dev) to determine the image information and set the environment variables appropriately in the windsor.yaml file. Select the x86_64 (amd64) architecture for Intel NUC devices.
+
+### Determine the Target Disk for Image Copy
+
+Use the `task device:list-disks` command to get a list of disks. Set the `USB_DISK` environment variable as shown below.
+
+### Add these lines to ./contexts/`<context>`/windsor.yaml
+
+```yaml
+environment:
+  RPI_IMAGE_SCHEMATIC_ID: <your-schematic-id>
+  RPI_IMAGE_VERSION: v1.11.6
+  RPI_IMAGE_ARCH: metal-amd64
+
+  CLUSTER_NAME: "my-cluster"
+
+  CONTROL_PLANE_IP: "192.168.2.101"
+  WORKER_0_IP: "192.168.2.102"
+  WORKER_1_IP: "192.168.2.103"
+
+  USB_DISK: "/dev/disk4"
+
+  TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
+```
+
+**Note**: Replace the placeholder values with your actual configuration:
+- `<your-schematic-id>`: The schematic ID from the Talos image factory
+- Cluster name and IP addresses: Your cluster configuration
+- `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
+
+## Step 2: Download the Talos Image
 
 Download the x86_64 Talos image from the [Talos image factory](https://factory.talos.dev). The image factory generates custom images based on your configuration requirements.
 
 ```bash
-curl -LO https://factory.talos.dev/image/<image-id>/v1.11.5/metal-amd64.raw.xz
+task device:download-image
 ```
 
-**Note**: The URL above is an example. Visit the [image factory](https://factory.talos.dev) to generate an image URL specific to your configuration needs. Select the x86_64 (amd64) architecture for Intel NUC devices.
-
-## Step 2: Decompress the Image
-
-The downloaded image is compressed in XZ format. Decompress it before writing to your boot media:
-
-```bash
-xz -d metal-amd64.raw.xz
-```
-
-This will create a `metal-amd64.raw` file that you'll write to your USB memory device.
+This will download the image to `contexts/<context>/devices/metal-amd64/metal-amd64.raw`.
 
 ## Step 3: Prepare the Boot Media
-
-### Identify Your USB Memory Device
-
-First, identify the device identifier for your USB memory device:
-
-```bash
-# macOS
-diskutil list
-
-# Linux
-lsblk
-# or
-fdisk -l
-```
-
-Look for your USB memory device in the list. It will typically appear as `/dev/disk4` (macOS) or `/dev/sdX` (Linux). **Be very careful** to identify the correct device, as writing to the wrong device will destroy data.
 
 ### Write the Image to Boot Media
 
 Write the decompressed image to your USB memory device. This process will erase all existing data on the device.
 
+**Single disk** (default):
 ```bash
-# macOS - Unmount the device first (replace disk4 with your device identifier)
-diskutil unmountDisk /dev/disk4
-
-# macOS - Write the image (replace disk4 with your device identifier)
-sudo dd if=metal-amd64.raw of=/dev/rdisk4 conv=fsync bs=4M status=progress
-
-# Linux - Unmount the device first (replace sdX with your device identifier)
-sudo umount /dev/sdX*
-
-# Linux - Write the image (replace sdX with your device identifier)
-sudo dd if=metal-amd64.raw of=/dev/sdX conv=fsync bs=4M status=progress
+task device:write-disk
 ```
 
-**Important Notes:**
-- Use `/dev/rdisk4` on macOS (raw disk) for faster writes
-- The `status=progress` flag shows write progress (may not be available on all systems)
-- This process can take several minutes depending on the size of your media
-- Do not remove the device during the write process
+**Multiple disks**: To write the image to multiple disks simultaneously, specify the total number of disks. For example, to write to 2 disks starting from the disk specified in `USB_DISK`:
+
+```bash
+task device:write-disk -- 3
+```
+
+This will write to the base disk (e.g., `/dev/disk4`) and the next sequential disk (e.g., `/dev/disk5`). The `USB_DISK` environment variable should be set to the first disk in the sequence.
 
 ### Eject the Boot Media
 
-After writing completes, safely eject the device:
+After writing completes, safely eject the device(s):
+
+**Single disk** (default):
+```bash
+task device:eject-disk
+```
+
+**Multiple disks**: To eject multiple disks, specify the total number of disks:
 
 ```bash
-# macOS
-diskutil eject /dev/disk4
-
-# Linux
-sudo eject /dev/sdX
+task device:eject-disk -- 3
 ```
+
+The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 ## Step 4: Boot the Intel NUC
 
 1. **Insert the boot media**: Insert the USB memory device into a USB port on your Intel NUC
-2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet (recommended) or Wi-Fi
+2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet (recommended)
 3. **Power on**: Connect power to the Intel NUC and turn it on
 4. **Access BIOS/UEFI**: Press the appropriate key (typically F2, F10, or Delete) during boot to access BIOS/UEFI settings
 5. **Configure boot order**: Set the USB device as the first boot option, or use the boot menu (typically F10 or F12) to select the USB device
@@ -115,37 +123,92 @@ sudo eject /dev/sdX
 - Secure Boot is disabled (if present)
 - The USB device is properly formatted and the image was written correctly
 
-## Step 5: Configure the Cluster
+## Step 5: Unmount the ISO
 
-Once the Intel NUC has booted and you have its IP address, apply the Talos configuration:
+Unplug your installation USB drive or unmount the ISO. This prevents you from accidentally installing to the USB drive and makes it clearer which disk to select for installation.
 
-```bash
-talosctl apply-config --insecure --mode=interactive --nodes <node-ip-address>
-```
+## Step 6: Learn About Your Installation Disks
 
-Replace `<node-ip-address>` with the actual IP address of your Intel NUC.
-
-The interactive mode will guide you through:
-- Setting up the cluster (for the first node) or joining an existing cluster
-- Configuring network settings
-- Setting up authentication
-
-Once the configuration is applied, Talos will form the cluster (if this is the first node) or join the existing cluster.
-
-## Step 6: Retrieve the Kubeconfig
-
-After the cluster is configured and running, retrieve the admin kubeconfig to interact with your cluster:
+When you first boot your machine from the ISO, Talos runs temporarily in memory. This means that your Talos nodes, configurations, and cluster membership won't survive reboots or power cycles.
+However, once you apply the machine configuration (which you'll do later in this guide), you'll install Talos, its complete operating system, and your configuration to a specified disk for permanent storage.
+Run this command to view all the available disks on your control plane:
 
 ```bash
-talosctl kubeconfig
+task device:get-disks -- $CONTROL_PLANE_IP
 ```
 
-This command will download the kubeconfig and merge it with your default kubeconfig file (typically `~/.kube/config`). You can now use `kubectl` to interact with your cluster:
+## Step 7: Generate Talos Configuration
+
+Generate the Talos configuration files (`controlplane.yaml` and `worker.yaml`) using the Talos configuration generator. This command creates the necessary configuration files for your cluster.
+
+```bash
+task device:generate-talosconfig -- /dev/nvme0n1
+```
+
+Replace `/dev/nvme0n1` with the disk device where Talos will be installed (e.g., `/dev/sda` or `/dev/nvme0n1`). You can determine the correct disk by reviewing the output from Step 6.
+
+This will generate:
+- `controlplane.yaml` - Configuration for control plane nodes
+- `worker.yaml` - Configuration for worker nodes
+- `talosconfig.yaml` - Client configuration file (saved to `contexts/<context>/.talos/talosconfig`)
+
+## Step 8: Apply Talos Configuration
+
+Apply the generated configuration to your nodes. This installs Talos to the specified disk and configures the cluster.
+
+**Example with 1 control plane and 2 workers:**
+```bash
+task device:apply-configuration -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+```
+
+This command will:
+1. Apply `controlplane.yaml` to the control plane node
+2. Apply `worker.yaml` to each worker node specified
+
+After the configuration is applied, Talos will be installed to the disk and your cluster will be permanently configured. The nodes will reboot and join the cluster.
+
+## Step 9: Set Your Endpoints
+
+Set your endpoints with this:
+```bash
+task device:set-endpoints -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
+```
+
+## Step 10: Bootstrap Your Etcd Cluster
+
+Wait for your control plane node to finish booting, then bootstrap your etcd cluster by running:
+
+```bash
+task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
+```
+
+**Note**: Run this command ONCE on a SINGLE control plane node. If you have multiple control plane nodes, you can choose any of them.
+
+## Step 11: Get Kubernetes Access
+
+Download your kubeconfig file to start using kubectl.
+
+```bash
+task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
+```
+
+## Step 12: Check Cluster Health
+
+Run the following command to check the health of your nodes:
+
+```bash
+task device:cluster-health -- $CONTROL_PLANE_IP
+```
+
+## Step 13: Verify Node Registration
+
+Confirm that your nodes are registered in Kubernetes:
 
 ```bash
 kubectl get nodes
-kubectl get pods --all-namespaces
 ```
+
+You should see your control plane and worker nodes listed with a Ready status.
 
 ## Verification
 
