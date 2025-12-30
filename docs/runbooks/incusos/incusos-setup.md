@@ -412,6 +412,7 @@ ls -la /dev/disk/by-id/ | grep sda
 ```
 
 Example output:
+
 - `nvme-WD_BLACK_SN850X_1000GB_23436M801614` - NVMe device with model and serial
 - `nvme-eui.e8238fa6bf530001001b448b4ce05e8e` - NVMe EUI identifier
 - `ata-SPCC_Solid_State_Disk_AA230815S325622103` - SATA device identifier

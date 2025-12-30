@@ -104,6 +104,7 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 8. **Find the IP address**: The device will display its IP address on the console, or you can find it via your router's DHCP client list
 
 **Note**: If the device doesn't boot from USB, verify that:
+
 - USB boot is enabled in BIOS/UEFI settings
 - Secure Boot is disabled (if present)
 - The USB device is properly formatted and the image was written correctly
@@ -147,6 +148,7 @@ task device:apply-configuration -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 ```
 
 This command will:
+
 1. Apply `controlplane.yaml` to the control plane node
 2. Apply `worker.yaml` to each worker node specified
 

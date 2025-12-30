@@ -63,6 +63,7 @@ Download the Ubuntu installation ISO from the official website:
 - **Ubuntu Server**: [Ubuntu Server Download](https://ubuntu.com/download/server) - Minimal server installation without GUI
 
 Choose the version that best fits your needs:
+
 - **Desktop**: If you need a graphical interface, development tools, and desktop applications
 - **Server**: If you're setting up a headless server or want a minimal installation
 
@@ -85,6 +86,7 @@ environment:
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
+
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
 - `UBUNTU_ISO_FILE`: The path to your downloaded Ubuntu ISO file (from Step 2)
 

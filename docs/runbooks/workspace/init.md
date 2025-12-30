@@ -38,6 +38,7 @@ Windsor CLI searches up the directory tree for `.windsor` folders. If a `.windso
 ```
 
 Before initializing a new workspace, ensure that:
+
 - The parent directory does not contain a `.windsor` folder
 - The workspace path is not a subdirectory of an existing workspace
 - Each workspace is created at the same directory level or in completely separate locations
