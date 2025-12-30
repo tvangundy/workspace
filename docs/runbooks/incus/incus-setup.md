@@ -1,6 +1,6 @@
 # Setting Up Incus on Intel NUC
 
-This guide walks you through installing and configuring [IncusOS](https://incusos-customizer.linuxcontainers.org/ui/) on an [Intel NUC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html) device. IncusOS is a dedicated operating system designed specifically for running Incus, providing a streamlined platform for container and virtual machine management.
+This guide walks you through installing and configuring [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) on an [Intel NUC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html) device. IncusOS is a dedicated operating system designed specifically for running Incus, providing a streamlined platform for container and virtual machine management.
 
 ## Overview
 
@@ -39,8 +39,6 @@ IncusOS requires modern system features and will not function properly on older 
 - TPM 2.0 security module
 - At least 50GiB of storage
 - At least one wired network port
-
-[See Getting Started with Incus](https://linuxcontainers.org/incus-os/docs/main/getting-started/)
 
 ## Step 1: Initialize Workspace and Context
 

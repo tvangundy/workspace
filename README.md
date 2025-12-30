@@ -10,6 +10,7 @@ A collection of practical implementations, automation solutions, and infrastruct
 - Security and networking configurations
 - Reference architectures and patterns
 
+
 ## Getting Started
 
 1. Review the [Installation Guide](./docs/install.md) to set up your environment
@@ -97,6 +98,8 @@ Each runbook provides detailed instructions from initial setup through final dep
 - **Developers** who want to understand the implementation details
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
+
+Runbooks in this workspace leverage taskfiles extensively, so you'll see commands like `task device:write-disk` throughout the documentation. These taskfile commands encapsulate complex operations, making the runbooks easier to follow while ensuring consistent, reliable execution. For more details on how runbooks and taskfiles work together, see the [Runbooks section](https://tvangundy.github.io/#runbooks) in the documentation.
 
 ## Repository Structure
 

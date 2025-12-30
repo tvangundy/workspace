@@ -15,40 +15,25 @@ The runbooks serve as instructional guides that break down the implementation pr
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
 
-## Available Runbooks
-
-The following runbooks are available:
-
-### 🚀 [Initialize Workspace](./workspace/init.md)
+## 🚀 [Initialize Workspace](./workspace/init.md)
 Step-by-step guide for initializing a new workspace using the workspace initialization task and Windsor CLI. This is typically the first step when starting a new project, covering workspace structure creation, directory setup, and Windsor CLI initialization with proper context configuration.
 
-### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
-Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
-
-### 🏠 [Home Assistant](./home-assistant/README.md)
-Complete guide for deploying a home automation platform with container-based deployment, SSL/TLS configuration, persistent storage, and high-availability setup.
-
-### 🐳 [Incus Setup](./incus/incus-setup.md)
+## 🐳 [Incus Setup](./incus/incus-setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
-### 🏃 GitHub Actions Runners
+## 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
+Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
+
+## 🏠 [Home Assistant](./home-assistant/README.md)
+Complete guide for deploying a home automation platform with container-based deployment, SSL/TLS configuration, persistent storage, and high-availability setup.
+
+## 🏃 GitHub Actions Runners
 Step-by-step guides for setting up self-hosted GitHub Actions runners on various platforms. These runbooks cover installing and configuring runners on Windows, Ubuntu, and macOS systems, enabling you to run CI/CD workflows on your own infrastructure.
 
 - **[Ubuntu Runner Setup](./runners/ubuntu-runner-setup.md)**: Configure Ubuntu-based runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices
 - **[Windows Runner Setup](./runners/windows-runner-setup.md)**: Set up Windows-based runners on Intel NUC (x86_64) devices
 - **[macOS Runner Setup](./runners/macos-runner-setup.md)**: Configure macOS-based runners on Apple Silicon (ARM64) Mac devices
 
-
-### More Runbooks Coming Soon
-
-Additional runbooks are being developed for:
-
-- **Ethereum**: Blockchain development environment setup
-- **WireGuard**: Secure VPN solution deployment
-- **Tailscale**: Modern VPN with mesh networking
-- **AWS Web Cluster**: Scalable web application infrastructure
-- **Sidero Omni**: Bare metal Kubernetes provisioning
-- **Hybrid Cloud**: Multi-cloud infrastructure deployment
 
 ## Getting Started
 
