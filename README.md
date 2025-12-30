@@ -10,7 +10,6 @@ A collection of practical implementations, automation solutions, and infrastruct
 - Security and networking configurations
 - Reference architectures and patterns
 
-
 ## Getting Started
 
 1. Review the [Installation Guide](./docs/install.md) to set up your environment
@@ -32,8 +31,6 @@ task sops:decrypt -- <file>
 # Run a task from the device namespace
 task device:list-disks
 
-# Run a task from the docker namespace
-task docker:clean
 ```
 
 ### Viewing Available Tasks

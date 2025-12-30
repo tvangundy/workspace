@@ -146,32 +146,16 @@ sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=10
 
 Write the Ubuntu ISO to your USB memory device. This process will erase all existing data on the device.
 
-**Single disk** (default):
 ```bash
-task device:write-ubuntu-iso
+task device:write-ubuntu-iso [-- 3]
 ```
-
-**Multiple disks**: To write the ISO to multiple disks simultaneously, specify the total number of disks. For example, to write to 2 disks starting from the disk specified in `USB_DISK`:
-
-```bash
-task device:write-ubuntu-iso -- 3
-```
-
-This will write to the base disk (e.g., `/dev/disk4`) and the next sequential disk (e.g., `/dev/disk5`). The `USB_DISK` environment variable should be set to the first disk in the sequence.
 
 ### Eject the USB Device
 
 After writing completes, safely eject the device(s):
 
-**Single disk** (default):
 ```bash
-task device:eject-disk
-```
-
-**Multiple disks**: To eject multiple disks, specify the total number of disks:
-
-```bash
-task device:eject-disk -- 3
+task device:eject-disk [-- 3]
 ```
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
