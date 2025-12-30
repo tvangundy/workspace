@@ -42,42 +42,117 @@ tasks:
         
         if [ -z "{{.TALOS_IMAGE_ARCH}}" ]; then
           echo "Error: TALOS_IMAGE_ARCH variable is not defined"
-          echo "Example: TALOS_IMAGE_ARCH=amd64"
+          echo "Example: TALOS_IMAGE_ARCH=metal-amd64"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_SCHEMATIC_ID}}" ]; then
+          echo "Error: TALOS_IMAGE_SCHEMATIC_ID variable is not defined"
+          echo "Visit https://factory.talos.dev to create a schematic and get the schematic ID"
+          echo "For a default image, you can use the empty/default schematic"
           exit 1
         fi
         
         DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
         TALOS_DIR="${DEVICES_DIR}/talos"
-        IMAGE_FILE="${TALOS_DIR}/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        # Use metal-amd64 for the Image Factory URL (standard format)
+        IMAGE_ZST="${TALOS_DIR}/metal-amd64.raw.zst"
+        IMAGE_RAW="${TALOS_DIR}/metal-amd64.raw"
+        IMAGE_QCOW2="${TALOS_DIR}/talos-metal-amd64.qcow2"
         
         # Create devices directory structure
         mkdir -p "${TALOS_DIR}"
         
-        # Check if image already exists
-        if [ -f "${IMAGE_FILE}" ]; then
-          echo "Talos image already exists at ${IMAGE_FILE}"
-          echo "Skipping download. Delete the file to re-download."
+        # Check if final image already exists
+        if [ -f "${IMAGE_QCOW2}" ]; then
+          echo "Talos VM image already exists at ${IMAGE_QCOW2}"
+          echo "Skipping download and conversion. Delete the file to re-download."
           exit 0
         fi
         
-        # Download Talos cloud image
-        IMAGE_URL="https://github.com/siderolabs/talos/releases/download/{{.TALOS_IMAGE_VERSION}}/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        # Download Talos raw disk image from Image Factory (compressed with zstd)
+        # The Image Factory uses metal-amd64.raw.zst format
+        IMAGE_URL="https://factory.talos.dev/image/{{.TALOS_IMAGE_SCHEMATIC_ID}}/{{.TALOS_IMAGE_VERSION}}/metal-amd64.raw.zst"
         
-        echo "Downloading Talos cloud image..."
+        echo "Downloading Talos raw disk image..."
         echo "URL: ${IMAGE_URL}"
-        echo "Destination: ${IMAGE_FILE}"
+        echo "Destination: ${IMAGE_ZST}"
         
-        curl -L -o "${IMAGE_FILE}" "${IMAGE_URL}"
-        
-        if [ $? -eq 0 ]; then
-          echo "Talos image downloaded successfully to: ${IMAGE_FILE}"
+        # Download if not already downloaded
+        if [ ! -f "${IMAGE_ZST}" ]; then
+          curl -L -o "${IMAGE_ZST}" "${IMAGE_URL}"
+          
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to download Talos image"
+            exit 1
+          fi
+          
+          # Verify the download was successful (check file size is reasonable)
+          FILE_SIZE=$(stat -f%z "${IMAGE_ZST}" 2>/dev/null || stat -c%s "${IMAGE_ZST}" 2>/dev/null || echo "0")
+          if [ "${FILE_SIZE}" -lt 1000 ]; then
+            echo "Error: Downloaded file is too small (${FILE_SIZE} bytes). The download may have failed."
+            echo "Please check the URL and try again."
+            rm -f "${IMAGE_ZST}"
+            exit 1
+          fi
         else
-          echo "Error: Failed to download Talos image"
-          exit 1
+          echo "Compressed image already exists, skipping download"
         fi
+        
+        # Extract the compressed image using zstd
+        if [ ! -f "${IMAGE_RAW}" ]; then
+          echo "Extracting compressed image..."
+          
+          # Check if zstd is available
+          if ! command -v zstd >/dev/null 2>&1; then
+            echo "Error: zstd is not installed"
+            echo "Install it with:"
+            echo "  macOS: brew install zstd"
+            echo "  Linux: apt-get install zstd (or equivalent)"
+            exit 1
+          fi
+          
+          zstd -d "${IMAGE_ZST}" -o "${IMAGE_RAW}"
+          
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to extract Talos image"
+            exit 1
+          fi
+        else
+          echo "Raw image already exists, skipping extraction"
+        fi
+        
+        # Convert raw image to QCOW2 format (required for Incus VMs)
+        if [ ! -f "${IMAGE_QCOW2}" ]; then
+          echo "Converting raw image to QCOW2 format..."
+          
+          # Check if qemu-img is available
+          if ! command -v qemu-img >/dev/null 2>&1; then
+            echo "Error: qemu-img is not installed"
+            echo "Install it with:"
+            echo "  macOS: brew install qemu"
+            echo "  Linux: apt-get install qemu-utils (or equivalent)"
+            exit 1
+          fi
+          
+          qemu-img convert -f raw -O qcow2 "${IMAGE_RAW}" "${IMAGE_QCOW2}"
+          
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to convert image to QCOW2"
+            exit 1
+          fi
+          
+          echo "Image converted successfully"
+        else
+          echo "QCOW2 image already exists, skipping conversion"
+        fi
+        
+        echo ""
+        echo "Talos VM image ready at: ${IMAGE_QCOW2}"
+        echo "You can now launch VMs using this image"
 
-  create-network-bridge:
-    desc: Creates a network bridge for VMs on the physical network
+  create-physical-network:
+    desc: Creates a physical network for direct attachment to the host network
     cmds:
       - |
         set -euo pipefail
@@ -89,42 +164,69 @@ tasks:
           exit 1
         fi
         
-        if [ -z "{{.INCUS_REMOTE_IP_0}}" ]; then
-          echo "Error: INCUS_REMOTE_IP_0 variable is not defined"
-          echo "Example: INCUS_REMOTE_IP_0=192.168.2.101"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        
+        # Default physical interface name (most common on NUCs)
+        # User can override by setting PHYSICAL_INTERFACE environment variable
+        PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE:-eno1}"
+        
+        echo "Creating physical network for direct attachment"
+        echo "Remote: ${REMOTE}"
+        echo "Physical interface: ${PHYSICAL_INTERFACE}"
+        echo ""
+        echo "Note: This assumes you've already added the 'instances' role to ${PHYSICAL_INTERFACE}"
+        echo "      using 'incus admin os system network edit'"
+        echo ""
+        
+        # Check if network already exists
+        if incus network show "${REMOTE}:${PHYSICAL_INTERFACE}" >/dev/null 2>&1; then
+          # Verify it's a physical network type
+          NETWORK_JSON=$(incus network show "${REMOTE}:${PHYSICAL_INTERFACE}" --format json 2>/dev/null || echo "")
+          
+          if [ -n "${NETWORK_JSON}" ]; then
+            NETWORK_TYPE=$(echo "${NETWORK_JSON}" | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "")
+            
+            if [ "${NETWORK_TYPE}" = "physical" ]; then
+              echo "Physical network '${PHYSICAL_INTERFACE}' already exists on remote '${REMOTE}'"
+              echo "Network type: ${NETWORK_TYPE} ✓"
+              echo "Skipping creation - network is already correctly configured."
+              exit 0
+            else
+              echo "Warning: Network '${PHYSICAL_INTERFACE}' exists but is type '${NETWORK_TYPE}', not 'physical'"
+              echo "You may need to delete it first: incus network delete ${REMOTE}:${PHYSICAL_INTERFACE}"
+              echo "Then run this task again to create it as a physical network."
+              exit 1
+            fi
+          else
+            # Network show failed, but check returned success - network might not exist
+            echo "Network '${PHYSICAL_INTERFACE}' check failed, proceeding with creation..."
+          fi
+        fi
+        
+        # Create the physical network
+        echo "Creating physical network '${PHYSICAL_INTERFACE}'..."
+        
+        # Capture both stdout and stderr to see the actual error
+        if ! incus network create "${REMOTE}:${PHYSICAL_INTERFACE}" parent="${PHYSICAL_INTERFACE}" --type=physical 2>&1; then
+          echo ""
+          echo "Error: Failed to create physical network"
+          echo ""
+          echo "Common causes:"
+          echo "1. The 'instances' role has not been added to ${PHYSICAL_INTERFACE}"
+          echo "   Run: incus admin os system network edit"
+          echo "   Add 'instances' to the roles list for ${PHYSICAL_INTERFACE}"
+          echo ""
+          echo "2. The interface ${PHYSICAL_INTERFACE} doesn't exist or isn't available"
+          echo "   Check available interfaces with: incus admin os system network show"
+          echo ""
+          echo "3. The interface name is incorrect"
+          echo "   Set PHYSICAL_INTERFACE environment variable if your interface has a different name"
           exit 1
         fi
         
-        BRIDGE_NAME="physical-bridge"
-        REMOTE="{{.INCUS_REMOTE_NAME}}"
-        
-        # Check if bridge already exists
-        if incus network show "${REMOTE}:${BRIDGE_NAME}" >/dev/null 2>&1; then
-          echo "Network bridge '${BRIDGE_NAME}' already exists on remote '${REMOTE}'"
-          echo "Skipping creation. Use 'incus network delete ${REMOTE}:${BRIDGE_NAME}' to remove it first."
-          exit 0
-        fi
-        
-        # Extract network information from host IP
-        HOST_IP="{{.INCUS_REMOTE_IP_0}}"
-        NETWORK_BASE=$(echo "${HOST_IP}" | cut -d'.' -f1-3)
-        NETWORK="${NETWORK_BASE}.0/24"
-        GATEWAY="${NETWORK_BASE}.1"
-        
-        echo "Creating network bridge '${BRIDGE_NAME}' on remote '${REMOTE}'"
-        echo "Network: ${NETWORK}"
-        echo "Gateway: ${GATEWAY}"
-        
-        # Create the bridge network
-        incus network create "${REMOTE}:${BRIDGE_NAME}" \
-          bridge.external_interfaces=eno1 \
-          ipv4.address="${NETWORK}" \
-          ipv4.nat=true \
-          ipv4.dhcp=true \
-          ipv4.dhcp.gateway="${GATEWAY}" \
-          ipv4.dhcp.ranges="${NETWORK_BASE}.100-${NETWORK_BASE}.254"
-        
-        echo "Network bridge '${BRIDGE_NAME}' created successfully"
+        echo ""
+        echo "Physical network '${PHYSICAL_INTERFACE}' created successfully"
+        echo "VMs attached to this network will get IP addresses directly from your physical network's DHCP server"
 
   launch-talos-vm:
     desc: Launches a Talos VM on IncusOS
@@ -178,12 +280,12 @@ tasks:
         fi
         
         REMOTE="{{.INCUS_REMOTE_NAME}}"
-        IMAGE_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/talos/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        IMAGE_QCOW2="contexts/{{.WINDSOR_CONTEXT}}/devices/talos/talos-metal-amd64.qcow2"
         
         # Check if image exists
-        if [ ! -f "${IMAGE_FILE}" ]; then
-          echo "Error: Talos image not found at ${IMAGE_FILE}"
-          echo "Run 'task incus:download-talos-image' first to download the image"
+        if [ ! -f "${IMAGE_QCOW2}" ]; then
+          echo "Error: Talos VM image not found at ${IMAGE_QCOW2}"
+          echo "Run 'task incus:download-talos-image' first to download and prepare the image"
           exit 1
         fi
         
@@ -195,35 +297,63 @@ tasks:
         fi
         
         # Import the Talos image if not already imported
-        IMAGE_ALIAS="talos-cloud-{{.TALOS_IMAGE_VERSION}}-{{.TALOS_IMAGE_ARCH}}"
+        IMAGE_ALIAS="talos-{{.TALOS_IMAGE_VERSION}}-metal-amd64"
         if ! incus image list "${REMOTE}:" --format json | grep -q "\"aliases\".*\"${IMAGE_ALIAS}\""; then
-          echo "Importing Talos image..."
-          incus image import "${IMAGE_FILE}" "${REMOTE}" --alias "${IMAGE_ALIAS}"
+          echo "Importing Talos VM image..."
+          
+          # Create temporary directory for metadata
+          TEMP_DIR=$(mktemp -d)
+          METADATA_FILE="${TEMP_DIR}/metadata.yaml"
+          METADATA_TAR="${TEMP_DIR}/metadata.tar.gz"
+          
+          # Create metadata.yaml for the image using printf to avoid heredoc issues
+          CREATION_DATE=$(date +%s)
+          printf "architecture: x86_64\n" > "${METADATA_FILE}"
+          printf "creation_date: %s\n" "${CREATION_DATE}" >> "${METADATA_FILE}"
+          printf "properties:\n" >> "${METADATA_FILE}"
+          printf "  description: Talos Linux {{.TALOS_IMAGE_VERSION}} for VMs\n" >> "${METADATA_FILE}"
+          printf "  os: Talos\n" >> "${METADATA_FILE}"
+          printf "  release: {{.TALOS_IMAGE_VERSION}}\n" >> "${METADATA_FILE}"
+          
+          # Create metadata tarball
+          tar -czf "${METADATA_TAR}" -C "${TEMP_DIR}" metadata.yaml
+          
+          # Import image with metadata (metadata tarball first, then disk image)
+          incus image import "${METADATA_TAR}" "${IMAGE_QCOW2}" "${REMOTE}:" --alias "${IMAGE_ALIAS}"
+          
+          # Cleanup
+          rm -rf "${TEMP_DIR}"
         fi
         
-        # Extract network base from VM IP for bridge network
-        NETWORK_BASE=$(echo "${VM_IP}" | cut -d'.' -f1-3)
-        BRIDGE_NAME="physical-bridge"
+        # Use the physical network interface (default: eno1)
+        # This should match the interface you configured in Step 4
+        PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE:-eno1}"
         
         echo "Launching Talos VM '${VM_NAME}' on remote '${REMOTE}'"
         echo "IP address: ${VM_IP}"
         echo "Image: ${IMAGE_ALIAS}"
+        echo "Network: ${PHYSICAL_INTERFACE} (physical network)"
         
-        # Launch the VM
+        # Launch the VM with the physical network
+        # Disable Secure Boot for Talos Linux (it doesn't support Secure Boot)
         incus launch "${REMOTE}:${IMAGE_ALIAS}" "${REMOTE}:${VM_NAME}" \
           --vm \
-          --network "${BRIDGE_NAME}" \
+          --network "${PHYSICAL_INTERFACE}" \
           --config limits.memory=2GB \
           --config limits.cpu=2 \
-          --config boot.autostart=true
+          --config boot.autostart=true \
+          --config security.secureboot=false
+        
+        # Ensure the root disk is bootable with highest priority
+        # Override the root device to set boot priority (since it comes from profile)
+        incus config device override "${REMOTE}:${VM_NAME}" root boot.priority=1
         
         # Wait for VM to start
         echo "Waiting for VM to start..."
         sleep 5
         
-        # Configure static IP (if needed, this may require cloud-init or network config)
-        # For now, we'll rely on DHCP from the bridge network
-        # The VM should get an IP from the DHCP range, but we can verify
+        # The VM will get an IP address directly from your physical network's DHCP server
+        # The IP address specified in VM_IP is informational - the actual IP will be assigned by DHCP
         
         echo "VM '${VM_NAME}' launched successfully"
         echo "VM IP should be: ${VM_IP}"
@@ -240,7 +370,7 @@ tasks:
         echo ""
         echo "Talos VM Deployment:"
         echo "    task incus:download-talos-image"
-        echo "    task incus:create-network-bridge"
+        echo "    task incus:create-physical-network"
         echo "    task incus:launch-talos-vm -- <vm-name> <vm-ip>"
         echo ""
         echo "Also see [Incus docs](https://linuxcontainers.org/incus-os/docs/main/getting-started/)"

@@ -1376,7 +1376,7 @@ tasks:
         # Apply configuration to control plane
         echo "Applying control plane configuration to: ${CONTROL_PLANE_IP}"
         echo "Note: Nodes must be running Talos (booted from the image) for this to work"
-        talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${CONTROL_PLANE_IP}" --file {{WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/controlplane.yaml
+        talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${CONTROL_PLANE_IP}" --file {{.WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/controlplane.yaml
         
         # Apply configuration to worker nodes (if any)
         shift  # Remove control plane IP from arguments
@@ -1398,7 +1398,7 @@ tasks:
             fi
             
             echo "Applying config to worker node: ${ip}"
-            talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${ip}" --file {{WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/worker.yaml
+            talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${ip}" --file {{.WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/worker.yaml
           done
         else
           echo "No worker nodes specified"
