@@ -6,6 +6,7 @@ nav:
     - Workspace Initialization: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
     - Incus: runbooks/incus/incus-setup.md
+    - Ubuntu: runbooks/ubuntu/ubuntu-setup.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md

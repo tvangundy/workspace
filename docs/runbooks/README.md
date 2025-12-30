@@ -15,19 +15,31 @@ The runbooks serve as instructional guides that break down the implementation pr
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
 
-## 🚀 [Initialize Workspace](./workspace/init.md)
+## Available Runbooks
+
+### 🚀 [Initialize Workspace](./workspace/init.md)
 Step-by-step guide for initializing a new workspace using the workspace initialization task and Windsor CLI. This is typically the first step when starting a new project, covering workspace structure creation, directory setup, and Windsor CLI initialization with proper context configuration.
 
-## 🐳 [Incus Setup](./incus/incus-setup.md)
+### 🔐 [Secrets Management](./secrets/secrets.md)
+Complete guide for managing encrypted secrets using SOPS (Secrets Operations). Learn how to generate, encrypt, decrypt, and manage secrets within your workspace contexts, including integration with Windsor CLI.
+
+### 🐳 [Incus Setup](./incus/incus-setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
-## 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
+### 🐧 [Ubuntu Setup](./ubuntu/ubuntu-setup.md)
+Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.
+
+### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
 
-## 🏠 [Home Assistant](./home-assistant/README.md)
+- **[Raspberry Pi Bootstrapping](./bootstrapping/rpi-bootstrapping.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
+- **[Intel NUC Bootstrapping](./bootstrapping/nuc-bootstrapping.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
+- **[Sidero Omni Bootstrapping](./bootstrapping/omni-bootstrapping.md)**: Bootstrapping Talos clusters using Sidero Omni for bare metal provisioning
+
+### 🏠 [Home Assistant](./home-assistant/README.md)
 Complete guide for deploying a home automation platform with container-based deployment, SSL/TLS configuration, persistent storage, and high-availability setup.
 
-## 🏃 GitHub Actions Runners
+### 🏃 GitHub Actions Runners
 Step-by-step guides for setting up self-hosted GitHub Actions runners on various platforms. These runbooks cover installing and configuring runners on Windows, Ubuntu, and macOS systems, enabling you to run CI/CD workflows on your own infrastructure.
 
 - **[Ubuntu Runner Setup](./runners/ubuntu-runner-setup.md)**: Configure Ubuntu-based runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices
