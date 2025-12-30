@@ -57,6 +57,7 @@ environment:
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
+
 - `<your-schematic-id>`: The schematic ID from the Talos image factory
 - Cluster name and IP addresses: Your cluster configuration
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)

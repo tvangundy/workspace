@@ -112,6 +112,7 @@ environment:
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
+
 - `INCUS_REMOTE_NAME`: The name of your Incus remote (from `incus remote list`)
 - `INCUS_REMOTE_IP_0`: The IP address of your IncusOS host
 - `CONTROL_PLANE_IP`, `WORKER_0_IP`, `WORKER_1_IP`: Available IP addresses on your network for the VMs (these will be assigned by DHCP)
@@ -509,9 +510,15 @@ kubectl get nodes
 
 You should see all three nodes listed:
 - 1 control plane node (with `control-plane` role)
-- 2 worker nodes
+- 2 worker nodes (showing `<none>` in the ROLES column - this is normal)
 
 All nodes should show a "Ready" status.
+
+**Note**: In Kubernetes, worker nodes don't have a role label by default. Only control plane nodes get the `node-role.kubernetes.io/control-plane` label automatically. Worker nodes will show `<none>` in the ROLES column, which is expected behavior. You can verify they are worker nodes by checking that they don't have the control-plane label:
+
+```bash
+kubectl get nodes --show-labels | grep -v control-plane
+```
 
 ## Verification
 

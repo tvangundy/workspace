@@ -217,6 +217,7 @@ incus remote add <remote-name> https://<nuc-ip-address>:8443
 ```
 
 Replace:
+
 - `<remote-name>` with a name for this remote (e.g., `nuc`, `incus-server`, `forest-shadows`)
 - `<nuc-ip-address>` with the actual IP address of your NUC (e.g., `192.168.2.101`)
 
