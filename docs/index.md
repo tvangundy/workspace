@@ -6,57 +6,25 @@ description: "Welcome to Workspaces"
 
 # Welcome to Workspace
 
-A curated collection of production-ready infrastructure implementations and automation solutions. These examples demonstrate real-world applications of modern cloud technologies, container orchestration, and infrastructure-as-code practices. Each project is designed to be both educational and immediately useful, providing practical solutions that can be adapted for your own infrastructure needs.
+A curated collection of infrastructure implementations and automation solutions. This workspace provides comprehensive runbooks that demonstrate real-world applications of modern cloud technologies, container orchestration, and infrastructure-as-code practices. Each runbook is designed to be both educational and immediately useful, providing practical solutions that can be adapted for your own infrastructure needs.
 
 ## Getting Started
 
 1. Review the [Installation Guide](install.md)
-2. Explore the [Examples](#examples)
-3. Explore [runbooks](#runbooks)
-
-## Examples
-This collection of example projects comes from the [workspace repository](https://github.com/tvangundy/workspace) and features infrastructure automation, technical solutions, and more. Each example represents real-world solutions that can be easily adapted for your own projects. The collection continues to grow as new technologies and approaches are explored. Feel free to use these examples as a starting point.
-
-*Note: All examples are currently under development.*
-
-### 🏠 [Home Assistant](./examples/home-assistant.md)
-A complete home automation setup with container-based deployment, SSL/TLS configuration, persistent storage management, add-on integration, monitoring and logging, high-availability setup, and backup/restore procedures.
-
-### 🔒 [WireGuard](./examples/wireguard.md)
-A secure VPN solution featuring automated key management, client configuration, DNS integration, NAT traversal, and security best practices.
-
-### 🌐 [Tailscale](./examples/tailscale.md)
-A modern VPN solution offering zero-configuration setup, mesh networking, access control lists, MagicDNS integration, and cross-platform support.
-
-### ⚙️ [Sidero Omni](./examples/sidero-omni.md)
-A bare metal Kubernetes solution providing automated provisioning, hardware management, cluster lifecycle management, resource optimization, and high availability.
-
-### ☁️ [AWS Web Cluster](./examples/aws-web-cluster.md)
-A scalable web application infrastructure with multi-AZ deployment, auto-scaling configuration, load balancing, database replication, and monitoring/alerting.
-
-### ⛓️ [Ethereum](./examples/ethereum.md)
-A blockchain development environment including local development chain, smart contract deployment, testing framework, monitoring tools, and gas optimization.
-
-### 🔄 [Hybrid Cloud](./examples/hybrid-cloud.md)
-A multi-cloud infrastructure featuring cross-cloud deployment, unified monitoring, data synchronization, security policies, and cost optimization.
+2. Explore [runbooks](#runbooks)
 
 ## Runbooks
 
-The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides that walk you through building complete deployment from the ground up. These instructional guides break down the implementation process into clear, actionable steps, making them ideal for learning and adapting infrastructure patterns to your own environment.
-
-### How Runbooks and Examples Work Together
-
-- **Runbooks** (`./runbooks/`): Step-by-step instructional guides that teach you **how** to build your own deployment. Follow these runbooks to understand each step of the process and create your own implementation.
-
-- **Examples** (`./examples/`): Working, production-ready deployments that serve as reference implementations. Use these to **compare** your implementation against a tested, working solution. The examples are also used for regression testing to ensure patterns remain functional.
-
-By following a runbook, you'll build your own deployment step-by-step. You can then compare your implementation with the corresponding example to verify it matches the reference implementation and understand any differences.
+The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides that walk you through building complete deployments from the ground up. These instructional guides break down the implementation process into clear, actionable steps, making them ideal for learning and adapting infrastructure patterns to your own environment.
 
 ### Available Runbooks
 
 - **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
 - **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
+- **[Incus Setup](./runbooks/incus/incus-setup.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
 - **GitHub Actions Runners**: Guides for setting up self-hosted runners on Ubuntu, Windows, and macOS
+- **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
+- **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
 
 ## Getting Help
 

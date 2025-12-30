@@ -1,0 +1,34 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  web-ui:
+    desc: Opens the Incus Web UI
+    cmds:
+      - |
+        # Open Incus web UI in browser
+        if [[ "$(uname)" == "Darwin" ]]; then
+          open https://{{.INCUS_REMOTE_IP_0}}:8443/
+        elif [[ "$(uname)" == "Linux" ]]; then
+          xdg-open https://{{.INCUS_REMOTE_IP_0}}:8443/ 2>/dev/null || sensible-browser https://{{.INCUS_REMOTE_IP_0}}:8443/ 2>/dev/null || echo "Please open https://{{.INCUS_REMOTE_IP_0}}:8443/ in your browser"
+        else
+          echo "Please open https://{{.INCUS_REMOTE_IP_0}}:8443/ in your browser"
+        fi
+
+  create-instance:
+    desc: Creates an Incus instance
+    cmds:
+      - incus launch images:ubuntu/22.04 my-container
+
+  help:
+    desc: Incus related commands
+    cmds:
+      - |
+        echo "Incus"
+        echo ""
+        echo "    task incus:web-ui"
+        echo "    task incus:create-instance"
+        echo ""
+        echo "Also see [Incus docs](https://linuxcontainers.org/incus-os/docs/main/getting-started/)"
+    silent: true

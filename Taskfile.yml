@@ -2,9 +2,6 @@
 
 version: '3'
 
-vars:
-  EXAMPLES_DIR: examples
-
 includes:
   workspace: ./tasks/workspace
   sops: ./tasks/sops
@@ -12,27 +9,28 @@ includes:
   docker: tasks/docker
   vhs: tasks/vhs
   talos: tasks/talos
+  incus: tasks/incus
 
 tasks:
-  how-to-examples:
+  help:
     silent: true
+    desc: Workspace help
     cmds:
-      - echo "Welcome to Workspace Documentation!"
-      - echo "Available examples:"
       - |
-        for dir in {{.EXAMPLES_DIR}}/*/; do
-          if [ -f "${dir}Taskfile.yml" ]; then
-            echo "- $(basename ${dir%/})"
-          fi
-        done
-      - echo ""
-      - echo "To work with an example:"
-      - echo "1. cd {{.EXAMPLES_DIR}}/<example-name>"
-      - echo "2. Read the README.md for detailed instructions"
-      - echo "3. Run the tasks"
-      - echo ""
-      - echo "Visit https://tvangundy.github.io"
+        echo "Workspace help"
+        echo ""
+        echo "    task help"
+        echo ""
 
+        # Open documentation site in browser
+        if [[ "$(uname)" == "Darwin" ]]; then
+          open https://tvangundy.github.io
+        elif [[ "$(uname)" == "Linux" ]]; then
+          xdg-open https://tvangundy.github.io 2>/dev/null || sensible-browser https://tvangundy.github.io 2>/dev/null || echo "Please open https://tvangundy.github.io in your browser"
+        else
+          echo "Please open https://tvangundy.github.io in your browser"
+        fi
+        
   default:
     cmds:
       - |
@@ -43,7 +41,7 @@ tasks:
         echo ""
         echo "Available namespaces"
         echo ""
-        echo "workspace, device, sops, docker, vhs, talos"
+        echo "workspace, device, sops, docker, vhs, talos, incus"
         echo ""
         echo "To run a task:"
         echo "    task <namespace>:<task>"

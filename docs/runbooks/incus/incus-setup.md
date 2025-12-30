@@ -84,7 +84,7 @@ Visit the [IncusOS Customizer](https://incusos-customizer.linuxcontainers.org/ui
 
 Use the `task device:list-disks` command to get a list of disks. Set the `USB_DISK` environment variable as shown below.
 
-### Add these lines to ./contexts/`<context>`/windsor.yaml
+### Add these lines to ./contexts/incus/windsor.yaml
 
 ```yaml
 environment:
@@ -92,11 +92,13 @@ environment:
   
   # Path to the downloaded IncusOS image file
   INCUS_IMAGE_FILE: "/Users/$USER/Downloads/IncusOS_202512250102.img"
+  INCUS_REMOTE_IP_0: 192.168.2.101
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
 - `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 2)
+- `INCUS_REMOTE_IP_0`: IP for a remote incus server
 
 ### Prepare Image in Workspace
 

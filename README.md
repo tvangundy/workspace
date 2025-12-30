@@ -1,12 +1,11 @@
 # Workspace
 
-A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides both **runbooks** (step-by-step guides to build your own) and **working examples** (reference implementations you can compare against) for infrastructure deployments.
+A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides **runbooks** (step-by-step guides to build your own deployments) for infrastructure deployments.
 
 ## What You'll Find Here
 
 - **Runbooks**: Step-by-step guides that walk you through building complete deployments from the ground up
-- **Working Examples**: Production-ready implementations that serve as reference code and are used for regression testing
-- Real-world implementation examples
+- Real-world implementation patterns
 - Infrastructure automation solutions
 - Security and networking configurations
 - Reference architectures and patterns
@@ -14,10 +13,8 @@ A collection of practical implementations, automation solutions, and infrastruct
 ## Getting Started
 
 1. Review the [Installation Guide](./docs/install.md) to set up your environment
-2. **Choose your approach**:
-   - **Learn by building**: Follow a [runbook](./docs/runbooks/README.md) to build your own deployment step-by-step
-   - **Use as reference**: Explore the [examples](./docs/examples/index.md) folder to find working implementations you can adapt
-3. **Compare and verify**: If you followed a runbook, compare your implementation with the corresponding example to verify it matches the reference
+2. **Follow a runbook**: Choose a [runbook](./docs/runbooks/README.md) that matches your needs and follow it step-by-step to build your deployment
+3. **Customize as needed**: Once you understand the pattern, adapt it to your specific requirements
 
 ## Using Taskfile
 
@@ -53,6 +50,16 @@ task sops:help
 task device:help
 ```
 
+### Quick Access to Documentation
+
+Run `task help` to open the documentation site in your browser:
+
+```bash
+task help
+```
+
+This will automatically open https://tvangundy.github.io in your default browser, providing quick access to all documentation and runbooks.
+
 ### Dry Run Mode
 
 To see what command would be executed without actually running it, use the `--dry` flag:
@@ -73,54 +80,23 @@ tasks/
 ├── device/        # Device management tasks
 ├── docker/        # Docker-related tasks
 ├── vhs/           # VHS terminal recording tasks
-└── talos/         # Talos cluster tasks
+├── talos/         # Talos cluster tasks
+└── incus/         # Incus tasks
 ```
 
 This pattern keeps related tasks grouped together and makes it easy to add new namespaces as needed.
 
-## Examples vs. Runbooks
+## Runbooks
 
-This workspace provides two complementary resources:
+This workspace provides comprehensive runbooks that guide you through building infrastructure deployments step-by-step:
 
 - **Runbooks** (`/docs/runbooks/`): Instructional guides that teach you **how** to build deployments. Follow these step-by-step to understand each part of the process and create your own implementation.
 
-- **Examples** (`/examples/`): Working, production-ready deployments that serve as reference implementations. Use these to **compare** your implementation against a tested, working solution. The examples are also used for regression testing to ensure patterns remain functional.
-
-By following a runbook, you'll build your own deployment step-by-step. You can then compare your implementation with the corresponding example to verify it matches the reference implementation and understand any differences.
-
-
-## How to use the examples
-
-Each example directory contains a Taskfile.yml and a README.md. To get started, read the README.md for specific instructions and run the 'task' command to execute predefined tasks.
-
-### File Structure for each example
-
-```
-examples/
-└── < example-name >/      # Example directory
-    ├── Taskfile.yml       # Task definitions for the example
-    ├── README.md          # Example-specific documentation
-    └── ...                # Additional example files
-```
-
-### Required Components
-
-#### 1. Taskfile.yml
-   - Define common tasks (setup, run, test, clean)
-   - Include clear task descriptions
-   - Use consistent task naming across examples
-
-#### 2. README.md
-   - Overview of the example
-   - Prerequisites and requirements
-   - Quick start guide
-   - Links to detailed documentation
-
-#### 3. Documentation
-   - Create a markdown file in `docs/examples/`
-   - Include detailed setup instructions
-   - Document configuration options
-   - Provide troubleshooting guidance
+Each runbook provides detailed instructions from initial setup through final deployment, making them ideal for:
+- **New users** learning to build infrastructure from scratch
+- **Developers** who want to understand the implementation details
+- **Teams** adapting these patterns to their own environments
+- **Anyone** who prefers a guided, step-by-step approach
 
 ## Repository Structure
 
@@ -129,34 +105,19 @@ examples/
 │   ├── runbooks/         # Runbook guides
 │   │   ├── bootstrapping/  # Node bootstrapping guides
 │   │   ├── home-assistant/ # Home Assistant deployment guide
+│   │   ├── incus/          # Incus setup guide
 │   │   ├── runners/        # GitHub Actions runner setup guides
-│   │   └── README.md       # Runbooks overview
-│   ├── examples/         # Example documentation
-│   │   ├── aws-web-cluster.md
-│   │   ├── ethereum.md
-│   │   ├── home-assistant.md
-│   │   ├── hybrid-cloud.md
-│   │   ├── index.md
-│   │   ├── sidero-omni.md
-│   │   ├── tailscale.md
-│   │   └── wireguard.md
+│   │   ├── secrets/        # Secrets management guide
+│   │   └── workspace/      # Workspace initialization guide
 │   └── install.md        # Installation guide
-├── examples/             # Working reference implementations
-│   ├── aws-web-cluster/
-│   ├── ethereum/
-│   ├── home-assistant/
-│   ├── hybrid-cloud/
-│   ├── sidero-omni/
-│   ├── tailscale/
-│   └── wireguard/
 ├── tasks/               # Namespaced task definitions
 │   ├── sops/            # SOPS encryption/decryption tasks
 │   ├── device/          # Device management tasks
 │   ├── docker/          # Docker-related tasks
 │   ├── vhs/             # VHS terminal recording tasks
-│   └── talos/           # Talos cluster tasks
-├── mkdocs.yml           # MkDocs configuration
-├── overrides/           # MkDocs theme customizations
+│   ├── talos/           # Talos cluster tasks
+│   └── incus/           # Incus tasks
+├── contexts/            # Windsor context configurations
 └── Taskfile.yml         # Main task definitions with namespace includes
 ```
 
@@ -183,6 +144,7 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file included
 
 ## Getting Help
 
+- **Quick access**: Run `task help` to open the documentation site in your browser
 - Documentation: [Documentation Site](https://tvangundy.github.io)
 - Issues: [GitHub Issues](https://github.com/tvangundy/workspace/issues)
 - Discussions: [GitHub Discussions](https://github.com/tvangundy/workspace/discussions)
@@ -190,4 +152,4 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file included
 ## Acknowledgments
 
 - Contributors
-- Open source projects used in examples
+- Open source projects used in implementations

@@ -4,7 +4,7 @@ description: "Installation Guide"
 ---
 # Installation Guide
 
-Get started with the workspace by following these installation steps. You'll need a few basic tools installed on your development workstation to run the examples and explore the documentation.
+Get started with the workspace by following these installation steps. You'll need a few basic tools installed on your development workstation to work with the runbooks and explore the documentation.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ windsor --version
 
 ## Workspace Setup
 
-Now that you have all the prerequisites installed, let's set up your workspace. This will create a local development environment with all the necessary tools and configurations to run the examples.
+Now that you have all the prerequisites installed, let's set up your workspace. This will create a local development environment with all the necessary tools and configurations to work with the runbooks.
 
 #### Clone the Repository
 ```bash
@@ -59,14 +59,6 @@ cd workspace
 aqua install
 ```
 
-#### Change to the appropriate example folder and read the README.md
+#### Get Started with Runbooks
 
-Available examples:
-
-- [AWS Web Cluster](./examples/aws-web-cluster.md)
-- [Ethereum](./examples/ethereum.md)
-- [Home Assistant](./examples/home-assistant.md)
-- [Hybrid Cloud](./examples/hybrid-cloud.md)
-- [Sidero Omni](./examples/sidero-omni.md)
-- [Tailscale](./examples/tailscale.md)
-- [Wireguard](./examples/wireguard.md)
+Explore the available [runbooks](./runbooks/README.md) to find step-by-step guides for building infrastructure deployments. Each runbook provides detailed instructions from initial setup through final deployment.

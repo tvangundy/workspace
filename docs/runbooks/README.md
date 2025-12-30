@@ -4,27 +4,16 @@ description: "Step-by-step runbooks for building deployments from the ground up"
 ---
 # Runbooks
 
-Welcome to the runbooks section! This folder contains comprehensive, step-by-step guides that walk you through building complete deployments from the ground up. Each runbook is designed to help new users understand and implement the infrastructure patterns demonstrated in the examples folder.
+Welcome to the runbooks section! This folder contains comprehensive, step-by-step guides that walk you through building complete deployments from the ground up. Each runbook is designed to help new users understand and implement infrastructure patterns.
 
 ## Purpose
 
-The runbooks serve as instructional guides that break down the implementation process into clear, actionable steps. While the examples folder contains working reference implementations that are used for regression testing and serve as the "final product," the runbooks focus on the **how** and **why** behind each step, making them ideal for:
+The runbooks serve as instructional guides that break down the implementation process into clear, actionable steps, making them ideal for:
 
 - **New users** learning to build infrastructure from scratch
 - **Developers** who want to understand the implementation details
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
-
-## How Runbooks Relate to Examples
-
-The examples and runbooks work together:
-
-- **Examples** : Are production-ready, tested implementations that serve as reference code and are used for regression testing. These are the "what" - the complete, working solution.
-
-- **Runbooks** : Provide the "how" - detailed, step-by-step instructions that guide you through building a deployment that matches the corresponding example implementation.
-
-By following a runbook, you'll end up with a deployment that implements the same patterns and achieves the same results as the corresponding example in the examples folder.
-
 
 ## Available Runbooks
 
@@ -69,9 +58,7 @@ Additional runbooks are being developed for:
 
 3. **Follow step-by-step**: Each runbook provides detailed instructions from initial setup through final deployment
 
-4. **Reference the example**: Compare your implementation with the corresponding example in the `/examples/` folder to verify your deployment matches the reference implementation
-
-5. **Customize as needed**: Once you understand the pattern, adapt it to your specific requirements
+4. **Customize as needed**: Once you understand the pattern, adapt it to your specific requirements
 
 ## Tips for Success
 
@@ -79,7 +66,6 @@ Additional runbooks are being developed for:
 - **Follow steps in order**: Each step builds on the previous one
 - **Check prerequisites**: Ensure all required tools and access are available before beginning
 - **Test incrementally**: Verify each step works before moving to the next
-- **Consult the example**: When in doubt, refer to the working example implementation
 
 ## Getting Help
 

@@ -1,22 +1,13 @@
 nav:
   - Home: index.md
   - Installation: install.md
-  - Examples:
-    - Introduction: examples/index.md
-    - Home Assistant: examples/home-assistant.md
-    - WireGuard: examples/wireguard.md
-    - Tailscale: examples/tailscale.md
-    - Sidero Omni: examples/sidero-omni.md
-    - AWS Web Cluster: examples/aws-web-cluster.md
-    - Ethereum: examples/ethereum.md
-    - Hybrid Cloud: examples/hybrid-cloud.md
   - Runbooks:
     - Introduction: runbooks/README.md
     - Workspace Initialization: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
+    - Incus: runbooks/incus/incus-setup.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
-      - Incus: runbooks/incus/incus-setup.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
       - Intel NUC: runbooks/bootstrapping/nuc-bootstrapping.md
       - Sidero Omni: runbooks/bootstrapping/omni-bootstrapping.md
