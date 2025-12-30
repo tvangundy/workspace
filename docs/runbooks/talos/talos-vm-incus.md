@@ -130,14 +130,14 @@ Launch the three VMs that will form your Talos cluster:
 ### Launch Control Plane VM
 
 ```bash
-task incus:launch-talos-vm -- {{.CONTROL_PLANE_VM}} {{.CONTROL_PLANE_IP}}
+task incus:launch-talos-vm -- $CONTROL_PLANE_VM $CONTROL_PLANE_IP
 ```
 
 ### Launch Worker VMs
 
 ```bash
-task incus:launch-talos-vm -- {{.WORKER_0_VM}} {{.WORKER_0_IP}}
-task incus:launch-talos-vm -- {{.WORKER_1_VM}} {{.WORKER_1_IP}}
+task incus:launch-talos-vm -- $WORKER_0_VM $WORKER_0_IP
+task incus:launch-talos-vm -- $WORKER_1_VM $WORKER_1_IP
 ```
 
 **Note**: The VMs will boot and start Talos. Wait a few minutes for them to fully boot before proceeding to the next step.
@@ -161,9 +161,9 @@ Wait for the VMs to fully boot and become accessible. You can check their status
 incus list <remote-name>:
 
 # Ping the VMs to verify network connectivity
-ping -c 3 {{.CONTROL_PLANE_IP}}
-ping -c 3 {{.WORKER_0_IP}}
-ping -c 3 {{.WORKER_1_IP}}
+ping -c 3 $CONTROL_PLANE_IP
+ping -c 3 $WORKER_0_IP
+ping -c 3 $WORKER_1_IP
 ```
 
 **Note**: It may take 2-3 minutes for the VMs to fully boot and become accessible.
@@ -188,7 +188,7 @@ This generates:
 Apply the Talos configuration to all three VMs:
 
 ```bash
-task device:apply-configuration -- {{.CONTROL_PLANE_IP}} {{.WORKER_0_IP}} {{.WORKER_1_IP}}
+task device:apply-configuration -- $CONTROL_PLANE_IP $WORKER_0_IP $WORKER_1_IP
 ```
 
 This command will:
@@ -202,7 +202,7 @@ After the configuration is applied, the VMs will reboot and join the cluster.
 Configure the Talos client to use the correct endpoints:
 
 ```bash
-task device:set-endpoints -- {{.CONTROL_PLANE_IP}}
+task device:set-endpoints -- $CONTROL_PLANE_IP
 ```
 
 This sets the control plane IP as the endpoint for Talos API access.
@@ -212,7 +212,7 @@ This sets the control plane IP as the endpoint for Talos API access.
 Wait for the control plane VM to finish booting (usually 1-2 minutes after Step 8), then bootstrap the etcd cluster:
 
 ```bash
-task device:bootstrap-etc-cluster -- {{.CONTROL_PLANE_IP}}
+task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
 ```
 
 **Important**: Run this command ONCE on a SINGLE control plane node. This initializes the etcd cluster that stores Kubernetes cluster state.
@@ -222,7 +222,7 @@ task device:bootstrap-etc-cluster -- {{.CONTROL_PLANE_IP}}
 Download the kubeconfig file to access your Kubernetes cluster:
 
 ```bash
-task device:retrieve-kubeconfig -- {{.CONTROL_PLANE_IP}}
+task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 ```
 
 This downloads the kubeconfig to `contexts/<context>/.kube/config`.
@@ -232,7 +232,7 @@ This downloads the kubeconfig to `contexts/<context>/.kube/config`.
 Check that all nodes are healthy:
 
 ```bash
-task device:cluster-health -- {{.CONTROL_PLANE_IP}}
+task device:cluster-health -- $CONTROL_PLANE_IP
 ```
 
 This will show the health status of all nodes in your cluster.
@@ -326,14 +326,14 @@ incus console <remote-name>:<vm-name>
 
 - Verify VMs are fully booted before applying configuration
 - Check that IP addresses are correct and reachable
-- Ensure talosctl can connect: `talosctl --nodes {{.CONTROL_PLANE_IP}} version`
+- Ensure talosctl can connect: `talosctl --nodes $CONTROL_PLANE_IP version`
 - Review Talos logs: `incus exec <remote-name>:<vm-name> -- journalctl -u talos`
 
 ### Cluster Bootstrap Fails
 
 - Ensure control plane VM is fully booted and accessible
 - Verify etcd is not already bootstrapped (only bootstrap once)
-- Check Talos API is accessible: `talosctl --nodes {{.CONTROL_PLANE_IP}} version`
+- Check Talos API is accessible: `talosctl --nodes $CONTROL_PLANE_IP version`
 - Review control plane logs for errors
 
 ### Nodes Not Joining Cluster
