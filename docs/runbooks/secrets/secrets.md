@@ -118,7 +118,7 @@ You should see both:
 
 To make the secrets available in your deployment, you need to reference them in your context's `windsor.yaml` file.
 
-
+{% raw %}
 ```yaml
 secrets:
   sops:
@@ -126,6 +126,7 @@ secrets:
 environment:
   TEST_ENV_VAR: ${{ sops.TEST_ENV_VAR }}
 ```
+{% endraw %}
 
 ## Step 6: Verify
 
@@ -178,11 +179,13 @@ task sops:encrypt-secrets-file
 # Step 6: Configure windsor.yaml
 # Edit contexts/$WINDSOR_CONTEXT/windsor.yaml to enable secrets
 # Add this to the end of windsor.yaml
+{% raw %}
 secrets:
   sops:
     enabled: true
 environment:
   TEST_ENV_VAR: ${{ sops.TEST_ENV_VAR }}
+{% endraw %}
 
 # Step 7: Verify
 windsor env | grep TEST_ENV_VAR
