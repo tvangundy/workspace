@@ -1,4 +1,4 @@
-# Setting Up Incus on Intel NUC
+# Setting Up IncusOS on Intel NUC
 
 This guide walks you through installing and configuring [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) on an [Intel NUC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html) device. IncusOS is a dedicated operating system designed specifically for running Incus, providing a streamlined platform for container and virtual machine management.
 
@@ -303,7 +303,7 @@ Replace `<nuc-ip-address>` with your NUC's IP address (e.g., `https://192.168.2.
 
 You'll be presented with the Incus UI setup page, which guides you through the certificate setup process:
 
-![Incus UI Setup](incus-ui-setup.png)
+![Incus UI Setup](incusos-ui-setup.png)
 
 #### Step 1: Generate Certificate
 
