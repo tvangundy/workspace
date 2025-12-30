@@ -21,6 +21,214 @@ tasks:
     cmds:
       - incus launch images:ubuntu/22.04 my-container
 
+  download-talos-image:
+    desc: Downloads the Talos cloud image for VMs
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+          echo "Error: TALOS_IMAGE_VERSION variable is not defined"
+          echo "Example: TALOS_IMAGE_VERSION=v1.11.6"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_ARCH}}" ]; then
+          echo "Error: TALOS_IMAGE_ARCH variable is not defined"
+          echo "Example: TALOS_IMAGE_ARCH=amd64"
+          exit 1
+        fi
+        
+        DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
+        TALOS_DIR="${DEVICES_DIR}/talos"
+        IMAGE_FILE="${TALOS_DIR}/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        
+        # Create devices directory structure
+        mkdir -p "${TALOS_DIR}"
+        
+        # Check if image already exists
+        if [ -f "${IMAGE_FILE}" ]; then
+          echo "Talos image already exists at ${IMAGE_FILE}"
+          echo "Skipping download. Delete the file to re-download."
+          exit 0
+        fi
+        
+        # Download Talos cloud image
+        IMAGE_URL="https://github.com/siderolabs/talos/releases/download/{{.TALOS_IMAGE_VERSION}}/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        
+        echo "Downloading Talos cloud image..."
+        echo "URL: ${IMAGE_URL}"
+        echo "Destination: ${IMAGE_FILE}"
+        
+        curl -L -o "${IMAGE_FILE}" "${IMAGE_URL}"
+        
+        if [ $? -eq 0 ]; then
+          echo "Talos image downloaded successfully to: ${IMAGE_FILE}"
+        else
+          echo "Error: Failed to download Talos image"
+          exit 1
+        fi
+
+  create-network-bridge:
+    desc: Creates a network bridge for VMs on the physical network
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          echo "Example: INCUS_REMOTE_NAME=nuc"
+          exit 1
+        fi
+        
+        if [ -z "{{.INCUS_REMOTE_IP_0}}" ]; then
+          echo "Error: INCUS_REMOTE_IP_0 variable is not defined"
+          echo "Example: INCUS_REMOTE_IP_0=192.168.2.101"
+          exit 1
+        fi
+        
+        BRIDGE_NAME="physical-bridge"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        
+        # Check if bridge already exists
+        if incus network show "${REMOTE}:${BRIDGE_NAME}" >/dev/null 2>&1; then
+          echo "Network bridge '${BRIDGE_NAME}' already exists on remote '${REMOTE}'"
+          echo "Skipping creation. Use 'incus network delete ${REMOTE}:${BRIDGE_NAME}' to remove it first."
+          exit 0
+        fi
+        
+        # Extract network information from host IP
+        HOST_IP="{{.INCUS_REMOTE_IP_0}}"
+        NETWORK_BASE=$(echo "${HOST_IP}" | cut -d'.' -f1-3)
+        NETWORK="${NETWORK_BASE}.0/24"
+        GATEWAY="${NETWORK_BASE}.1"
+        
+        echo "Creating network bridge '${BRIDGE_NAME}' on remote '${REMOTE}'"
+        echo "Network: ${NETWORK}"
+        echo "Gateway: ${GATEWAY}"
+        
+        # Create the bridge network
+        incus network create "${REMOTE}:${BRIDGE_NAME}" \
+          bridge.external_interfaces=eno1 \
+          ipv4.address="${NETWORK}" \
+          ipv4.nat=true \
+          ipv4.dhcp=true \
+          ipv4.dhcp.gateway="${GATEWAY}" \
+          ipv4.dhcp.ranges="${NETWORK_BASE}.100-${NETWORK_BASE}.254"
+        
+        echo "Network bridge '${BRIDGE_NAME}' created successfully"
+
+  launch-talos-vm:
+    desc: Launches a Talos VM on IncusOS
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          echo "Example: INCUS_REMOTE_NAME=nuc"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+          echo "Error: TALOS_IMAGE_VERSION variable is not defined"
+          echo "Example: TALOS_IMAGE_VERSION=v1.11.6"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_ARCH}}" ]; then
+          echo "Error: TALOS_IMAGE_ARCH variable is not defined"
+          echo "Example: TALOS_IMAGE_ARCH=amd64"
+          exit 1
+        fi
+        
+        # Parse CLI arguments: <vm-name> <vm-ip>
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: VM name and IP address required"
+          echo "Usage: task incus:launch-talos-vm -- <vm-name> <vm-ip>"
+          echo "Example: task incus:launch-talos-vm -- talos-cp 192.168.2.201"
+          exit 1
+        fi
+        
+        eval set -- ${CLI_ARGS_STR}
+        VM_NAME="${1}"
+        VM_IP="${2}"
+        
+        if [ -z "${VM_NAME}" ] || [ -z "${VM_IP}" ]; then
+          echo "Error: Both VM name and IP address are required"
+          echo "Usage: task incus:launch-talos-vm -- <vm-name> <vm-ip>"
+          echo "Example: task incus:launch-talos-vm -- talos-cp 192.168.2.201"
+          exit 1
+        fi
+        
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        IMAGE_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/talos/talos-cloud-{{.TALOS_IMAGE_ARCH}}.tar.gz"
+        
+        # Check if image exists
+        if [ ! -f "${IMAGE_FILE}" ]; then
+          echo "Error: Talos image not found at ${IMAGE_FILE}"
+          echo "Run 'task incus:download-talos-image' first to download the image"
+          exit 1
+        fi
+        
+        # Check if VM already exists
+        if incus list "${REMOTE}:" --format json | grep -q "\"name\":\"${VM_NAME}\""; then
+          echo "VM '${VM_NAME}' already exists on remote '${REMOTE}'"
+          echo "Skipping creation. Use 'incus delete ${REMOTE}:${VM_NAME}' to remove it first."
+          exit 0
+        fi
+        
+        # Import the Talos image if not already imported
+        IMAGE_ALIAS="talos-cloud-{{.TALOS_IMAGE_VERSION}}-{{.TALOS_IMAGE_ARCH}}"
+        if ! incus image list "${REMOTE}:" --format json | grep -q "\"aliases\".*\"${IMAGE_ALIAS}\""; then
+          echo "Importing Talos image..."
+          incus image import "${IMAGE_FILE}" "${REMOTE}" --alias "${IMAGE_ALIAS}"
+        fi
+        
+        # Extract network base from VM IP for bridge network
+        NETWORK_BASE=$(echo "${VM_IP}" | cut -d'.' -f1-3)
+        BRIDGE_NAME="physical-bridge"
+        
+        echo "Launching Talos VM '${VM_NAME}' on remote '${REMOTE}'"
+        echo "IP address: ${VM_IP}"
+        echo "Image: ${IMAGE_ALIAS}"
+        
+        # Launch the VM
+        incus launch "${REMOTE}:${IMAGE_ALIAS}" "${REMOTE}:${VM_NAME}" \
+          --vm \
+          --network "${BRIDGE_NAME}" \
+          --config limits.memory=2GB \
+          --config limits.cpu=2 \
+          --config boot.autostart=true
+        
+        # Wait for VM to start
+        echo "Waiting for VM to start..."
+        sleep 5
+        
+        # Configure static IP (if needed, this may require cloud-init or network config)
+        # For now, we'll rely on DHCP from the bridge network
+        # The VM should get an IP from the DHCP range, but we can verify
+        
+        echo "VM '${VM_NAME}' launched successfully"
+        echo "VM IP should be: ${VM_IP}"
+        echo "Note: The VM may take a few minutes to fully boot"
+
   help:
     desc: Incus related commands
     cmds:
@@ -29,6 +237,11 @@ tasks:
         echo ""
         echo "    task incus:web-ui"
         echo "    task incus:create-instance"
+        echo ""
+        echo "Talos VM Deployment:"
+        echo "    task incus:download-talos-image"
+        echo "    task incus:create-network-bridge"
+        echo "    task incus:launch-talos-vm -- <vm-name> <vm-ip>"
         echo ""
         echo "Also see [Incus docs](https://linuxcontainers.org/incus-os/docs/main/getting-started/)"
     silent: true

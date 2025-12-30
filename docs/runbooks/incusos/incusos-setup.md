@@ -575,11 +575,8 @@ incus list
 incus info my-container
 ```
 
-### Configure SSH Access
+### Using Incus Exec
 
-To SSH into the container, you'll need to set up SSH access. There are a few approaches:
-
-#### Option 1: Using Incus Exec (No SSH Required)
 
 The simplest way to access the container is using `incus exec`. Remember to include the remote name prefix:
 

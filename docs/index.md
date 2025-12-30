@@ -159,6 +159,7 @@ Runbooks in this workspace leverage taskfiles extensively, so you'll see command
 - **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
 - **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
 - **[IncusOS Setup](./runbooks/incusos/incusos-setup.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
+- **[Talos VM on IncusOS](./runbooks/talos/talos-vm-incus.md)**: Deploy a Talos Kubernetes cluster using VMs on IncusOS
 - **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
 - **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
 - **[Ubuntu Setup](./runbooks/ubuntu/ubuntu-setup.md)**: Complete guide for installing and configuring Ubuntu on Intel NUC devices

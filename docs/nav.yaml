@@ -6,6 +6,7 @@ nav:
     - Workspace Initialization: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
     - IncusOS: runbooks/incusos/incusos-setup.md
+    - Talos VM on IncusOS: runbooks/talos/talos-vm-incus.md
     - Ubuntu: runbooks/ubuntu/ubuntu-setup.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md

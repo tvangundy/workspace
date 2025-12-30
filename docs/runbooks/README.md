@@ -29,6 +29,9 @@ Complete guide for installing and configuring IncusOS on Intel NUC devices, incl
 ### 🐧 [Ubuntu Setup](./ubuntu/ubuntu-setup.md)
 Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.
 
+### ☸️ [Talos VM on IncusOS](./talos/talos-vm-incus.md)
+Complete guide for deploying a Talos Linux Kubernetes cluster using virtual machines on an IncusOS system. Deploy 3 VMs (1 control plane, 2 workers) and configure them to form a complete Kubernetes cluster.
+
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
 
