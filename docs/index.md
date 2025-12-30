@@ -156,13 +156,13 @@ Runbooks in this workspace leverage taskfiles extensively, so you'll see command
 
 ### Available Runbooks
 
-- **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
-- **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
-- **[Incus Setup](./runbooks/incus/incus-setup.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
-- **[Ubuntu Setup](./runbooks/ubuntu/ubuntu-setup.md)**: Complete guide for installing and configuring Ubuntu on Intel NUC devices
-- **GitHub Actions Runners**: Guides for setting up self-hosted runners on Ubuntu, Windows, and macOS
 - **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
 - **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
+- **[Incus Setup](./runbooks/incus/incus-setup.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
+- **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
+- **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
+- **[Ubuntu Setup](./runbooks/ubuntu/ubuntu-setup.md)**: Complete guide for installing and configuring Ubuntu on Intel NUC devices
+- **GitHub Actions Runners**: Guides for setting up self-hosted runners on Ubuntu, Windows, and macOS
 
 ## Getting Help
 
