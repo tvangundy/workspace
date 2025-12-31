@@ -26,14 +26,14 @@ Complete guide for managing encrypted secrets using SOPS (Secrets Operations). L
 ### 🐳 [IncusOS Setup](./incusos/incusos-setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
-### 🏃 [GitHub Runners on IncusOS VMs](./incusos/github-runner.md)
+### ☸️ [Talos on IncusOS VMs](./talos/talos-incus-vm.md)
+Complete guide for deploying a Talos Linux Kubernetes cluster using virtual machines on an IncusOS system. Deploy 3 VMs (1 control plane, 2 workers) and configure them to form a complete Kubernetes cluster.
+
+### 🏃 [GitHub Runner on IncusOS VMs](./incusos/github-runner.md)
 Complete guide for setting up GitHub Actions runners using virtual machines on an IncusOS system. Deploy Ubuntu and Windows runner VMs, configure the GitHub Actions runner software, and manage runner lifecycle including auto-start, updates, and maintenance.
 
 ### 🐧 [Ubuntu Setup](./ubuntu/ubuntu-setup.md)
 Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.
-
-### ☸️ [Talos on IncusOS VMs](./talos/talos-incus-vm.md)
-Complete guide for deploying a Talos Linux Kubernetes cluster using virtual machines on an IncusOS system. Deploy 3 VMs (1 control plane, 2 workers) and configure them to form a complete Kubernetes cluster.
 
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
@@ -49,8 +49,6 @@ Complete guide for deploying a home automation platform with container-based dep
 Step-by-step guides for setting up self-hosted GitHub Actions runners on various platforms. These runbooks cover installing and configuring runners on Windows, Ubuntu, and macOS systems, enabling you to run CI/CD workflows on your own infrastructure.
 
 - **[Ubuntu Runner Setup](./runners/ubuntu-runner-setup.md)**: Configure Ubuntu-based runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices
-- **[Windows Runner Setup](./runners/windows-runner-setup.md)**: Set up Windows-based runners on Intel NUC (x86_64) devices
-- **[macOS Runner Setup](./runners/macos-runner-setup.md)**: Configure macOS-based runners on Apple Silicon (ARM64) Mac devices
 
 
 ## Getting Started
