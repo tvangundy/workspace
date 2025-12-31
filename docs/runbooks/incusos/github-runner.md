@@ -7,14 +7,13 @@ This guide walks you through setting up GitHub Actions runners using virtual mac
 Setting up GitHub runners on IncusOS VMs involves:
 
 1. **Initializing workspace**: Setting up the Windsor workspace and context
-2. **Setting environment variables**: Configuring workspace variables for runner setup
-3. **Configuring network**: Setting up direct network attachment for VMs to get IP addresses (if not already done)
-4. **Launching Ubuntu VM**: Creating an Ubuntu virtual machine for Linux-based runners
-5. **Initializing Ubuntu runner**: Setting up the VM with all required dependencies and runner user
-6. **Installing GitHub Actions runner**: Installing and configuring the GitHub Actions runner software
-7. **Launching Windows VM**: Creating a Windows virtual machine for Windows-based runners (optional)
-8. **Configuring Windows runner**: Installing and configuring the GitHub Actions runner on Windows (optional)
-9. **Managing runners**: Configuring auto-start, updates, and maintenance
+2. **Setting up runner in GitHub**: Configuring the runner in GitHub to obtain registration token and repository URL
+3. **Setting environment variables**: Configuring workspace variables for runner setup
+4. **Configuring network**: Setting up direct network attachment for VMs to get IP addresses (if not already done)
+5. **Choose runner type**: Follow either the Ubuntu or Windows setup path
+   - **Ubuntu Runner Path (Step 4a)**: Launch VM, initialize, and install runner (Steps 4a.1-4a.3)
+   - **Windows Runner Path (Step 4b)**: Launch VM, configure, and install runner (Steps 4b.1-4b.3)
+6. **Managing runners**: Configuring auto-start, updates, and maintenance
 
 This approach allows you to run GitHub Actions workflows on self-hosted infrastructure, providing more control over the execution environment and potentially reducing costs for compute-intensive workflows.
 
@@ -56,7 +55,30 @@ Create a new context for your GitHub runners:
 windsor init github-runners
 ```
 
-### Set Environment Variables
+## Step 2: Set Up Runner in GitHub
+
+Before configuring environment variables, you need to set up the runner in GitHub to obtain the required configuration values:
+
+1. **Navigate to GitHub**:
+   - For a **repository-level runner**: Go to your repository → **Settings** → **Actions** → **Runners** → **New self-hosted runner**
+   - For an **organization-level runner**: Go to your organization → **Settings** → **Actions** → **Runners** → **New self-hosted runner**
+
+2. **Select Platform**:
+   - Select **Linux** and **x64** (or ARM64 if using ARM VMs)
+   - The setup page will display:
+     - The repository/organization URL (e.g., `https://github.com/tvangundy/workspace`)
+     - A registration token (a long alphanumeric string)
+
+3. **Copy the Information**:
+   - Copy the repository URL shown on the page
+   - Copy the registration token
+   - **Important**: The token expires after a short time (typically 1 hour), so you'll need to use it promptly
+
+**Note**: Repository-level runners are only available to that specific repository. Organization-level runners are available to all repositories in the organization. Choose based on your needs.
+
+## Step 3: Set Environment Variables
+
+Use the information you obtained from GitHub (repository URL and token) to configure the environment variables below.
 
 Add these lines to `./contexts/github-runners/windsor.yaml`:
 
@@ -70,8 +92,8 @@ environment:
   
   # Ubuntu runner VM configuration
   UBUNTU_GITHUB_RUNNER_0_NAME: "github-runner-ubuntu"
-  UBUNTU_GITHUB_RUNNER_0_MEMORY: "4GB"
-  UBUNTU_GITHUB_RUNNER_0_CPU: "2"
+  UBUNTU_GITHUB_RUNNER_0_MEMORY: "8GB"
+  UBUNTU_GITHUB_RUNNER_0_CPU: "4"
   UBUNTU_GITHUB_RUNNER_0_AUTOSTART: "true"
   
   # Windows runner VM configuration
@@ -83,6 +105,12 @@ environment:
   # Runner user configuration
   RUNNER_USER: "runner"
   RUNNER_HOME: "/home/runner"
+  
+  # GitHub Actions runner configuration
+  GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
+  GITHUB_RUNNER_TOKEN: "<runner-token>"
+  # GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest if not specified
+  # GITHUB_RUNNER_ARCH: "x64"          # Optional: defaults to "x64" (or "arm64" for ARM VMs)
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
@@ -91,8 +119,8 @@ environment:
 - `INCUS_REMOTE_IP_0`: The IP address of your IncusOS host
 - `INCUS_NETWORK_NAME`: Your physical network interface name (e.g., `eno1`, `eth0`, `enp5s0`)
 - `UBUNTU_GITHUB_RUNNER_0_NAME`: Name for your Ubuntu runner VM
-- `UBUNTU_GITHUB_RUNNER_0_MEMORY`: Memory allocation for Ubuntu runner VM (e.g., `"4GB"`)
-- `UBUNTU_GITHUB_RUNNER_0_CPU`: CPU count for Ubuntu runner VM (e.g., `"2"`)
+- `UBUNTU_GITHUB_RUNNER_0_MEMORY`: Memory allocation for Ubuntu runner VM (e.g., `"8GB"` - 8GB minimum recommended for optimal performance, 16GB for Docker-heavy workloads)
+- `UBUNTU_GITHUB_RUNNER_0_CPU`: CPU count for Ubuntu runner VM (e.g., `"4"` - 4 cores minimum recommended, 8 cores for parallel builds)
 - `UBUNTU_GITHUB_RUNNER_0_AUTOSTART`: Auto-start setting for Ubuntu runner VM (`"true"` or `"false"`)
 - `WINDOWS_GITHUB_RUNNER_0`: Name for your Windows runner VM
 - `WINDOWS_GITHUB_RUNNER_0_MEMORY`: Memory allocation for Windows runner VM (e.g., `"8GB"`)
@@ -100,6 +128,21 @@ environment:
 - `WINDOWS_GITHUB_RUNNER_0_AUTOSTART`: Auto-start setting for Windows runner VM (`"true"` or `"false"`)
 - `RUNNER_USER`: The user name for the runner (e.g., `"runner"`)
 - `RUNNER_HOME`: The home directory path for the runner user (e.g., `"/home/runner"`)
+- `GITHUB_RUNNER_REPO_URL`: The GitHub repository or organization URL (obtained from the GitHub runner setup page above)
+- `GITHUB_RUNNER_TOKEN`: The runner registration token from GitHub (obtained from the GitHub runner setup page above)
+- `GITHUB_RUNNER_VERSION`: (Optional) Specific runner version (e.g., `"2.XXX.X"`). If not specified, the latest version will be used
+- `GITHUB_RUNNER_ARCH`: (Optional) Runner architecture (`"x64"` or `"arm64"`). Defaults to `"x64"`
+
+### Additional Configuration Notes
+
+**Runner Version** (Optional):
+   - The task will automatically use the latest version if `GITHUB_RUNNER_VERSION` is not specified
+   - To use a specific version, check the [GitHub Actions Runner releases](https://github.com/actions/runner/releases) page
+   - Use the version number without the `v` prefix (e.g., `"2.311.0"`)
+
+5. **Runner Architecture** (Optional):
+   - For x86_64/AMD64 VMs: Use `"x64"` (default)
+   - For ARM64 VMs: Use `"arm64"`
 
 Verify the environment variables are present:
 
@@ -107,11 +150,20 @@ Verify the environment variables are present:
 windsor env
 ```
 
-## Step 2: Configure Network for VMs
+## Step 4: Configure Network for VMs
 
 Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](../talos/talos-incus-vm.md) runbook to set up the network.
 
-## Step 3: Launch Ubuntu Runner VM
+## Choose Your Runner Type
+
+After completing the common setup steps above, choose whether to set up an **Ubuntu runner** or a **Windows runner**. Follow the appropriate path below:
+
+- **[Ubuntu Runner Setup](#step-4a-ubuntu-runner-setup)**: For Linux-based GitHub Actions workflows
+- **[Windows Runner Setup](#step-4b-windows-runner-setup)**: For Windows-based GitHub Actions workflows
+
+## Step 4a: Ubuntu Runner Setup
+
+### Step 4a.1: Launch Ubuntu Runner VM
 
 Launch an Ubuntu virtual machine that will serve as your Linux GitHub Actions runner:
 
@@ -121,7 +173,9 @@ incus launch images:ubuntu/22.04 $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
   --network $INCUS_NETWORK_NAME \
   --config limits.memory=$UBUNTU_GITHUB_RUNNER_0_MEMORY \
   --config limits.cpu=$UBUNTU_GITHUB_RUNNER_0_CPU \
-  --config boot.autostart=$UBUNTU_GITHUB_RUNNER_0_AUTOSTART
+  --config boot.autostart=$UBUNTU_GITHUB_RUNNER_0_AUTOSTART \
+  --config security.secureboot=false \
+  --config raw.qemu=-cpu host
 ```
 
 **Note**: 
@@ -129,7 +183,13 @@ incus launch images:ubuntu/22.04 $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
 - The VM name, memory, CPU, and autostart settings use environment variables from your `windsor.yaml` file
 - The network uses the `INCUS_NETWORK_NAME` environment variable from your `windsor.yaml` file
 - The `--vm` flag creates a virtual machine instead of a container
-- Adjust memory and CPU limits in your `windsor.yaml` file based on your needs and available resources
+- **Performance optimizations**:
+  - `security.secureboot=false`: Disables Secure Boot for better performance (only disable if security allows)
+  - `raw.qemu=-cpu host`: Passes through host CPU features for better performance
+- **Recommended resources for optimal performance**:
+  - **Memory**: 8GB minimum (16GB recommended for Docker-heavy workloads)
+  - **CPU**: 4 cores minimum (8 cores recommended for parallel builds)
+- Adjust memory and CPU limits in your `windsor.yaml` file based on your needs and available host resources
 
 ### Get the VM IP Address
 
@@ -162,7 +222,7 @@ incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- apt update
 
 **Note**: If you need console access (e.g., for troubleshooting boot issues), you can use `incus console $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME`, but you'll need to configure a password first via `incus exec`.
 
-## Step 4: Initialize Ubuntu Runner VM
+### Step 4a.2: Initialize Ubuntu Runner VM
 
 Initialize the Ubuntu VM for use as a GitHub Actions runner. This will install all required dependencies and set up the runner user:
 
@@ -179,55 +239,67 @@ This task will:
 
 **Note**: The `runner:initialize` task uses the `INCUS_REMOTE_NAME`, `RUNNER_USER`, and `RUNNER_HOME` environment variables from your `windsor.yaml` file.
 
-### Install Additional Packages (Optional)
+### Step 4a.3: Install GitHub Actions Runner
 
-If you need additional packages beyond what's installed by default, you can install them:
+#### Verify Environment Variables
 
-```bash
-task runner:install-packages -- $UBUNTU_GITHUB_RUNNER_0_NAME
-```
+Before installing the runner, ensure you've completed the earlier steps:
 
-This installs common development tools like `build-essential`, `git`, `python3`, `nodejs`, `npm`, Java, and other utilities.
+1. **Set up the runner in GitHub** (see the "Set Up Runner in GitHub" section above)
+2. **Added the configuration values** to your `windsor.yaml` file (see the "Set Environment Variables" section above)
+3. **Reloaded environment variables**: `windsor env`
 
-### Install GitHub Actions Runner
+**Important**: The runner token expires after a short time (typically 1 hour). Make sure to add it to your `windsor.yaml` and run the installation task promptly after getting the token.
 
-1. **Get Runner Token**:
-   - Navigate to your GitHub repository or organization
-   - Go to **Settings** → **Actions** → **Runners**
-   - Click **New self-hosted runner**
-   - Select **Linux** and **x64** (or ARM64 if using ARM VMs)
-   - Copy the configuration token
+#### Install Runner Using Task
 
-2. **Install Runner Using Task**:
+Once you've set the `GITHUB_RUNNER_REPO_URL` and `GITHUB_RUNNER_TOKEN` environment variables in your `windsor.yaml` file, install the runner:
 
 ```bash
-task runner:install-github-runner -- $UBUNTU_GITHUB_RUNNER_0_NAME https://github.com/<org-or-user>/<repo> <token>
+task runner:install-github-runner -- $UBUNTU_GITHUB_RUNNER_0_NAME
 ```
 
-Replace:
-- `<org-or-user>/<repo>` with your repository (e.g., `tvangundy/workspace`)
-- `<token>` with the runner token from GitHub
-
-This will automatically:
-- Download the latest GitHub Actions runner
-- Configure it for your repository
+This task will automatically:
+- Download the latest GitHub Actions runner (or use the version specified in `GITHUB_RUNNER_VERSION`)
+- Extract the runner files
+- Configure the runner for your repository using the token
 - Install it as a systemd service running as the `runner` user
 - Start the service
 
 The runner will now start automatically on VM boot and connect to GitHub.
 
-### Manual Installation (Alternative)
+#### Manual Installation (Alternative)
 
-If you prefer to install the runner manually, you can access the VM and follow the standard installation process:
+If you prefer to install the runner manually or need to troubleshoot, you can access the VM and follow the standard installation process:
 
 ```bash
 # Access the VM as the runner user
 incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- su - $RUNNER_USER
 
-# Then follow the standard GitHub Actions runner installation steps
+# Create directory for runner
+mkdir -p ~/actions-runner && cd ~/actions-runner
+
+# Get the latest runner version
+RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//')
+
+# Download runner
+curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+
+# Extract
+tar xzf ./actions-runner-linux-x64-*.tar.gz
+
+# Configure runner (use values from your windsor.yaml or get fresh token from GitHub)
+./config.sh --url $GITHUB_RUNNER_REPO_URL --token $GITHUB_RUNNER_TOKEN
+
+# Install as systemd service
+sudo ./svc.sh install $RUNNER_USER
+sudo ./svc.sh start
 ```
 
-## Step 5: Launch Windows Runner VM
+## Step 4b: Windows Runner Setup
+
+### Step 4b.1: Launch Windows Runner VM
 
 Launch a Windows virtual machine for Windows-based GitHub Actions runners:
 
@@ -269,9 +341,9 @@ incus console $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 
 **Note**: When you first access a Windows VM via console, you'll go through the Windows setup process where you can configure the administrator password. After setup is complete, you can use Remote Desktop with the VM's IP address and the credentials you configured.
 
-## Step 6: Configure Windows Runner
+### Step 4b.2: Configure Windows Runner
 
-### Initial Windows Setup
+Perform initial Windows setup and install prerequisites:
 
 1. **Configure Network**:
    - Set static IP address (optional, recommended)
@@ -299,7 +371,7 @@ choco install powershell -y
 choco install visualstudio2022buildtools -y
 ```
 
-### Install GitHub Actions Runner
+### Step 4b.3: Install GitHub Actions Runner
 
 1. **Get Runner Token**:
    - Navigate to your GitHub repository or organization
@@ -350,7 +422,7 @@ For Windows runners using Docker:
 [System.Environment]::SetEnvironmentVariable('DOCKER_HOST', 'tcp://127.0.0.1:2375', 'Machine')
 ```
 
-## Step 7: Managing and Maintaining Runners
+## Managing and Maintaining Runners
 
 ### Auto-Start Configuration
 

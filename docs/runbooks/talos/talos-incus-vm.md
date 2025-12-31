@@ -134,15 +134,8 @@ The final image will be at `contexts/talos-vm/devices/talos/talos-metal-amd64.qc
 
 **Note**: This task requires `zstd` and `qemu-img` to be installed:
 
-- **Preferred method**: These dependencies are available in `aqua.yaml`. Install them with:
-  ```bash
-  aqua install
-  ```
-  This will install `zstd` (via `facebook/zstd`) and `qemu-img` (via `qemu/qemu`) as defined in the workspace's `aqua.yaml` file.
-
-- **Alternative methods**:
-  - **macOS**: `brew install zstd qemu`
-  - **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
+- **macOS**: `brew install zstd qemu`
+- **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
 
 ## Step 4: Configure Direct Network Attachment
 
