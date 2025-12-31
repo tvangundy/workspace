@@ -1,6 +1,6 @@
 # GitHub Runners on IncusOS VMs
 
-This guide walks you through setting up GitHub Actions runners using virtual machines on an [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) system. You'll create VMs running Ubuntu or Windows, then configure them as self-hosted GitHub Actions runners.
+This guide walks you through setting up GitHub Actions runners using Ubuntu virtual machines on an [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) system. You'll create Ubuntu VMs and configure them as self-hosted GitHub Actions runners.
 
 ## Overview
 
@@ -12,10 +12,10 @@ Setting up GitHub runners on IncusOS VMs involves:
 4. **Storing runner token as secret**: Using SOPS to securely store the GitHub runner token
 5. **Verifying configuration**: Verifying environment variables and secrets are present
 6. **Configuring network**: Setting up direct network attachment for VMs to get IP addresses (if not already done)
-7. **Choose runner type**: Follow either the Ubuntu or Windows setup path
-   - **Ubuntu Runner Path (Step 7a)**: Launch VM, initialize, and install runner (Steps 7a.1-7a.3)
-   - **Windows Runner Path (Step 7b)**: Launch VM, configure, and install runner (Steps 7b.1-7b.3)
-8. **Managing runners**: Configuring auto-start, updates, and maintenance
+7. **Launching Ubuntu VM**: Creating and configuring the Ubuntu runner VM
+8. **Initializing runner VM**: Installing dependencies and setting up the runner user
+9. **Installing GitHub Actions runner**: Installing and configuring the runner service
+10. **Managing runners**: Configuring auto-start, updates, and maintenance
 
 This approach allows you to run GitHub Actions workflows on self-hosted infrastructure, providing more control over the execution environment and potentially reducing costs for compute-intensive workflows.
 
@@ -35,8 +35,7 @@ Before starting, ensure you have:
 Each runner VM will require:
 
 - **Ubuntu runner VM**: Minimum 2GB RAM, 20GB disk (4GB RAM, 40GB disk recommended)
-- **Windows runner VM**: Minimum 4GB RAM, 40GB disk (8GB RAM, 80GB disk recommended)
-- **Network**: Each VM needs network connectivity to reach GitHub and your repositories
+- **Network**: The VM needs network connectivity to reach GitHub and your repositories
 
 ## Step 1: Initialize Workspace and Context
 
@@ -98,12 +97,6 @@ environment:
   UBUNTU_GITHUB_RUNNER_0_CPU: "4"
   UBUNTU_GITHUB_RUNNER_0_AUTOSTART: "true"
   
-  # Windows runner VM configuration
-  WINDOWS_GITHUB_RUNNER_0: "github-runner-windows"
-  WINDOWS_GITHUB_RUNNER_0_MEMORY: "8GB"
-  WINDOWS_GITHUB_RUNNER_0_CPU: "4"
-  WINDOWS_GITHUB_RUNNER_0_AUTOSTART: "true"
-  
   # Runner user configuration
   RUNNER_USER: "runner"
   RUNNER_HOME: "/home/runner"
@@ -124,10 +117,6 @@ environment:
 - `UBUNTU_GITHUB_RUNNER_0_MEMORY`: Memory allocation for Ubuntu runner VM (e.g., `"8GB"` - 8GB minimum recommended for optimal performance, 16GB for Docker-heavy workloads)
 - `UBUNTU_GITHUB_RUNNER_0_CPU`: CPU count for Ubuntu runner VM (e.g., `"4"` - 4 cores minimum recommended, 8 cores for parallel builds)
 - `UBUNTU_GITHUB_RUNNER_0_AUTOSTART`: Auto-start setting for Ubuntu runner VM (`"true"` or `"false"`)
-- `WINDOWS_GITHUB_RUNNER_0`: Name for your Windows runner VM
-- `WINDOWS_GITHUB_RUNNER_0_MEMORY`: Memory allocation for Windows runner VM (e.g., `"8GB"`)
-- `WINDOWS_GITHUB_RUNNER_0_CPU`: CPU count for Windows runner VM (e.g., `"4"`)
-- `WINDOWS_GITHUB_RUNNER_0_AUTOSTART`: Auto-start setting for Windows runner VM (`"true"` or `"false"`)
 - `RUNNER_USER`: The user name for the runner (e.g., `"runner"`)
 - `RUNNER_HOME`: The home directory path for the runner user (e.g., `"/home/runner"`)
 - `GITHUB_RUNNER_REPO_URL`: The GitHub repository or organization URL (obtained from the GitHub runner setup page above)
@@ -218,16 +207,7 @@ windsor env
 
 Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](../talos/talos-incus-vm.md) runbook to set up the network.
 
-## Choose Your Runner Type
-
-After completing the common setup steps above, choose whether to set up an **Ubuntu runner** or a **Windows runner**. Follow the appropriate path below:
-
-- **[Ubuntu Runner Setup](#step-7a-ubuntu-runner-setup)**: For Linux-based GitHub Actions workflows
-- **[Windows Runner Setup](#step-7b-windows-runner-setup)**: For Windows-based GitHub Actions workflows
-
-## Step 7a: Ubuntu Runner Setup
-
-### Step 7a.1: Launch Ubuntu Runner VM
+## Step 7: Launch Ubuntu Runner VM
 
 Launch an Ubuntu virtual machine that will serve as your Linux GitHub Actions runner:
 
@@ -286,7 +266,7 @@ incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- apt update
 
 **Note**: If you need console access (e.g., for troubleshooting boot issues), you can use `incus console $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME`, but you'll need to configure a password first via `incus exec`.
 
-### Step 7a.2: Initialize Ubuntu Runner VM
+## Step 8: Initialize Ubuntu Runner VM
 
 Initialize the Ubuntu VM for use as a GitHub Actions runner. This will install all required dependencies and set up the runner user:
 
@@ -303,7 +283,7 @@ This task will:
 
 **Note**: The `runner:initialize` task uses the `INCUS_REMOTE_NAME`, `RUNNER_USER`, and `RUNNER_HOME` environment variables from your `windsor.yaml` file.
 
-### Step 7a.3: Install GitHub Actions Runner
+## Step 9: Install GitHub Actions Runner
 
 #### Verify Environment Variables
 
@@ -357,135 +337,6 @@ tar xzf ./actions-runner-linux-x64-*.tar.gz
 ./config.sh --url $GITHUB_RUNNER_REPO_URL --token $GITHUB_RUNNER_TOKEN
 
 # Install as systemd service
-sudo ./svc.sh install $RUNNER_USER
-sudo ./svc.sh start
-```
-
-## Step 7b: Windows Runner Setup
-
-### Step 7b.1: Launch Windows Runner VM
-
-Launch a Windows virtual machine for Windows-based GitHub Actions runners:
-
-```bash
-# Launch Windows Server VM (requires Windows Server image)
-incus launch images:windows-server $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0 --vm \
-  --network $INCUS_NETWORK_NAME \
-  --config limits.memory=$WINDOWS_GITHUB_RUNNER_0_MEMORY \
-  --config limits.cpu=$WINDOWS_GITHUB_RUNNER_0_CPU \
-  --config boot.autostart=$WINDOWS_GITHUB_RUNNER_0_AUTOSTART
-```
-
-**Note**: 
-
-- The VM name, memory, CPU, and autostart settings use environment variables from your `windsor.yaml` file
-- The network uses the `INCUS_NETWORK_NAME` environment variable from your `windsor.yaml` file
-- Windows Server images may require licensing
-- You may need to import a Windows ISO and create a custom image if Windows Server images aren't available
-- Windows VMs require more resources than Linux VMs
-
-### Get the Windows VM IP Address
-
-```bash
-# List VMs
-incus list $INCUS_REMOTE_NAME:
-
-# Get VM information
-incus info $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
-```
-
-### Access the Windows VM
-
-Access the Windows VM via console or Remote Desktop:
-
-```bash
-# Access via console (for initial setup)
-incus console $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
-```
-
-**Note**: When you first access a Windows VM via console, you'll go through the Windows setup process where you can configure the administrator password. After setup is complete, you can use Remote Desktop with the VM's IP address and the credentials you configured.
-
-### Step 7b.2: Configure Windows Runner
-
-Perform initial Windows setup and install prerequisites:
-
-1. **Configure Network**:
-   - Set static IP address (optional, recommended)
-   - Enable Remote Desktop for easier management
-   - Configure Windows Firewall to allow necessary ports
-
-2. **Install Prerequisites**:
-
-```powershell
-# Install Chocolatey (Windows package manager)
-Set-ExecutionPolicy Bypass -Scope Process -Force
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
-# Install Git
-choco install git -y
-
-# Install Docker Desktop for Windows
-choco install docker-desktop -y
-
-# Install PowerShell 7+ (if not already installed)
-choco install powershell -y
-
-# Install Visual Studio Build Tools (if needed for builds)
-choco install visualstudio2022buildtools -y
-```
-
-### Step 7b.3: Install GitHub Actions Runner
-
-1. **Get Runner Token**:
-   - Navigate to your GitHub repository or organization
-   - Go to **Settings** → **Actions** → **Runners**
-   - Click **New self-hosted runner**
-   - Select **Windows** and **x64**
-   - Copy the configuration token
-
-2. **Download and Configure Runner**:
-
-```powershell
-# Create directory
-mkdir C:\actions-runner
-cd C:\actions-runner
-
-# Download runner (replace X.X.X with latest version)
-Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.X.X.X/actions-runner-win-x64-2.X.X.X.zip `
-  -OutFile actions-runner-win-x64-2.X.X.X.zip
-
-# Extract
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\actions-runner-win-x64-2.X.X.X.zip", "$PWD")
-
-# Configure (replace with your repository URL and token)
-.\config.cmd --url https://github.com/<org-or-user>/<repo> --token <token>
-```
-
-3. **Install as Service**:
-
-```powershell
-# Install as Windows service
-.\svc.cmd install
-
-# Start the service
-.\svc.cmd start
-
-# Check status
-.\svc.cmd status
-```
-
-### Configure Docker Host (Windows)
-
-For Windows runners using Docker:
-
-```powershell
-# Docker Desktop typically exposes Docker on TCP
-# Set environment variable for runner
-[System.Environment]::SetEnvironmentVariable('DOCKER_HOST', 'tcp://127.0.0.1:2375', 'Machine')
-```
-
 ## Managing and Maintaining Runners
 
 ### Auto-Start Configuration
@@ -505,8 +356,6 @@ incus config show $INCUS_REMOTE_NAME:<vm-name> | grep boot.autostart
 
 ### Runner Service Management
 
-#### Ubuntu Runner Service
-
 ```bash
 # Access the Ubuntu VM
 incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- bash
@@ -524,29 +373,9 @@ sudo systemctl enable actions.runner.*.service
 sudo systemctl disable actions.runner.*.service
 ```
 
-#### Windows Runner Service
-
-```powershell
-# Access the Windows VM console or RDP
-
-# Check service status
-Get-Service actions.runner.*
-
-# Start service
-Start-Service actions.runner.*
-
-# Stop service
-Stop-Service actions.runner.*
-
-# Restart service
-Restart-Service actions.runner.*
-```
-
 ### Updating Runners
 
 GitHub Actions runners should be updated periodically. The runner software can update itself, but you may need to manually update in some cases.
-
-#### Ubuntu Runner Update
 
 ```bash
 # Access the Ubuntu VM
@@ -572,29 +401,6 @@ sudo ./svc.sh stop
 sudo ./svc.sh start
 ```
 
-#### Windows Runner Update
-
-```powershell
-# Access the Windows VM
-
-# Navigate to runner directory
-cd C:\actions-runner
-
-# Stop the service
-.\svc.cmd stop
-
-# Update the runner (download latest version)
-Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.X.X.X/actions-runner-win-x64-2.X.X.X.zip `
-  -OutFile actions-runner-win-x64-2.X.X.X.zip
-
-# Extract
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\actions-runner-win-x64-2.X.X.X.zip", "$PWD")
-
-# Restart the service
-.\svc.cmd start
-```
-
 ### VM Maintenance
 
 #### Stop a Runner VM
@@ -602,7 +408,6 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 ```bash
 # Stop the VM (runner service will stop automatically)
 incus stop $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
-incus stop $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 ```
 
 #### Start a Runner VM
@@ -610,7 +415,6 @@ incus stop $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 ```bash
 # Start the VM (runner service will start automatically if enabled)
 incus start $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
-incus start $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 ```
 
 #### Restart a Runner VM
@@ -618,7 +422,6 @@ incus start $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 ```bash
 # Restart the VM
 incus restart $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
-incus restart $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 ```
 
 #### Snapshot a Runner VM
@@ -665,15 +468,6 @@ jobs:
       
       - name: Test Docker
         run: docker ps
-
-  test-windows:
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        os: [windows-latest]
-    steps:
-      - name: Check runner OS
-        run: systeminfo | findstr /B /C:"OS Name"
 ```
 
 ## Troubleshooting
@@ -682,12 +476,11 @@ jobs:
 
 - Verify the runner token is correct and hasn't expired
 - Check network connectivity from VM to GitHub
-- Review runner logs: `$RUNNER_HOME/actions-runner/_diag/Runner_*.log` (Ubuntu) or `C:\actions-runner\_diag\Runner_*.log` (Windows)
+- Review runner logs: `$RUNNER_HOME/actions-runner/_diag/Runner_*.log`
 - Ensure firewall rules allow outbound connections to GitHub
 
 ### Runner Service Not Starting
 
-**Ubuntu**:
 ```bash
 # Check service status
 sudo systemctl status actions.runner.*.service
@@ -701,19 +494,6 @@ cd ~/actions-runner
 ./config.sh --check
 ```
 
-**Windows**:
-```powershell
-# Check service status
-Get-Service actions.runner.*
-
-# Check event logs
-Get-EventLog -LogName Application -Source actions.runner.* -Newest 20
-
-# Verify configuration
-cd C:\actions-runner
-.\config.cmd --check
-```
-
 ### VM Not Getting IP Address
 
 - Verify network configuration: `incus network show $INCUS_REMOTE_NAME:$INCUS_NETWORK_NAME`
@@ -725,7 +505,7 @@ cd C:\actions-runner
 
 - Check runner logs in `_diag` directory
 - Verify required software is installed (Docker, build tools, etc.)
-- Check disk space: `df -h` (Ubuntu) or `Get-PSDrive C` (Windows)
+- Check disk space: `df -h`
 - Verify network connectivity from runner to required services
 
 ### VM Not Auto-Starting

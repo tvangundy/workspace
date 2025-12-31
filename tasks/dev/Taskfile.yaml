@@ -1,0 +1,427 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  REMOTE: '{{.INCUS_REMOTE_NAME}}'
+  INSTANCE_NAME: '{{.DEV_INSTANCE_NAME}}'
+  IMAGE: '{{.DEV_IMAGE}}'
+  MEMORY: '{{.DEV_MEMORY}}'
+  CPU: '{{.DEV_CPU}}'
+  DISK: '{{.DEV_DISK}}'
+  WORKSPACE_ROOT: '{{.WINDSOR_PROJECT_ROOT}}'
+
+tasks:
+  create:
+    desc: Create a dev-container or dev-vm instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          echo "Add to contexts/<context>/windsor.yaml:"
+          echo "  environment:"
+          echo "    INCUS_REMOTE_NAME: <your-remote-name>"
+          exit 1
+        fi
+        
+        if [ -z "${WORKSPACE_ROOT}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        # Parse CLI arguments: <type> <image> [--name <name>]
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: Instance type and image required"
+          echo "Usage: task dev:create -- <container|vm> <image> [--name <name>]"
+          echo "Example: task dev:create -- container ubuntu/22.04"
+          echo "Example: task dev:create -- vm ubuntu/22.04 --name my-dev-vm"
+          exit 1
+        fi
+        
+        eval set -- ${CLI_ARGS_STR}
+        INSTANCE_TYPE="${1}"
+        IMAGE_ARG="${2:-${IMAGE:-ubuntu/22.04}}"
+        INSTANCE_NAME_ARG="${INSTANCE_NAME:-dev-${INSTANCE_TYPE}}"
+        
+        # Parse --name if provided
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --name)
+              INSTANCE_NAME_ARG="${2}"
+              shift 2
+              ;;
+            *)
+              shift
+              ;;
+          esac
+        done
+        
+        # Validate instance type
+        if [ "${INSTANCE_TYPE}" != "container" ] && [ "${INSTANCE_TYPE}" != "vm" ]; then
+          echo "Error: Instance type must be 'container' or 'vm'"
+          echo "Usage: task dev:create -- <container|vm> <image>"
+          exit 1
+        fi
+        
+        # Check if instance already exists
+        if incus list "${REMOTE}:" --format json 2>/dev/null | grep -q "\"name\":\"${INSTANCE_NAME_ARG}\""; then
+          echo "Instance '${INSTANCE_NAME_ARG}' already exists on remote '${REMOTE}'"
+          echo "Use 'task dev:delete -- ${INSTANCE_NAME_ARG}' to remove it first, or use a different name"
+          exit 1
+        fi
+        
+        # Set defaults for resources if not provided
+        MEMORY="${MEMORY:-4GB}"
+        CPU="${CPU:-2}"
+        DISK="${DISK:-20GB}"
+        
+        echo "Creating ${INSTANCE_TYPE} instance..."
+        echo "  Name: ${INSTANCE_NAME_ARG}"
+        echo "  Image: images:${IMAGE_ARG}"
+        echo "  Remote: ${REMOTE}"
+        echo "  Resources: ${CPU} CPU, ${MEMORY} RAM, ${DISK} disk"
+        echo ""
+        
+        # Launch the instance
+        if [ "${INSTANCE_TYPE}" = "vm" ]; then
+          incus launch "images:${IMAGE_ARG}" "${REMOTE}:${INSTANCE_NAME_ARG}" \
+            --vm \
+            --config limits.memory="${MEMORY}" \
+            --config limits.cpu="${CPU}" \
+            --config limits.disk="${DISK}" \
+            --config boot.autostart=false
+        else
+          incus launch "images:${IMAGE_ARG}" "${REMOTE}:${INSTANCE_NAME_ARG}" \
+            --config limits.memory="${MEMORY}" \
+            --config limits.cpu="${CPU}" \
+            --config limits.disk="${DISK}" \
+            --config boot.autostart=false
+        fi
+        
+        # Wait for instance to be ready
+        echo "Waiting for instance to start..."
+        sleep 3
+        
+        # Add workspace as disk device
+        echo "Mounting workspace directory..."
+        WORKSPACE_DEVICE_NAME="workspace"
+        
+        if [ "${INSTANCE_TYPE}" = "vm" ]; then
+          # For VMs, use disk device
+          incus config device add "${REMOTE}:${INSTANCE_NAME_ARG}" "${WORKSPACE_DEVICE_NAME}" disk \
+            source="${WORKSPACE_ROOT}" \
+            path=/workspace
+        else
+          # For containers, use disk device with shift option for better compatibility
+          incus config device add "${REMOTE}:${INSTANCE_NAME_ARG}" "${WORKSPACE_DEVICE_NAME}" disk \
+            source="${WORKSPACE_ROOT}" \
+            path=/workspace \
+            shift=true
+        fi
+        
+        echo ""
+        echo "✅ Instance '${INSTANCE_NAME_ARG}' created successfully"
+        echo ""
+        echo "Next steps:"
+        echo "  task dev:shell -- ${INSTANCE_NAME_ARG}    # Open a shell"
+        echo "  task dev:info -- ${INSTANCE_NAME_ARG}     # Get instance info"
+        echo "  task dev:start -- ${INSTANCE_NAME_ARG}    # Start the instance"
+        echo "  task dev:stop -- ${INSTANCE_NAME_ARG}     # Stop the instance"
+
+  start:
+    desc: Start a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        echo "Starting instance '${INSTANCE_NAME_ARG}'..."
+        incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+        echo "✅ Instance started"
+
+  stop:
+    desc: Stop a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        echo "Stopping instance '${INSTANCE_NAME_ARG}'..."
+        incus stop "${REMOTE}:${INSTANCE_NAME_ARG}"
+        echo "✅ Instance stopped"
+
+  restart:
+    desc: Restart a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        echo "Restarting instance '${INSTANCE_NAME_ARG}'..."
+        incus restart "${REMOTE}:${INSTANCE_NAME_ARG}"
+        echo "✅ Instance restarted"
+
+  shell:
+    desc: Open an interactive shell in a dev instance (like docker exec -it)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        # Check if instance is running
+        if ! incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Instance '${INSTANCE_NAME_ARG}' is not running. Starting it..."
+          incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+          sleep 2
+        fi
+        
+        # Open interactive shell
+        incus exec "${REMOTE}:${INSTANCE_NAME_ARG}" -- bash
+
+  exec:
+    desc: Execute a command in a dev instance (like docker exec)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse CLI args - first arg might be instance name, rest is command
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: Command required"
+          echo "Usage: task dev:exec -- <command>"
+          echo "Usage: task dev:exec -- <instance-name> -- <command>"
+          echo "Example: task dev:exec -- ls -la /workspace"
+          echo "Example: task dev:exec -- my-container -- apt update"
+          exit 1
+        fi
+        
+        eval set -- ${CLI_ARGS_STR}
+        
+        # Check if first arg looks like an instance name
+        # Try to detect if first arg is an instance name by checking if it exists
+        FIRST_ARG="${1}"
+        if [ $# -gt 1 ] && [ "${2}" = "--" ]; then
+          # Format: <instance-name> -- <command>
+          INSTANCE_NAME_ARG="${FIRST_ARG}"
+          shift 2
+          COMMAND="$*"
+        elif incus list "${REMOTE}:" --format csv -c n 2>/dev/null | grep -q "^${FIRST_ARG}$"; then
+          # First arg is an instance name that exists
+          INSTANCE_NAME_ARG="${FIRST_ARG}"
+          shift
+          COMMAND="$*"
+        else
+          # No instance name provided, use default
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+          COMMAND="$*"
+        fi
+        
+        # Check if instance is running
+        if ! incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Instance '${INSTANCE_NAME_ARG}' is not running. Starting it..."
+          incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+          sleep 2
+        fi
+        
+        # Execute command
+        incus exec "${REMOTE}:${INSTANCE_NAME_ARG}" -- bash -c "${COMMAND}"
+
+  info:
+    desc: Get information about a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        echo "Instance: ${INSTANCE_NAME_ARG}"
+        echo "Remote: ${REMOTE}"
+        echo ""
+        incus info "${REMOTE}:${INSTANCE_NAME_ARG}"
+
+  list:
+    desc: List all dev instances
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        echo "Dev instances on remote '${REMOTE}':"
+        echo ""
+        incus list "${REMOTE}:" --format table
+
+  delete:
+    desc: Delete a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "${REMOTE}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "${INSTANCE_NAME}" ]; then
+            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          else
+            INSTANCE_NAME_ARG="dev-container"
+          fi
+        fi
+        
+        # Confirm deletion
+        echo "⚠️  This will delete instance '${INSTANCE_NAME_ARG}' and all its data"
+        echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+        sleep 5
+        
+        # Stop instance if running
+        if incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Stopping instance..."
+          incus stop "${REMOTE}:${INSTANCE_NAME_ARG}"
+        fi
+        
+        # Delete instance
+        echo "Deleting instance..."
+        incus delete "${REMOTE}:${INSTANCE_NAME_ARG}"
+        echo "✅ Instance deleted"
+
+  help:
+    desc: Dev environment commands
+    cmds:
+      - |
+        echo "Development Environment (Incus)"
+        echo ""
+        echo "Create:"
+        echo "    task dev:create -- <container|vm> <image> [--name <name>]"
+        echo "    Example: task dev:create -- container ubuntu/22.04"
+        echo "    Example: task dev:create -- vm ubuntu/22.04 --name my-dev-vm"
+        echo ""
+        echo "Manage:"
+        echo "    task dev:start [-- <instance-name>]"
+        echo "    task dev:stop [-- <instance-name>]"
+        echo "    task dev:restart [-- <instance-name>]"
+        echo "    task dev:list"
+        echo "    task dev:info [-- <instance-name>]"
+        echo "    task dev:delete [-- <instance-name>]"
+        echo ""
+        echo "Access:"
+        echo "    task dev:shell [-- <instance-name>]     # Interactive shell"
+        echo "    task dev:exec -- <command>               # Execute command"
+        echo "    task dev:exec -- <instance-name> -- <command>"
+        echo ""
+        echo "Examples:"
+        echo "    task dev:create -- container ubuntu/22.04"
+        echo "    task dev:shell"
+        echo "    task dev:exec -- ls -la /workspace"
+        echo "    task dev:exec -- apt update"
+        echo ""
+        echo "The workspace directory is automatically mounted at /workspace inside the instance"
+    silent: true
+
