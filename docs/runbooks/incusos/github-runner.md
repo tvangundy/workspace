@@ -9,11 +9,13 @@ Setting up GitHub runners on IncusOS VMs involves:
 1. **Initializing workspace**: Setting up the Windsor workspace and context
 2. **Setting up runner in GitHub**: Configuring the runner in GitHub to obtain registration token and repository URL
 3. **Setting environment variables**: Configuring workspace variables for runner setup
-4. **Configuring network**: Setting up direct network attachment for VMs to get IP addresses (if not already done)
-5. **Choose runner type**: Follow either the Ubuntu or Windows setup path
-   - **Ubuntu Runner Path (Step 4a)**: Launch VM, initialize, and install runner (Steps 4a.1-4a.3)
-   - **Windows Runner Path (Step 4b)**: Launch VM, configure, and install runner (Steps 4b.1-4b.3)
-6. **Managing runners**: Configuring auto-start, updates, and maintenance
+4. **Storing runner token as secret**: Using SOPS to securely store the GitHub runner token
+5. **Verifying configuration**: Verifying environment variables and secrets are present
+6. **Configuring network**: Setting up direct network attachment for VMs to get IP addresses (if not already done)
+7. **Choose runner type**: Follow either the Ubuntu or Windows setup path
+   - **Ubuntu Runner Path (Step 7a)**: Launch VM, initialize, and install runner (Steps 7a.1-7a.3)
+   - **Windows Runner Path (Step 7b)**: Launch VM, configure, and install runner (Steps 7b.1-7b.3)
+8. **Managing runners**: Configuring auto-start, updates, and maintenance
 
 This approach allows you to run GitHub Actions workflows on self-hosted infrastructure, providing more control over the execution environment and potentially reducing costs for compute-intensive workflows.
 
@@ -108,7 +110,7 @@ environment:
   
   # GitHub Actions runner configuration
   GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
-  GITHUB_RUNNER_TOKEN: "<runner-token>"
+  # GITHUB_RUNNER_TOKEN: Stored as a secret (see Step 4 below)
   # GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest if not specified
   # GITHUB_RUNNER_ARCH: "x64"          # Optional: defaults to "x64" (or "arm64" for ARM VMs)
 ```
@@ -129,7 +131,7 @@ environment:
 - `RUNNER_USER`: The user name for the runner (e.g., `"runner"`)
 - `RUNNER_HOME`: The home directory path for the runner user (e.g., `"/home/runner"`)
 - `GITHUB_RUNNER_REPO_URL`: The GitHub repository or organization URL (obtained from the GitHub runner setup page above)
-- `GITHUB_RUNNER_TOKEN`: The runner registration token from GitHub (obtained from the GitHub runner setup page above)
+- `GITHUB_RUNNER_TOKEN`: The runner registration token from GitHub - **stored as a secret** (see Step 4 below)
 - `GITHUB_RUNNER_VERSION`: (Optional) Specific runner version (e.g., `"2.XXX.X"`). If not specified, the latest version will be used
 - `GITHUB_RUNNER_ARCH`: (Optional) Runner architecture (`"x64"` or `"arm64"`). Defaults to `"x64"`
 
@@ -140,17 +142,79 @@ environment:
    - To use a specific version, check the [GitHub Actions Runner releases](https://github.com/actions/runner/releases) page
    - Use the version number without the `v` prefix (e.g., `"2.311.0"`)
 
-5. **Runner Architecture** (Optional):
+**Runner Architecture** (Optional):
    - For x86_64/AMD64 VMs: Use `"x64"` (default)
    - For ARM64 VMs: Use `"arm64"`
 
-Verify the environment variables are present:
+## Step 4: Store GitHub Runner Token as a Secret
+
+The `GITHUB_RUNNER_TOKEN` should be stored as an encrypted secret using SOPS rather than in the environment variables. This keeps the sensitive token secure. Follow these steps:
+
+### Step 4.1: Generate the Secrets File
+
+If you haven't already created a secrets file for the `github-runners` context, generate it:
+
+```bash
+task sops:generate-secrets-file
+```
+
+This creates `contexts/github-runners/secrets.yaml` with a template.
+
+### Step 4.2: Add the Runner Token to the Secrets File
+
+Edit the `contexts/github-runners/secrets.yaml` file and add the `GITHUB_RUNNER_TOKEN`:
+
+```bash
+# Using your preferred editor
+vim contexts/github-runners/secrets.yaml
+# or
+nano contexts/github-runners/secrets.yaml
+# or
+code contexts/github-runners/secrets.yaml
+```
+
+Add the token you obtained from GitHub in Step 2:
+
+```yaml
+GITHUB_RUNNER_TOKEN: "<runner-token-from-github>"
+```
+
+**Important**: Replace `<runner-token-from-github>` with the actual token you copied from the GitHub runner setup page in Step 2.
+
+### Step 4.3: Encrypt the Secrets File
+
+Encrypt the secrets file using SOPS:
+
+```bash
+task sops:encrypt-secrets-file
+```
+
+This creates `contexts/github-runners/secrets.enc.yaml` (the encrypted version that can be safely committed to version control).
+
+### Step 4.4: Configure Windsor to Use the Secret
+
+Update `contexts/github-runners/windsor.yaml` to reference the secret and enable SOPS:
+
+```yaml
+secrets:
+  sops:
+    enabled: true
+environment:
+  # ... other environment variables ...
+  GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
+  GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN }}
+  # ... other environment variables ...
+```
+
+**Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../secrets/secrets.md) runbook.
+
+## Step 5: Verify the environment variables and secrets are present:
 
 ```bash
 windsor env
 ```
 
-## Step 4: Configure Network for VMs
+## Step 6: Configure Network for VMs
 
 Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](../talos/talos-incus-vm.md) runbook to set up the network.
 
@@ -158,12 +222,12 @@ Before launching VMs, you need to configure direct network attachment so VMs can
 
 After completing the common setup steps above, choose whether to set up an **Ubuntu runner** or a **Windows runner**. Follow the appropriate path below:
 
-- **[Ubuntu Runner Setup](#step-4a-ubuntu-runner-setup)**: For Linux-based GitHub Actions workflows
-- **[Windows Runner Setup](#step-4b-windows-runner-setup)**: For Windows-based GitHub Actions workflows
+- **[Ubuntu Runner Setup](#step-7a-ubuntu-runner-setup)**: For Linux-based GitHub Actions workflows
+- **[Windows Runner Setup](#step-7b-windows-runner-setup)**: For Windows-based GitHub Actions workflows
 
-## Step 4a: Ubuntu Runner Setup
+## Step 7a: Ubuntu Runner Setup
 
-### Step 4a.1: Launch Ubuntu Runner VM
+### Step 7a.1: Launch Ubuntu Runner VM
 
 Launch an Ubuntu virtual machine that will serve as your Linux GitHub Actions runner:
 
@@ -222,7 +286,7 @@ incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- apt update
 
 **Note**: If you need console access (e.g., for troubleshooting boot issues), you can use `incus console $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME`, but you'll need to configure a password first via `incus exec`.
 
-### Step 4a.2: Initialize Ubuntu Runner VM
+### Step 7a.2: Initialize Ubuntu Runner VM
 
 Initialize the Ubuntu VM for use as a GitHub Actions runner. This will install all required dependencies and set up the runner user:
 
@@ -239,7 +303,7 @@ This task will:
 
 **Note**: The `runner:initialize` task uses the `INCUS_REMOTE_NAME`, `RUNNER_USER`, and `RUNNER_HOME` environment variables from your `windsor.yaml` file.
 
-### Step 4a.3: Install GitHub Actions Runner
+### Step 7a.3: Install GitHub Actions Runner
 
 #### Verify Environment Variables
 
@@ -297,9 +361,9 @@ sudo ./svc.sh install $RUNNER_USER
 sudo ./svc.sh start
 ```
 
-## Step 4b: Windows Runner Setup
+## Step 7b: Windows Runner Setup
 
-### Step 4b.1: Launch Windows Runner VM
+### Step 7b.1: Launch Windows Runner VM
 
 Launch a Windows virtual machine for Windows-based GitHub Actions runners:
 
@@ -341,7 +405,7 @@ incus console $INCUS_REMOTE_NAME:$WINDOWS_GITHUB_RUNNER_0
 
 **Note**: When you first access a Windows VM via console, you'll go through the Windows setup process where you can configure the administrator password. After setup is complete, you can use Remote Desktop with the VM's IP address and the credentials you configured.
 
-### Step 4b.2: Configure Windows Runner
+### Step 7b.2: Configure Windows Runner
 
 Perform initial Windows setup and install prerequisites:
 
@@ -371,7 +435,7 @@ choco install powershell -y
 choco install visualstudio2022buildtools -y
 ```
 
-### Step 4b.3: Install GitHub Actions Runner
+### Step 7b.3: Install GitHub Actions Runner
 
 1. **Get Runner Token**:
    - Navigate to your GitHub repository or organization
