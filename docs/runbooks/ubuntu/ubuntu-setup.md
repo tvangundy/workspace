@@ -47,12 +47,6 @@ Create a new context called "ubuntu":
 windsor init ubuntu
 ```
 
-Verify the context is set:
-
-```bash
-windsor context get
-```
-
 ## Step 2: Acquire Ubuntu ISO
 
 ### Download Ubuntu ISO

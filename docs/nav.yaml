@@ -6,6 +6,7 @@ nav:
     - Workspace Initialization: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
     - IncusOS: runbooks/incusos/incusos-setup.md
+    - GitHub Runners on IncusOS VMs: runbooks/incusos/github-runner.md
     - Talos on IncusOS VMs: runbooks/talos/talos-incus-vm.md
     - Ubuntu: runbooks/ubuntu/ubuntu-setup.md
     - Bootstrapping:

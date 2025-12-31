@@ -1,4 +1,4 @@
-# Deploying Talos Cluster on IncusOS VMs
+# Talos Cluster on IncusOS VMs
 
 This guide walks you through deploying a Talos Linux Kubernetes cluster using virtual machines on an [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) system. You'll create 3 VMs: 1 control plane node and 2 worker nodes, then configure them to form a complete Kubernetes cluster.
 
@@ -56,12 +56,6 @@ Create a new context for your Talos VM cluster:
 
 ```bash
 windsor init talos-vm
-```
-
-Verify the context is set:
-
-```bash
-windsor context get
 ```
 
 ## Step 2: Set Environment Variables
@@ -122,12 +116,6 @@ environment:
 - `TALOS_IMAGE_ARCH`: The architecture (typically `metal-amd64` for Intel NUC)
 - `PHYSICAL_INTERFACE`: (Optional) Your physical network interface name (defaults to `eno1` if not set)
 
-Verify the environment variables are present:
-
-```bash
-windsor env
-```
-
 ## Step 3: Download Talos Linux Image
 
 Download the Talos Linux image that will be used for the VMs:
@@ -142,12 +130,19 @@ This will:
 2. Extract the compressed image using `zstd`
 3. Convert it to QCOW2 format (required for Incus VMs)
 
-The final image will be at `contexts/<context>/devices/talos/talos-metal-amd64.qcow2`.
+The final image will be at `contexts/talos-vm/devices/talos/talos-metal-amd64.qcow2`.
 
 **Note**: This task requires `zstd` and `qemu-img` to be installed:
 
-- **macOS**: `brew install zstd qemu`
-- **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
+- **Preferred method**: These dependencies are available in `aqua.yaml`. Install them with:
+  ```bash
+  aqua install
+  ```
+  This will install `zstd` (via `facebook/zstd`) and `qemu-img` (via `qemu/qemu`) as defined in the workspace's `aqua.yaml` file.
+
+- **Alternative methods**:
+  - **macOS**: `brew install zstd qemu`
+  - **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
 
 ## Step 4: Configure Direct Network Attachment
 
@@ -321,7 +316,7 @@ After the VMs have booted and Talos is running, you need to update the IP addres
 
 ### Update windsor.yaml
 
-Edit `contexts/<context>/windsor.yaml` and update the IP addresses:
+Edit `contexts/talos-vm/windsor.yaml` and update the IP addresses:
 
 ```yaml
 environment:
@@ -342,18 +337,10 @@ environment:
 - Retrieving kubeconfig
 - Health checks
 
-After updating the file, reload the environment variables:
+After updating the file, confirm the environment IP Addresses using:
 
 ```bash
 windsor env
-```
-
-Verify the updated IP addresses:
-
-```bash
-echo "Control Plane: $CONTROL_PLANE_IP"
-echo "Worker 0: $WORKER_0_IP"
-echo "Worker 1: $WORKER_1_IP"
 ```
 
 **Note**: If you prefer static IPs, you can configure DHCP reservations in your router to ensure the VMs always get the same IPs, or configure static IPs in the Talos machine configuration (see Step 8: Generate Talos Configuration).
@@ -501,7 +488,7 @@ Download the kubeconfig file to access your Kubernetes cluster:
 task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 ```
 
-This downloads the kubeconfig to `contexts/<context>/.kube/config`.
+This downloads the kubeconfig to `contexts/talos-vm/.kube/config`.
 
 ## Step 13: Verify Cluster Health
 

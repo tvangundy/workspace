@@ -26,6 +26,9 @@ Complete guide for managing encrypted secrets using SOPS (Secrets Operations). L
 ### 🐳 [IncusOS Setup](./incusos/incusos-setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
+### 🏃 [GitHub Runners on IncusOS VMs](./incusos/github-runner.md)
+Complete guide for setting up GitHub Actions runners using virtual machines on an IncusOS system. Deploy Ubuntu and Windows runner VMs, configure the GitHub Actions runner software, and manage runner lifecycle including auto-start, updates, and maintenance.
+
 ### 🐧 [Ubuntu Setup](./ubuntu/ubuntu-setup.md)
 Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.
 

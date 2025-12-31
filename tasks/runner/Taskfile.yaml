@@ -1,0 +1,349 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  INCUS_REMOTE: '{{.INCUS_REMOTE_NAME | default "local"}}'
+  RUNNER_USER: '{{.RUNNER_USER | default "runner"}}'
+  RUNNER_HOME: '{{.RUNNER_HOME | default "/home/${RUNNER_USER}"}}'
+
+tasks:
+  initialize:
+    desc: Initializes a new Incus VM for GitHub Actions runner
+    cmds:
+      - task: runner:install-aqua
+      - task: runner:install-docker
+      - task: runner:create-runner-user
+      - task: runner:setup-ssh
+      - |
+        echo "Runner VM initialization complete!"
+        echo "Next steps:"
+        echo "  1. Install GitHub Actions runner: task runner:install-github-runner -- <vm-name> <repo-url> <token>"
+        echo "  2. Or follow the manual installation steps in the runbook"
+
+  install-aqua:
+    desc: Installs aqua package manager on the runner VM
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task runner:install-aqua -- <vm-name>"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        
+        echo "Installing aqua on ${REMOTE}:${VM_NAME}..."
+        
+        # Install aqua using the official installer
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          # Check if aqua is already installed
+          if command -v aqua >/dev/null 2>&1; then
+            echo 'aqua is already installed'
+            aqua version
+            exit 0
+          fi
+          
+          # Download and install aqua
+          curl -fsSL https://raw.githubusercontent.com/aquaproj/aqua-installer/v2.4.0/aqua-installer | bash
+          
+          # Add aqua to PATH for current session
+          export PATH=\"\${HOME}/.local/share/aquaproj-aqua/bin:\${PATH}\"
+          
+          # Verify installation
+          aqua version
+          
+          echo 'aqua installed successfully'
+        "
+        
+        echo "aqua installation complete"
+
+  install-docker:
+    desc: Installs Docker on the runner VM
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task runner:install-docker -- <vm-name>"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE="{{.INCUS_REMOTE}}"
+        
+        echo "Installing Docker on ${REMOTE}:${VM_NAME}..."
+        
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          # Check if Docker is already installed
+          if command -v docker >/dev/null 2>&1; then
+            echo 'Docker is already installed'
+            docker --version
+            exit 0
+          fi
+          
+          # Update package index
+          apt-get update -y
+          
+          # Install prerequisites
+          apt-get install -y \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
+          
+          # Add Docker's official GPG key
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          chmod a+r /etc/apt/keyrings/docker.gpg
+          
+          # Set up Docker repository
+          echo \\
+            \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \\
+            \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | \\
+            tee /etc/apt/sources.list.d/docker.list > /dev/null
+          
+          # Install Docker Engine
+          apt-get update -y
+          apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          
+          # Start and enable Docker service
+          systemctl start docker
+          systemctl enable docker
+          
+          # Verify installation
+          docker --version
+          docker ps
+          
+          echo 'Docker installed successfully'
+        "
+        
+        echo "Docker installation complete"
+
+  create-runner-user:
+    desc: Creates a dedicated runner user for GitHub Actions
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task runner:create-runner-user -- <vm-name>"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        RUNNER_USER="{{.RUNNER_USER}}"
+        
+        echo "Creating runner user '${RUNNER_USER}' on ${REMOTE}:${VM_NAME}..."
+        
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          # Check if user already exists
+          if id \"${RUNNER_USER}\" &>/dev/null; then
+            echo \"User ${RUNNER_USER} already exists\"
+            exit 0
+          fi
+          
+          # Create runner user with home directory
+          useradd -m -s /bin/bash \"${RUNNER_USER}\"
+          
+          # Add runner user to docker group (if Docker is installed)
+          if getent group docker >/dev/null 2>&1; then
+            usermod -aG docker \"${RUNNER_USER}\"
+            echo \"Added ${RUNNER_USER} to docker group\"
+          fi
+          
+          # Add runner user to sudo group (for administrative tasks)
+          usermod -aG sudo \"${RUNNER_USER}\"
+          
+          # Set up sudoers to allow passwordless sudo (for automation)
+          echo \"${RUNNER_USER} ALL=(ALL) NOPASSWD:ALL\" | tee /etc/sudoers.d/${RUNNER_USER}
+          chmod 0440 /etc/sudoers.d/${RUNNER_USER}
+          
+          echo \"User ${RUNNER_USER} created successfully\"
+        "
+        
+        echo "Runner user creation complete"
+
+  setup-ssh:
+    desc: Sets up SSH access for the runner user
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task runner:setup-ssh -- <vm-name>"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        RUNNER_USER="{{.RUNNER_USER}}"
+        
+        echo "Setting up SSH access for ${RUNNER_USER} on ${REMOTE}:${VM_NAME}..."
+        
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          # Install OpenSSH server if not already installed
+          if ! command -v sshd >/dev/null 2>&1; then
+            apt-get update -y
+            apt-get install -y openssh-server
+          fi
+          
+          # Ensure SSH service is running
+          systemctl start ssh || systemctl start sshd || true
+          systemctl enable ssh || systemctl enable sshd || true
+          
+          # Create .ssh directory for runner user
+          mkdir -p /home/${RUNNER_USER}/.ssh
+          chmod 700 /home/${RUNNER_USER}/.ssh
+          chown ${RUNNER_USER}:${RUNNER_USER} /home/${RUNNER_USER}/.ssh
+          
+          echo 'SSH setup complete'
+          echo 'To add your SSH key, run:'
+          echo '  incus exec ${REMOTE}:${VM_NAME} -- bash -c \"echo \\\"<your-public-key>\\\" >> /home/${RUNNER_USER}/.ssh/authorized_keys\"'
+          echo '  incus exec ${REMOTE}:${VM_NAME} -- bash -c \"chmod 600 /home/${RUNNER_USER}/.ssh/authorized_keys\"'
+          echo '  incus exec ${REMOTE}:${VM_NAME} -- bash -c \"chown ${RUNNER_USER}:${RUNNER_USER} /home/${RUNNER_USER}/.ssh/authorized_keys\"'
+        "
+        
+        echo "SSH setup complete"
+
+  install-github-runner:
+    desc: Installs and configures GitHub Actions runner
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Parse arguments: <vm-name> <repo-url> <token>
+        ARGS=(${@})
+        if [ ${#ARGS[@]} -lt 3 ]; then
+          echo "Error: Missing required arguments"
+          echo "Usage: task runner:install-github-runner -- <vm-name> <repo-url> <token>"
+          echo "Example: task runner:install-github-runner -- github-runner-ubuntu https://github.com/user/repo TOKEN123"
+          exit 1
+        fi
+        
+        VM_NAME="${ARGS[0]}"
+        REPO_URL="${ARGS[1]}"
+        TOKEN="${ARGS[2]}"
+        REMOTE="{{.INCUS_REMOTE}}"
+        RUNNER_USER="{{.RUNNER_USER}}"
+        RUNNER_HOME="/home/${RUNNER_USER}"
+        
+        echo "Installing GitHub Actions runner on ${REMOTE}:${VM_NAME}..."
+        
+        # Get latest runner version
+        RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//')
+        
+        if [ -z "${RUNNER_VERSION}" ]; then
+          echo "Error: Could not determine latest runner version"
+          exit 1
+        fi
+        
+        echo "Using runner version: ${RUNNER_VERSION}"
+        
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          # Create actions-runner directory as runner user
+          sudo -u ${RUNNER_USER} mkdir -p ${RUNNER_HOME}/actions-runner
+          cd ${RUNNER_HOME}/actions-runner
+          
+          # Download runner as runner user
+          sudo -u ${RUNNER_USER} curl -o actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -L \\
+            https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+          
+          # Extract as runner user
+          sudo -u ${RUNNER_USER} tar xzf ./actions-runner-linux-x64-*.tar.gz
+          
+          # Configure runner as runner user
+          sudo -u ${RUNNER_USER} ./config.sh --url ${REPO_URL} --token ${TOKEN} --unattended
+          
+          # Install as systemd service (runs as runner user)
+          sudo ./svc.sh install ${RUNNER_USER}
+          sudo ./svc.sh start
+          
+          echo 'GitHub Actions runner installed and started'
+        "
+        
+        echo "GitHub Actions runner installation complete"
+
+  install-packages:
+    desc: Installs additional packages commonly needed for GitHub Actions runners
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task runner:install-packages -- <vm-name>"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        
+        echo "Installing additional packages on ${REMOTE}:${VM_NAME}..."
+        
+        incus exec "${REMOTE}:${VM_NAME}" -- bash -c "
+          set -euo pipefail
+          
+          apt-get update -y
+          apt-get install -y \\
+            build-essential \\
+            git \\
+            curl \\
+            wget \\
+            python3 \\
+            python3-pip \\
+            nodejs \\
+            npm \\
+            default-jre \\
+            default-jdk \\
+            unzip \\
+            software-properties-common \\
+            jq \\
+            yq \\
+            rsync \\
+            openssh-client
+          
+          echo 'Additional packages installed successfully'
+        "
+        
+        echo "Package installation complete"
+
+  help:
+    desc: Shows help for runner tasks
+    cmds:
+      - |
+        echo "Runner Tasks"
+        echo ""
+        echo "Initialize a new runner VM:"
+        echo "  task runner:initialize -- <vm-name>"
+        echo ""
+        echo "Individual setup tasks:"
+        echo "  task runner:install-aqua -- <vm-name>"
+        echo "  task runner:install-docker -- <vm-name>"
+        echo "  task runner:create-runner-user -- <vm-name>"
+        echo "  task runner:setup-ssh -- <vm-name>"
+        echo "  task runner:install-packages -- <vm-name>"
+        echo ""
+        echo "Install GitHub Actions runner:"
+        echo "  task runner:install-github-runner -- <vm-name> <repo-url> <token>"
+        echo ""
+        echo "Example:"
+        echo "  task runner:initialize -- github-runner-ubuntu"
+        echo "  task runner:install-github-runner -- github-runner-ubuntu https://github.com/user/repo TOKEN123"

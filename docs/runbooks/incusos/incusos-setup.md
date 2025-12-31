@@ -59,12 +59,6 @@ Create a new context called "incus":
 windsor init incus
 ```
 
-Verify the context is set:
-
-```bash
-windsor context get
-```
-
 ## Step 2: Acquire IncusOS Image
 
 ### Download from IncusOS Customizer

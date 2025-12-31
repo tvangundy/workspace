@@ -10,6 +10,7 @@ includes:
   vhs: tasks/vhs
   talos: tasks/talos
   incus: tasks/incus
+  runner: tasks/runner
 
 tasks:
   help:
@@ -41,7 +42,7 @@ tasks:
         echo ""
         echo "Available namespaces"
         echo ""
-        echo "workspace, device, sops, docker, vhs, talos, incus"
+        echo "workspace, device, sops, docker, vhs, talos, incus, runner"
         echo ""
         echo "To run a task:"
         echo "    task <namespace>:<task>"
