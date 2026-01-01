@@ -184,6 +184,7 @@ This creates `contexts/github-runners/secrets.enc.yaml` (the encrypted version t
 
 Update `contexts/github-runners/windsor.yaml` to reference the secret and enable SOPS:
 
+{% raw %}
 ```yaml
 secrets:
   sops:
@@ -194,6 +195,7 @@ environment:
   GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN }}
   # ... other environment variables ...
 ```
+{% endraw %}
 
 **Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../secrets/secrets.md) runbook.
 
