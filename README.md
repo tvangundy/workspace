@@ -2,6 +2,8 @@
 
 A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides **runbooks** (step-by-step guides to build your own deployments) for infrastructure deployments.
 
+> 📚 **For complete documentation**, including detailed guides on runbooks, taskfiles, and how they work together, see the [full documentation site](https://tvangundy.github.io) or the [documentation index](./docs/index.md).
+
 ## What You'll Find Here
 
 - **Runbooks**: Step-by-step guides that walk you through building complete deployments from the ground up
@@ -16,73 +18,7 @@ A collection of practical implementations, automation solutions, and infrastruct
 2. **Follow a runbook**: Choose a [runbook](./docs/runbooks/README.md) that matches your needs and follow it step-by-step to build your deployment
 3. **Customize as needed**: Once you understand the pattern, adapt it to your specific requirements
 
-## Using Taskfile
-
-This workspace uses [Taskfile](https://taskfile.dev) to organize and run common commands. Tasks are organized into namespaces and placed in the `./tasks` folder, making it easy to discover and execute common operations.
-
-### Namespace Syntax
-
-Tasks are organized into namespaces using the `namespace:task` syntax. For example:
-
-```bash
-# Run a task from the sops namespace
-task sops:decrypt -- <file>
-
-# Run a task from the device namespace
-task device:list-disks
-
-```
-
-### Viewing Available Tasks
-
-To see available tasks in a namespace, use the `help` command:
-
-```bash
-task <namespace>:help
-```
-
-For example:
-```bash
-task workspace:help
-task sops:help
-task device:help
-```
-
-### Quick Access to Documentation
-
-Run `task help` to open the documentation site in your browser:
-
-```bash
-task help
-```
-
-This will automatically open https://tvangundy.github.io in your default browser, providing quick access to all documentation and runbooks.
-
-### Dry Run Mode
-
-To see what command would be executed without actually running it, use the `--dry` flag:
-
-```bash
-task <namespace>:<task> --dry
-```
-
-This is particularly useful for understanding what a task does before executing it, or for debugging task definitions.
-
-### Task Organization
-
-Tasks are organized into namespaces and stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml`:
-
-```
-tasks/
-├── sops/          # SOPS encryption/decryption tasks
-├── device/        # Device management tasks
-├── docker/        # Docker-related tasks
-├── vhs/           # VHS terminal recording tasks
-├── talos/         # Talos cluster tasks
-└── incus/         # Incus tasks
-```
-
-This pattern keeps related tasks grouped together and makes it easy to add new namespaces as needed.
+For a comprehensive overview of how runbooks and taskfiles work together, see the [full documentation](./docs/index.md).
 
 ## Runbooks
 
@@ -96,30 +32,17 @@ Each runbook provides detailed instructions from initial setup through final dep
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
 
-Runbooks in this workspace leverage taskfiles extensively, so you'll see commands like `task device:write-disk` throughout the documentation. These taskfile commands encapsulate complex operations, making the runbooks easier to follow while ensuring consistent, reliable execution. For more details on how runbooks and taskfiles work together, see the [Runbooks section](https://tvangundy.github.io/#runbooks) in the documentation.
+Runbooks in this workspace leverage taskfiles extensively, so you'll see commands like `task device:write-disk` throughout the documentation. These taskfile commands encapsulate complex operations, making the runbooks easier to follow while ensuring consistent, reliable execution. 
 
-## Repository Structure
+For more details on how runbooks and taskfiles work together, including available runbooks and taskfiles, see the [Runbooks and Taskfiles sections](./docs/index.md#runbooks) in the [full documentation](./docs/index.md).
 
-```
-├── docs/                 # Documentation
-│   ├── runbooks/         # Runbook guides
-│   │   ├── bootstrapping/  # Node bootstrapping guides
-│   │   ├── home-assistant/ # Home Assistant deployment guide
-│   │   ├── incus/          # Incus setup guide
-│   │   ├── runners/        # GitHub Actions runner setup guides
-│   │   ├── secrets/        # Secrets management guide
-│   │   └── workspace/      # Workspace initialization guide
-│   └── install.md        # Installation guide
-├── tasks/               # Namespaced task definitions
-│   ├── sops/            # SOPS encryption/decryption tasks
-│   ├── device/          # Device management tasks
-│   ├── docker/          # Docker-related tasks
-│   ├── vhs/             # VHS terminal recording tasks
-│   ├── talos/           # Talos cluster tasks
-│   └── incus/           # Incus tasks
-├── contexts/            # Windsor context configurations
-└── Taskfile.yml         # Main task definitions with namespace includes
-```
+## Using Taskfile
+
+This workspace uses [Taskfile](https://taskfile.dev) to organize and run common commands. **Taskfiles are the execution engine behind all runbooks** - every step in a runbook that requires action is performed through a taskfile command. When you follow a runbook, you'll execute commands like `task device:write-disk`, `task runner:initialize`, or `task incus:launch-vm` to complete each step.
+
+This design means runbooks focus on explaining **what** to do and **why**, while taskfiles handle the **how** - encapsulating complex operations, platform-specific commands, error handling, and validation into simple, repeatable commands. This separation makes runbooks easier to follow while ensuring consistent, reliable execution across different environments.
+
+For detailed information about using taskfiles, including namespace syntax, viewing available tasks, and available taskfile namespaces, see the [Taskfiles section](./docs/index.md#taskfiles) in the [full documentation](./docs/index.md).
 
 ## Contributing
 

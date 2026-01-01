@@ -3,19 +3,19 @@ nav:
   - Installation: install.md
   - Runbooks:
     - Introduction: runbooks/README.md
-    - Workspace Initialization: runbooks/workspace/init.md
+    - Workspace Init: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
-    - IncusOS: runbooks/incusos/incusos-setup.md
-    - Development Container/VM: runbooks/incusos/dev-container.md
-    - Talos on IncusOS VMs: runbooks/talos/talos-incus-vm.md
-    - GitHub Runners on IncusOS VMs: runbooks/incusos/github-runner.md
-    - Ubuntu: runbooks/ubuntu/ubuntu-setup.md
-    - Bootstrapping:
+    - IncusOS Server: runbooks/incusos/incusos-setup.md
+    - Talos Cluster: runbooks/talos/talos-incus-vm.md
+    - Dev Container: runbooks/incusos/dev-container.md
+    - GitHub Runner: runbooks/incusos/github-runner.md
+    - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
+    - Bootstrapping Nodes:
       - Introduction: runbooks/bootstrapping/README.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
       - Intel NUC: runbooks/bootstrapping/nuc-bootstrapping.md
       - Sidero Omni: runbooks/bootstrapping/omni-bootstrapping.md
-    - GitHub Actions Runners:
+    - Self-Hosted Runners:
       - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
     - Home Assistant: runbooks/home-assistant/README.md
   - Troubleshooting: troubleshooting.md
