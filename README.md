@@ -1,22 +1,22 @@
 # Workspace
 
-A collection of practical implementations, automation solutions, and infrastructure projects. This workspace provides **runbooks** (step-by-step guides to build your own deployments) for infrastructure deployments.
+Build, deploy, and manage infrastructure with **repeatable, maintainable workflows** that you can save, share, and resume anytime. The main strength of this approach is standardizing on the [Windsor CLI](https://github.com/windsorcli/cli) flow, which provides consistent context management, secure secret handling, and unified configuration across all your infrastructure work. This workspace provides comprehensive **runbooks** and **taskfiles** that transform complex infrastructure operations into simple, executable steps—whether you're deploying to the cloud or bare-metal.
 
 ## What You'll Find Here
 
-- **Runbooks**: Step-by-step guides that walk you through building complete deployments from the ground up
-- Real-world implementation patterns
-- Infrastructure automation solutions
-- Security and networking configurations
-- Reference architectures and patterns
+- **📚 Runbooks**: Step-by-step guides that walk you through building complete deployments from the ground up
+- **⚡ Taskfiles**: Automated commands that handle complexity while maintaining full transparency
+- **🔒 Security-first approach**: Built-in secret management and secure configuration practices
+- **🔄 Real-world patterns**: Production-tested implementations you can adapt immediately
+- **🛠️ Multi-tool support**: Native integration with Terraform, Kubernetes, Incus, Docker, and more
 
-## Getting Started
 
-1. Review the [Installation Guide](./docs/install.md) to set up your environment
-2. **Follow a runbook**: Choose a [runbook](./docs/runbooks/README.md) that matches your needs and follow it step-by-step to build your deployment
-3. **Customize as needed**: Once you understand the pattern, adapt it to your specific requirements
+## 🚀 Ready to Get Started?
 
-For a comprehensive overview of how runbooks and taskfiles work together, see the [full documentation](./docs/index.md).
+**Start here:** Read the [complete documentation](./docs/index.md) to understand how runbooks and taskfiles work together, explore available runbooks and taskfiles, and learn how to adopt this workspace for your infrastructure needs.
+
+👉 **[Open Documentation →](./docs/index.md)** | [View Online](https://tvangundy.github.io)
+
 
 ## Runbooks
 
@@ -39,12 +39,6 @@ This workspace uses [Taskfile](https://taskfile.dev) to organize and run common 
 This design means runbooks focus on explaining **what** to do and **why**, while taskfiles handle the **how** - encapsulating complex operations, platform-specific commands, error handling, and validation into simple, repeatable commands. The details aren't lost: every taskfile command can be run with the `--dry` flag to reveal the detailed subcommands that will be executed, providing full transparency into what's happening under the hood. This separation makes runbooks easier to follow while ensuring consistent, reliable execution across different environments.
 
 For detailed information about using taskfiles, including namespace syntax, viewing available tasks, and available taskfile namespaces, see the [Taskfiles section](./docs/index.md#taskfiles) in the [full documentation](./docs/index.md).
-
-## 🚀 Ready to Get Started?
-
-**Start here:** Read the [complete documentation](./docs/index.md) to understand how runbooks and taskfiles work together, explore available runbooks and taskfiles, and learn how to adopt this workspace for your infrastructure needs.
-
-👉 **[Open Documentation →](./docs/index.md)** | [View Online](https://tvangundy.github.io)
 
 ## Contributing
 

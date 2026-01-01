@@ -1,4 +1,4 @@
-# Development Container/VM with Incus
+# Development Container with Incus
 
 This runbook guides you through creating and managing development containers or virtual machines using Incus. These dev environments provide isolated, reproducible development environments that can be instantly started from your workspace.
 
