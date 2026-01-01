@@ -17,16 +17,29 @@ A curated collection of infrastructure implementations and automation solutions.
 
 This workspace is built on the principle that **runbooks** and **taskfiles** work together to create a powerful, repeatable infrastructure deployment system. Understanding how they complement each other is key to getting the most out of this workspace.
 
-### How Workspaces Are Structured
+### What Is a Workspace?
 
-A workspace in this repository consists of:
+A workspace is both a **collection of artifacts** and a **methodology** for building and managing infrastructure. From a code perspective, a workspace consists of:
 
 1. **Runbooks** (`/docs/runbooks/`): Step-by-step instructional guides that document the **what** and **why** of each deployment step
 2. **Taskfiles** (`/tasks/`): Executable automation scripts that provide the **how** - the actual commands and operations needed to complete each step
+3. **Configurations** (`/contexts/`): Context-specific settings and configurations that define how the workspace operates in different environments
+4. **Secrets**: Securely managed credentials and sensitive data, integrated through the Windsor CLI context system
 
-Together, they form a complete system where:
+But a workspace is more than just code—it's a **way of working** that includes storing your state, configurations, and context so you can pick up where you left off. 
+
+This persistence means you can:
+
+- **Resume work later**: All your configurations, secrets, and context are preserved
+- **Share and collaborate**: Others can use the same workspace structure and pick up the work
+- **Version and iterate**: Track changes to your infrastructure approach over time
+- **Reproduce environments**: Recreate the same setup across different machines or teams
+
+Together, these components form a complete system where:
 - **Runbooks** provide the knowledge and context
 - **Taskfiles** provide the automation and repeatability
+- **Configurations and secrets** provide the environment-specific context
+- **The workspace methodology** ensures everything is stored and can be resumed later
 
 ## Runbooks
 
@@ -42,7 +55,7 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 - **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
 - **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
 - **[Ubuntu Setup](./runbooks/ubuntu/ubuntu-setup.md)**: Complete guide for installing and configuring Ubuntu on Intel NUC devices
-- **GitHub Actions Runners**: Guides for setting up self-hosted runners on Ubuntu, Windows, and macOS
+- **[Self Hosted Runners](./runbooks/runners/ubuntu-runner-setup.md)**: Guides for setting up self-hosted runners on Ubuntu
 
 
 ## Taskfiles
