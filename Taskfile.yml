@@ -37,6 +37,9 @@ tasks:
     cmds:
       - |
         echo ""
+        echo "Quick access to documentation:"
+        echo "    task help              
+        echo ""
         echo "Namespace sensitive tasks"
         echo ""
         echo "    task <namespace>:help"

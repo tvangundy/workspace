@@ -2,24 +2,16 @@
 
 version: '3'
 
-vars:
-  REMOTE: '{{.INCUS_REMOTE_NAME}}'
-  INSTANCE_NAME: '{{.DEV_INSTANCE_NAME}}'
-  IMAGE: '{{.DEV_IMAGE}}'
-  MEMORY: '{{.DEV_MEMORY}}'
-  CPU: '{{.DEV_CPU}}'
-  DISK: '{{.DEV_DISK}}'
-  WORKSPACE_ROOT: '{{.WINDSOR_PROJECT_ROOT}}'
-
 tasks:
   create:
+    silent: true
     desc: Create a dev-container or dev-vm instance
     cmds:
       - |
         set -euo pipefail
         
         # Validate required variables
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           echo "Add to contexts/<context>/windsor.yaml:"
           echo "  environment:"
@@ -27,7 +19,7 @@ tasks:
           exit 1
         fi
         
-        if [ -z "${WORKSPACE_ROOT}" ]; then
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
           echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
           echo "Run this from within a Windsor workspace"
           exit 1
@@ -45,8 +37,10 @@ tasks:
         
         eval set -- ${CLI_ARGS_STR}
         INSTANCE_TYPE="${1}"
-        IMAGE_ARG="${2:-${IMAGE:-ubuntu/22.04}}"
-        INSTANCE_NAME_ARG="${INSTANCE_NAME:-dev-${INSTANCE_TYPE}}"
+        IMAGE_ARG="${2:-{{.DEV_IMAGE}}}"
+        IMAGE_ARG="${IMAGE_ARG:-ubuntu/22.04}"
+        INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        INSTANCE_NAME_ARG="${INSTANCE_NAME_ARG:-dev-${INSTANCE_TYPE}}"
         
         # Parse --name if provided
         while [ $# -gt 0 ]; do
@@ -69,77 +63,854 @@ tasks:
         fi
         
         # Check if instance already exists
-        if incus list "${REMOTE}:" --format json 2>/dev/null | grep -q "\"name\":\"${INSTANCE_NAME_ARG}\""; then
-          echo "Instance '${INSTANCE_NAME_ARG}' already exists on remote '${REMOTE}'"
+        if incus list "{{.INCUS_REMOTE_NAME}}:" --format json 2>/dev/null | grep -q "\"name\":\"${INSTANCE_NAME_ARG}\""; then
+          echo "Instance '${INSTANCE_NAME_ARG}' already exists on remote '{{.INCUS_REMOTE_NAME}}'"
           echo "Use 'task dev:delete -- ${INSTANCE_NAME_ARG}' to remove it first, or use a different name"
           exit 1
         fi
         
         # Set defaults for resources if not provided
+        MEMORY="{{.DEV_MEMORY}}"
         MEMORY="${MEMORY:-4GB}"
+        CPU="{{.DEV_CPU}}"
         CPU="${CPU:-2}"
-        DISK="${DISK:-20GB}"
+        
+        # Get network interface for VMs (to get IP on local network)
+        NETWORK_NAME="{{.DEV_NETWORK_NAME}}"
+        if [ "${INSTANCE_TYPE}" = "vm" ] && [ -z "${NETWORK_NAME}" ]; then
+          # Try to detect the physical network interface from existing VMs
+          # First, try to get network from an existing VM that has a local network IP
+          EXISTING_VM=""
+          for vm_name in github-runner-ubuntu talos-cp talos-worker-0 talos-worker-1; do
+            if incus list "{{.INCUS_REMOTE_NAME}}:${vm_name}" --format csv -c n 2>/dev/null | grep -q "^${vm_name}$"; then
+              EXISTING_VM="${vm_name}"
+              break
+            fi
+          done
+          
+          # If found an existing VM, try to get its network interface
+          if [ -n "${EXISTING_VM}" ]; then
+            # Get network interface from existing VM config
+            NETWORK_NAME=$(incus config show "{{.INCUS_REMOTE_NAME}}:${EXISTING_VM}" 2>/dev/null | \
+              grep -E "parent:|network:" | grep -v "^#" | head -n 1 | awk '{print $2}' | tr -d '"' || echo "")
+          fi
+          
+          # If still not found, try common interface names by checking if network exists
+          if [ -z "${NETWORK_NAME}" ]; then
+            for iface in enp5s0 eno1 eth0; do
+              if incus network show "{{.INCUS_REMOTE_NAME}}:${iface}" >/dev/null 2>&1; then
+                NETWORK_NAME="${iface}"
+                break
+              fi
+            done
+          fi
+          
+          if [ -z "${NETWORK_NAME}" ]; then
+            echo "⚠️  Warning: Could not detect network interface for VM"
+            echo "   Set DEV_NETWORK_NAME in your windsor.yaml (e.g., DEV_NETWORK_NAME: enp5s0)"
+            echo "   VM will use default Incus network (may not get IP on local network)"
+          else
+            echo "  Network: ${NETWORK_NAME} (physical network for local IP)"
+          fi
+        fi
         
         echo "Creating ${INSTANCE_TYPE} instance..."
         echo "  Name: ${INSTANCE_NAME_ARG}"
         echo "  Image: images:${IMAGE_ARG}"
-        echo "  Remote: ${REMOTE}"
-        echo "  Resources: ${CPU} CPU, ${MEMORY} RAM, ${DISK} disk"
+        echo "  Remote: {{.INCUS_REMOTE_NAME}}"
+        echo "  Resources: ${CPU} CPU, ${MEMORY} RAM"
         echo ""
         
         # Launch the instance
         if [ "${INSTANCE_TYPE}" = "vm" ]; then
-          incus launch "images:${IMAGE_ARG}" "${REMOTE}:${INSTANCE_NAME_ARG}" \
-            --vm \
-            --config limits.memory="${MEMORY}" \
-            --config limits.cpu="${CPU}" \
-            --config limits.disk="${DISK}" \
-            --config boot.autostart=false
+          if [ -n "${NETWORK_NAME}" ]; then
+            # Launch VM with physical network interface for local network IP
+            incus launch "images:${IMAGE_ARG}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" \
+              --vm \
+              --network "${NETWORK_NAME}" \
+              --config limits.memory="${MEMORY}" \
+              --config limits.cpu="${CPU}" \
+              --config boot.autostart=false
+          else
+            # Launch VM without network specification (uses default)
+            incus launch "images:${IMAGE_ARG}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" \
+              --vm \
+              --config limits.memory="${MEMORY}" \
+              --config limits.cpu="${CPU}" \
+              --config boot.autostart=false
+          fi
         else
-          incus launch "images:${IMAGE_ARG}" "${REMOTE}:${INSTANCE_NAME_ARG}" \
+          incus launch "images:${IMAGE_ARG}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" \
             --config limits.memory="${MEMORY}" \
             --config limits.cpu="${CPU}" \
-            --config limits.disk="${DISK}" \
             --config boot.autostart=false
         fi
         
         # Wait for instance to be ready
         echo "Waiting for instance to start..."
-        sleep 3
-        
-        # Add workspace as disk device
-        echo "Mounting workspace directory..."
-        WORKSPACE_DEVICE_NAME="workspace"
-        
         if [ "${INSTANCE_TYPE}" = "vm" ]; then
-          # For VMs, use disk device
-          incus config device add "${REMOTE}:${INSTANCE_NAME_ARG}" "${WORKSPACE_DEVICE_NAME}" disk \
-            source="${WORKSPACE_ROOT}" \
-            path=/workspace
+          # VMs take longer to boot and need the agent to be ready
+          echo "Waiting for VM to boot and agent to be ready (this may take 30-60 seconds)..."
+          sleep 10
+          # Wait for VM agent to be ready (with timeout)
+          MAX_WAIT=120
+          ELAPSED=0
+          while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+            if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+              echo "VM agent is ready"
+              break
+            fi
+            echo "  Waiting for VM agent... (${ELAPSED}s/${MAX_WAIT}s)"
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+          if [ ${ELAPSED} -ge ${MAX_WAIT} ]; then
+            echo "⚠️  Warning: VM agent may not be ready, but continuing..."
+          fi
         else
-          # For containers, use disk device with shift option for better compatibility
-          incus config device add "${REMOTE}:${INSTANCE_NAME_ARG}" "${WORKSPACE_DEVICE_NAME}" disk \
-            source="${WORKSPACE_ROOT}" \
-            path=/workspace \
-            shift=true
+          # Containers start quickly
+          sleep 3
+        fi
+        
+        # Workspace is never mounted to /workspace
+        # For remote deployments, use DEV_INIT_WORKSPACE=true to copy workspace contents to user's home directory
+        # Workspace will be copied to ~/workspace-name (same folder name as on host)
+        
+        # Initialize developer environment for remote deployments
+        if [ "{{.INCUS_REMOTE_NAME}}" != "local" ]; then
+          echo ""
+          echo "Setting up developer environment..."
+          
+          # Wait for VM agent to be ready if it's a VM
+          if [ "${INSTANCE_TYPE}" = "vm" ]; then
+            echo "  Ensuring VM agent is ready..."
+            MAX_RETRIES=24
+            RETRY_COUNT=0
+            while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+              if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+                echo "  VM agent is ready"
+                break
+              fi
+              if [ $((RETRY_COUNT % 3)) -eq 0 ]; then
+                echo "    Waiting for VM agent... (${RETRY_COUNT}/${MAX_RETRIES} attempts, ~$((RETRY_COUNT * 5))s elapsed)"
+              fi
+              sleep 5
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+            done
+            if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+              echo "⚠️  Error: VM agent not ready after $((MAX_RETRIES * 5)) seconds"
+              echo "   The VM may still be booting. You can manually set up the environment later."
+              exit 1
+            fi
+          fi
+          
+          # Get current user info from host
+          CURRENT_USER=$(whoami)
+          CURRENT_UID=$(id -u)
+          CURRENT_GID=$(id -g)
+          # Use HOME environment variable directly (most reliable)
+          CURRENT_HOME="${HOME}"
+          
+          echo "  Current user: ${CURRENT_USER} (UID: ${CURRENT_UID}, GID: ${CURRENT_GID})"
+          
+          # Install essential developer tools
+          echo "  Installing developer tools..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq \
+              git \
+              build-essential \
+              curl \
+              wget \
+              vim \
+              nano \
+              openssh-client \
+              sudo \
+              ca-certificates \
+              gnupg \
+              lsb-release \
+              > /dev/null 2>&1
+          " || echo "⚠️  Warning: Some packages may have failed to install"
+          
+          # Create user matching host user (must be done before installing tools that need user home directory)
+          echo "  Creating user '${CURRENT_USER}'..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            if ! id -u '${CURRENT_USER}' >/dev/null 2>&1; then
+              # Create group first (ignore if it exists)
+              groupadd -g ${CURRENT_GID} '${CURRENT_USER}' 2>/dev/null || \
+                (getent group ${CURRENT_GID} >/dev/null 2>&1 && echo 'Group with GID ${CURRENT_GID} already exists') || true
+              # Create user with same UID/GID as host
+              useradd -m -u ${CURRENT_UID} -g ${CURRENT_GID} -s /bin/bash '${CURRENT_USER}' 2>/dev/null || true
+            fi
+            
+            # Ensure user is in sudo group (even if user already existed)
+            usermod -aG sudo '${CURRENT_USER}' 2>/dev/null || true
+            
+            # Ensure passwordless sudo is configured (even if user already existed)
+            echo '${CURRENT_USER} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/${CURRENT_USER}
+            chmod 0440 /etc/sudoers.d/${CURRENT_USER}
+            
+            # Verify user exists and get actual group name
+            if id -u '${CURRENT_USER}' >/dev/null 2>&1; then
+              USER_GROUP=\$(id -gn '${CURRENT_USER}' 2>/dev/null || echo '${CURRENT_USER}')
+              # Create .ssh directory with proper ownership
+              mkdir -p /home/${CURRENT_USER}/.ssh
+              chmod 700 /home/${CURRENT_USER}/.ssh
+              chown -R ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh 2>/dev/null || \
+                chown -R '${CURRENT_USER}:'\${USER_GROUP} /home/${CURRENT_USER}/.ssh 2>/dev/null || true
+              
+              # Verify sudo configuration
+              if groups '${CURRENT_USER}' | grep -q sudo; then
+                echo \"User '${CURRENT_USER}' is in sudo group\"
+              else
+                echo \"⚠️  Warning: User '${CURRENT_USER}' may not be in sudo group\"
+              fi
+              if [ -f /etc/sudoers.d/${CURRENT_USER} ] && grep -q 'NOPASSWD' /etc/sudoers.d/${CURRENT_USER}; then
+                echo \"Passwordless sudo configured for '${CURRENT_USER}'\"
+              else
+                echo \"⚠️  Warning: Passwordless sudo may not be configured\"
+              fi
+            fi
+          "
+          
+          # Set up SSH keys (must be done before GitHub configuration)
+          echo "  Setting up SSH keys..."
+          
+          # Find and copy all SSH keys (rsa, ed25519, ecdsa, etc.)
+          SSH_KEYS_FOUND=0
+          for key_type in rsa ed25519 ecdsa; do
+            if [ -f "${CURRENT_HOME}/.ssh/id_${key_type}" ]; then
+              SSH_KEYS_FOUND=1
+              echo "    Copying ${key_type} key..."
+              incus file push "${CURRENT_HOME}/.ssh/id_${key_type}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/id_${key_type}"
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                mv /tmp/id_${key_type} /home/${CURRENT_USER}/.ssh/id_${key_type}
+                chmod 600 /home/${CURRENT_USER}/.ssh/id_${key_type}
+                chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/id_${key_type} 2>/dev/null || true
+              "
+            fi
+            if [ -f "${CURRENT_HOME}/.ssh/id_${key_type}.pub" ]; then
+              incus file push "${CURRENT_HOME}/.ssh/id_${key_type}.pub" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/id_${key_type}.pub"
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                mv /tmp/id_${key_type}.pub /home/${CURRENT_USER}/.ssh/id_${key_type}.pub
+                chmod 644 /home/${CURRENT_USER}/.ssh/id_${key_type}.pub
+                chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/id_${key_type}.pub 2>/dev/null || true
+              "
+            fi
+          done
+          
+          # Set up authorized_keys for passwordless SSH
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            # Ensure .ssh directory exists with correct permissions
+            mkdir -p /home/${CURRENT_USER}/.ssh
+            chmod 700 /home/${CURRENT_USER}/.ssh
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh 2>/dev/null || true
+            
+            # Ensure home directory has correct permissions (SSH requires home dir not be world-writable)
+            chmod 755 /home/${CURRENT_USER} 2>/dev/null || true
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER} 2>/dev/null || true
+            
+            # Create or clear authorized_keys
+            touch /home/${CURRENT_USER}/.ssh/authorized_keys
+            chmod 600 /home/${CURRENT_USER}/.ssh/authorized_keys
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/authorized_keys 2>/dev/null || true
+            
+            # Add all public keys to authorized_keys
+            for pubkey_file in /home/${CURRENT_USER}/.ssh/*.pub; do
+              if [ -f \"\${pubkey_file}\" ]; then
+                PUBKEY=\$(cat \"\${pubkey_file}\")
+                if ! grep -Fxq \"\${PUBKEY}\" /home/${CURRENT_USER}/.ssh/authorized_keys 2>/dev/null; then
+                  echo \"\${PUBKEY}\" >> /home/${CURRENT_USER}/.ssh/authorized_keys
+                fi
+              fi
+            done
+            
+            # Ensure final permissions are correct
+            chmod 600 /home/${CURRENT_USER}/.ssh/authorized_keys
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/authorized_keys 2>/dev/null || true
+            chmod 700 /home/${CURRENT_USER}/.ssh
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh 2>/dev/null || true
+          "
+          
+          if [ ${SSH_KEYS_FOUND} -eq 0 ]; then
+            echo "⚠️  Warning: No SSH keys found in ${CURRENT_HOME}/.ssh/"
+            echo "   You may need to generate SSH keys or manually add them to the VM"
+          fi
+          
+          # Copy SSH config if it exists (filter out macOS-specific options)
+          if [ -f "${CURRENT_HOME}/.ssh/config" ]; then
+            echo "    Copying SSH config (filtering macOS-specific options)..."
+            # Filter out macOS-specific SSH options that don't work on Linux
+            # Create a filtered version by removing lines containing these options (case-insensitive)
+            # Use awk for more reliable line-by-line processing
+            awk '
+              BEGIN { IGNORECASE=1 }
+              !/usekeychain/ && !/addkeystoagent/ && !/useroamingservice/ { print }
+            ' "${CURRENT_HOME}/.ssh/config" > /tmp/ssh_config_filtered 2>/dev/null || \
+            grep -v -i -E 'usekeychain|addkeystoagent|useroamingservice' "${CURRENT_HOME}/.ssh/config" > /tmp/ssh_config_filtered 2>/dev/null || \
+              cat "${CURRENT_HOME}/.ssh/config" > /tmp/ssh_config_filtered
+            
+            # Verify and clean the filtered file - remove any remaining problematic options
+            # Use multiple passes to ensure all variations are removed
+            for pass in 1 2 3; do
+              # Remove lines containing these options (case-insensitive, any format)
+              sed -i.bak -E '/[Uu][Ss][Ee][Kk][Ee][Yy][Cc][Hh][Aa][Ii][Nn]|[Aa][Dd][Dd][Kk][Ee][Yy][Ss][Tt][Oo][Aa][Gg][Ee][Nn][Tt]|[Uu][Ss][Ee][Rr][Oo][Aa][Mm][Ii][Nn][Gg][Ss][Ee][Rr][Vv][Ii][Cc][Ee]/d' /tmp/ssh_config_filtered 2>/dev/null || \
+              sed -i.bak '/usekeychain/Id; /addkeystoagent/Id; /useroamingservice/Id' /tmp/ssh_config_filtered 2>/dev/null || true
+              rm -f /tmp/ssh_config_filtered.bak 2>/dev/null || true
+            done
+            
+            # Final verification
+            if grep -i -q 'usekeychain\|addkeystoagent\|useroamingservice' /tmp/ssh_config_filtered 2>/dev/null; then
+              echo "⚠️  Warning: Some macOS-specific options may still be present in SSH config"
+              # Last resort: remove any line containing these words (case-insensitive)
+              awk 'BEGIN { IGNORECASE=1 } !/usekeychain|addkeystoagent|useroamingservice/ { print }' /tmp/ssh_config_filtered > /tmp/ssh_config_filtered2 && \
+                mv /tmp/ssh_config_filtered2 /tmp/ssh_config_filtered || true
+            fi
+            
+            incus file push /tmp/ssh_config_filtered "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/ssh_config"
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              mv /tmp/ssh_config /home/${CURRENT_USER}/.ssh/config
+              chmod 600 /home/${CURRENT_USER}/.ssh/config
+              chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/config 2>/dev/null || true
+            "
+            rm -f /tmp/ssh_config_filtered
+          fi
+          
+          # Copy known_hosts if it exists (important for GitHub SSH)
+          if [ -f "${CURRENT_HOME}/.ssh/known_hosts" ]; then
+            incus file push "${CURRENT_HOME}/.ssh/known_hosts" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/known_hosts"
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              mv /tmp/known_hosts /home/${CURRENT_USER}/.ssh/known_hosts
+              chmod 644 /home/${CURRENT_USER}/.ssh/known_hosts
+              chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/known_hosts 2>/dev/null || true
+            "
+          fi
+          
+          # Setup SSH agent and add keys (supports both passphrase-protected and unprotected keys)
+          echo "  Setting up SSH agent..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            # Install openssh-client if not already installed (needed for ssh-add)
+            if ! command -v ssh-add >/dev/null 2>&1; then
+              apt-get update -qq
+              apt-get install -y -qq openssh-client > /dev/null 2>&1 || true
+            fi
+            
+            # Start SSH agent as the user in a persistent way
+            # Use a script that starts the agent and adds keys
+            su - ${CURRENT_USER} -c '
+              # Start SSH agent and capture output
+              eval \$(ssh-agent -s) > /dev/null 2>&1
+              
+              # Save agent environment to file
+              echo \"export SSH_AUTH_SOCK=\${SSH_AUTH_SOCK}\" > ~/.ssh/agent_env
+              echo \"export SSH_AGENT_PID=\${SSH_AGENT_PID}\" >> ~/.ssh/agent_env
+              
+              # Add all SSH keys to the agent (non-interactively)
+              # For keys without passphrases, this will work immediately
+              export SSH_ASKPASS=/bin/false
+              export DISPLAY=:0
+              for key_file in ~/.ssh/id_*; do
+                if [ -f \"\${key_file}\" ] && [ ! -f \"\${key_file}.pub\" ]; then
+                  # Private key file (not a .pub file)
+                  # Try to add it non-interactively (will work if no passphrase)
+                  ssh-add \"\${key_file}\" < /dev/null 2>/dev/null || true
+                fi
+              done
+              
+            ' || true
+            
+            # Configure SSH to use the agent and handle keys gracefully
+            # Add to user's SSH config if not already present
+            if ! grep -q 'AddKeysToAgent' /home/${CURRENT_USER}/.ssh/config 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.ssh/config
+              echo '# Automatically add keys to agent' >> /home/${CURRENT_USER}/.ssh/config
+              echo 'AddKeysToAgent yes' >> /home/${CURRENT_USER}/.ssh/config
+              echo 'IdentitiesOnly yes' >> /home/${CURRENT_USER}/.ssh/config
+            fi
+            # Ensure SSH uses the agent by default (prefer agent over key files)
+            if ! grep -q 'PreferredAuthentications' /home/${CURRENT_USER}/.ssh/config 2>/dev/null; then
+              echo 'PreferredAuthentications publickey' >> /home/${CURRENT_USER}/.ssh/config
+            fi
+            
+            # Ensure agent_env file has correct permissions
+            chmod 600 /home/${CURRENT_USER}/.ssh/agent_env 2>/dev/null || true
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.ssh/agent_env 2>/dev/null || true
+            
+            echo \"SSH agent configured\"
+          " || echo "⚠️  Warning: SSH agent setup may have failed"
+          
+          # Configure Git and GitHub credentials (before Homebrew installation)
+          echo "  Configuring Git and GitHub credentials..."
+          
+          # Install git first if not already installed
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            if ! command -v git >/dev/null 2>&1; then
+              apt-get update -qq
+              apt-get install -y -qq git > /dev/null 2>&1 || true
+            fi
+          " || true
+          
+          # Configure git user info from host
+          GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
+          GIT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
+          
+          if [ -n "${GIT_NAME}" ] || [ -n "${GIT_EMAIL}" ]; then
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              su - ${CURRENT_USER} -c 'git config --global user.name \"${GIT_NAME}\"' 2>/dev/null || true
+              su - ${CURRENT_USER} -c 'git config --global user.email \"${GIT_EMAIL}\"' 2>/dev/null || true
+            "
+          fi
+          
+          # Configure git to use SSH for GitHub URLs instead of HTTPS (critical for Homebrew)
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            su - ${CURRENT_USER} -c 'git config --global url.\"git@github.com:\".insteadOf \"https://github.com/\"' 2>/dev/null || true
+            su - ${CURRENT_USER} -c 'git config --global url.\"ssh://git@github.com/\".insteadOf \"https://github.com/\"' 2>/dev/null || true
+            echo \"Git configured to use SSH for GitHub URLs\"
+          " || true
+          
+          # Copy GitHub CLI config if it exists
+          if [ -d "${CURRENT_HOME}/.config/gh" ]; then
+            echo "    Copying GitHub CLI configuration..."
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              mkdir -p /home/${CURRENT_USER}/.config/gh
+              chown -R ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.config/gh 2>/dev/null || true
+            " || true
+            
+            for gh_file in "${CURRENT_HOME}/.config/gh"/*; do
+              if [ -f "${gh_file}" ]; then
+                basename_gh=$(basename "${gh_file}")
+                incus file push "${gh_file}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/gh_${basename_gh}" 2>/dev/null && \
+                incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                  mv /tmp/gh_${basename_gh} /home/${CURRENT_USER}/.config/gh/${basename_gh}
+                  chmod 600 /home/${CURRENT_USER}/.config/gh/${basename_gh} 2>/dev/null || true
+                  chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.config/gh/${basename_gh} 2>/dev/null || true
+                " || true
+              elif [ -d "${gh_file}" ]; then
+                basename_gh=$(basename "${gh_file}")
+                incus file push -r "${gh_file}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/gh_${basename_gh}" 2>/dev/null && \
+                incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                  cp -r /tmp/gh_${basename_gh}/* /home/${CURRENT_USER}/.config/gh/ 2>/dev/null || true
+                  rm -rf /tmp/gh_${basename_gh}
+                  chown -R ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.config/gh 2>/dev/null || true
+                " || true
+              fi
+            done
+          fi
+          
+          # Copy git credential helper config if it exists
+          if [ -f "${CURRENT_HOME}/.git-credentials" ]; then
+            echo "    Copying git credentials..."
+            incus file push "${CURRENT_HOME}/.git-credentials" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}/tmp/git_credentials" && \
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              mv /tmp/git_credentials /home/${CURRENT_USER}/.git-credentials
+              chmod 600 /home/${CURRENT_USER}/.git-credentials
+              chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.git-credentials 2>/dev/null || true
+              su - ${CURRENT_USER} -c 'git config --global credential.helper store' 2>/dev/null || true
+            " || true
+          fi
+          
+          echo "  Git and GitHub credentials configured"
+          
+          # Install Docker (after user is created)
+          echo "  Installing Docker..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            # Add Docker's official GPG key
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+            # Set up the repository
+            echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            # Install Docker Engine
+            apt-get update -qq
+            apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null 2>&1
+            # Start and enable Docker service
+            systemctl enable docker > /dev/null 2>&1 || true
+            systemctl start docker > /dev/null 2>&1 || true
+            # Add user to docker group
+            usermod -aG docker ${CURRENT_USER} 2>/dev/null || true
+            # Verify Docker installation
+            if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker; then
+              echo \"Docker installed and running\"
+            else
+              echo \"⚠️  Warning: Docker may not be running\"
+            fi
+          " || echo "⚠️  Warning: Docker installation may have failed"
+          
+          # Install Homebrew (for Aqua, Windsor CLI and other tools) - must run as user, not root
+          echo "  Installing Homebrew..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            # Check if Homebrew is already installed
+            if [ -d /home/linuxbrew/.linuxbrew ] && [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+              echo \"Homebrew already installed\"
+            else
+              # Install Homebrew as the user (not as root)
+              # First install required dependencies
+              apt-get update -qq
+              apt-get install -y -qq build-essential curl file git > /dev/null 2>&1
+              # Download installer script and run as user
+              curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/brew-install.sh
+              chmod +x /tmp/brew-install.sh
+              
+              # Source SSH agent environment if available
+              if [ -f /home/${CURRENT_USER}/.ssh/agent_env ]; then
+                . /home/${CURRENT_USER}/.ssh/agent_env
+              fi
+              
+              # Create a wrapper script to run Homebrew installer with proper environment
+              # Temporarily remove SSH git config and use HTTPS for GitHub during Homebrew installation
+              echo '#!/bin/bash' > /tmp/brew-install-wrapper.sh
+              echo 'set +e' >> /tmp/brew-install-wrapper.sh
+              echo 'set +u' >> /tmp/brew-install-wrapper.sh
+              echo 'export DEBIAN_FRONTEND=noninteractive' >> /tmp/brew-install-wrapper.sh
+              echo 'export NONINTERACTIVE=1' >> /tmp/brew-install-wrapper.sh
+              echo '# Temporarily remove SSH git config to force HTTPS (avoids SSH passphrase prompts)' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global --unset url.\"git@github.com:\".insteadOf 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global --unset url.\"ssh://git@github.com/\".insteadOf 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              echo '# Configure git to use HTTPS for GitHub' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global url.\"https://github.com/\".insteadOf \"git@github.com:\" 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global url.\"https://github.com/\".insteadOf \"ssh://git@github.com/\" 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              echo '# Run Homebrew installer and capture output' >> /tmp/brew-install-wrapper.sh
+              echo 'INSTALL_EXIT=1' >> /tmp/brew-install-wrapper.sh
+              echo '/tmp/brew-install.sh < /dev/null > /tmp/brew-install-output.log 2>&1' >> /tmp/brew-install-wrapper.sh
+              echo 'INSTALL_EXIT=$?' >> /tmp/brew-install-wrapper.sh
+              echo '# Filter and show only important messages' >> /tmp/brew-install-wrapper.sh
+              echo 'if grep -qiE \"Error|Failed\" /tmp/brew-install-output.log 2>/dev/null; then' >> /tmp/brew-install-wrapper.sh
+              echo '  grep -iE \"Error|Failed\" /tmp/brew-install-output.log' >> /tmp/brew-install-wrapper.sh
+              echo 'fi' >> /tmp/brew-install-wrapper.sh
+              echo '# Check for success message (Homebrew installer can return non-zero even on success)' >> /tmp/brew-install-wrapper.sh
+              echo 'if grep -q \"Installation successful\" /tmp/brew-install-output.log 2>/dev/null; then' >> /tmp/brew-install-wrapper.sh
+              echo '  echo \"==> Installation successful\"' >> /tmp/brew-install-wrapper.sh
+              echo '  echo \"Homebrew installed successfully\"' >> /tmp/brew-install-wrapper.sh
+              echo 'elif [ \"${INSTALL_EXIT:-1}\" -eq 0 ]; then' >> /tmp/brew-install-wrapper.sh
+              echo '  echo \"Homebrew installed successfully\"' >> /tmp/brew-install-wrapper.sh
+              echo 'else' >> /tmp/brew-install-wrapper.sh
+              echo '  echo \"⚠️  Homebrew installation failed (exit code: ${INSTALL_EXIT:-1})\"' >> /tmp/brew-install-wrapper.sh
+              echo '  tail -20 /tmp/brew-install-output.log' >> /tmp/brew-install-wrapper.sh
+              echo '  exit 1' >> /tmp/brew-install-wrapper.sh
+              echo 'fi' >> /tmp/brew-install-wrapper.sh
+              echo '# Restore git SSH configuration after installation' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global --unset url.\"https://github.com/\".insteadOf 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              echo 'git config --global url.\"git@github.com:\".insteadOf \"https://github.com/\" 2>/dev/null || true' >> /tmp/brew-install-wrapper.sh
+              chmod +x /tmp/brew-install-wrapper.sh
+              chown ${CURRENT_USER}:${CURRENT_GID} /tmp/brew-install-wrapper.sh 2>/dev/null || true
+              
+              # Run as user with proper environment including SSH agent
+              sudo -u ${CURRENT_USER} -i /tmp/brew-install-wrapper.sh || {
+                echo \"⚠️  Warning: Homebrew installation failed, will try direct Windsor CLI installation\"
+                rm -f /tmp/brew-install.sh /tmp/brew-install-wrapper.sh
+              }
+              rm -f /tmp/brew-install.sh /tmp/brew-install-wrapper.sh
+            fi
+          " || echo "⚠️  Warning: Homebrew installation may have failed"
+          
+          # Install Aqua via Homebrew (after Homebrew is installed)
+          echo "  Installing Aqua..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            set +e
+            set +u
+            export DEBIAN_FRONTEND=noninteractive
+            if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+              # Temporarily configure git to use HTTPS for GitHub to avoid SSH passphrase prompts
+              sudo -u ${CURRENT_USER} -i bash -c 'set +e; set +u; git config --global --unset url.\"git@github.com:\".insteadOf 2>/dev/null || true; git config --global --unset url.\"ssh://git@github.com/\".insteadOf 2>/dev/null || true; git config --global url.\"https://github.com/\".insteadOf \"git@github.com:\" 2>/dev/null || true; eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" 2>/dev/null || true; /home/linuxbrew/.linuxbrew/bin/brew install aqua >/dev/null 2>&1; BREW_EXIT=\$?; git config --global --unset url.\"https://github.com/\".insteadOf 2>/dev/null || true; git config --global url.\"git@github.com:\".insteadOf \"https://github.com/\" 2>/dev/null || true; if [ \${BREW_EXIT} -eq 0 ] || [ -f /home/linuxbrew/.linuxbrew/bin/aqua ]; then exit 0; else exit 1; fi              ' && echo \"Aqua installed successfully via Homebrew\" || echo \"⚠️  Warning: Aqua installation via Homebrew failed\"
+            else
+              echo \"⚠️  Warning: Homebrew not available, skipping Aqua installation\"
+            fi
+          " || echo "⚠️  Warning: Aqua installation may have failed"
+          
+          # Install Windsor CLI (try Homebrew first, fallback to direct install)
+          echo "  Installing Windsor CLI..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            set +e
+            set +u
+            export DEBIAN_FRONTEND=noninteractive
+            WINDSOR_INSTALLED=0
+            
+            # Try Homebrew first - check if brew binary exists
+            if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+              echo \"  Attempting installation via Homebrew...\"
+              # Temporarily configure git to use HTTPS, install Windsor CLI, then restore
+              sudo -u ${CURRENT_USER} -i bash -c 'set +e; set +u; git config --global --unset url.\"git@github.com:\".insteadOf 2>/dev/null || true; git config --global --unset url.\"ssh://git@github.com/\".insteadOf 2>/dev/null || true; git config --global url.\"https://github.com/\".insteadOf \"git@github.com:\" 2>/dev/null || true; git config --global url.\"https://github.com/\".insteadOf \"ssh://git@github.com/\" 2>/dev/null || true; eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\" 2>/dev/null || true; /home/linuxbrew/.linuxbrew/bin/brew update >/dev/null 2>&1; /home/linuxbrew/.linuxbrew/bin/brew tap windsorcli/cli >/dev/null 2>&1; /home/linuxbrew/.linuxbrew/bin/brew install windsor >/dev/null 2>&1; BREW_EXIT=\$?; git config --global --unset url.\"https://github.com/\".insteadOf 2>/dev/null || true; git config --global url.\"git@github.com:\".insteadOf \"https://github.com/\" 2>/dev/null || true; if [ \${BREW_EXIT} -eq 0 ] || [ -f /home/linuxbrew/.linuxbrew/bin/windsor ]; then exit 0; else exit 1; fi' 2>&1 && {
+                if sudo -u ${CURRENT_USER} -i bash -c '/home/linuxbrew/.linuxbrew/bin/windsor version' > /dev/null 2>&1 || \
+                   sudo -u ${CURRENT_USER} -i bash -c 'command -v windsor && windsor version' > /dev/null 2>&1; then
+                  echo \"Windsor CLI installed successfully via Homebrew\"
+                  WINDSOR_INSTALLED=1
+                fi
+              } || echo \"  ⚠️  Windsor CLI Homebrew installation failed\"
+            fi
+            
+            # Fallback to direct installation if Homebrew installation failed
+            if [ \${WINDSOR_INSTALLED} -eq 0 ]; then
+              echo \"  Windsor CLI installation via Homebrew failed, installing directly...\"
+              # Detect platform and architecture
+              PLATFORM=\$(uname -s | tr '[:upper:]' '[:lower:]')
+              ARCH=\$(uname -m)
+              
+              # Map architecture
+              if [ \"\${ARCH}\" = \"x86_64\" ]; then
+                ARCH=\"amd64\"
+              elif [ \"\${ARCH}\" = \"arm64\" ] || [ \"\${ARCH}\" = \"aarch64\" ]; then
+                ARCH=\"arm64\"
+              fi
+              
+              # Install to /usr/local/bin for system-wide access
+              INSTALL_DIR=\"/usr/local/bin\"
+              WINDSOR_VERSION=\"v0.8.1\"
+              
+              # Download and install Windsor CLI
+              DOWNLOAD_URL=\"https://github.com/windsorcli/cli/releases/download/\${WINDSOR_VERSION}/windsor_\${WINDSOR_VERSION#v}_\${PLATFORM}_\${ARCH}.tar.gz\"
+              curl -fsSL \"\${DOWNLOAD_URL}\" | tar -xz -C \${INSTALL_DIR} windsor
+              chmod +x \${INSTALL_DIR}/windsor
+              
+              # Verify installation
+              if \${INSTALL_DIR}/windsor version > /dev/null 2>&1; then
+                echo \"Windsor CLI installed successfully (direct install)\"
+              else
+                echo \"⚠️  Warning: Windsor CLI installation verification failed\"
+              fi
+            fi
+          " || echo "⚠️  Warning: Windsor CLI installation may have failed"
+          
+          # Setup bashrc for user (PATH and shell configuration)
+          echo "  Configuring bashrc..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            # Source SSH agent environment if it exists
+            if [ -f /home/${CURRENT_USER}/.ssh/agent_env ] && ! grep -q 'agent_env' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.bashrc
+              echo '# Source SSH agent environment' >> /home/${CURRENT_USER}/.bashrc
+              echo 'if [ -f ~/.ssh/agent_env ]; then' >> /home/${CURRENT_USER}/.bashrc
+              echo '  . ~/.ssh/agent_env > /dev/null 2>&1' >> /home/${CURRENT_USER}/.bashrc
+              echo '  # Check if agent is still running, start if not' >> /home/${CURRENT_USER}/.bashrc
+              echo '  if [ -n \"\${SSH_AGENT_PID}\" ] && ! ps -p \${SSH_AGENT_PID} > /dev/null 2>&1; then' >> /home/${CURRENT_USER}/.bashrc
+              echo '    eval \$(ssh-agent -s) > /dev/null 2>&1' >> /home/${CURRENT_USER}/.bashrc
+              echo '    echo \"SSH_AUTH_SOCK=\${SSH_AUTH_SOCK}\" > ~/.ssh/agent_env' >> /home/${CURRENT_USER}/.bashrc
+              echo '    echo \"SSH_AGENT_PID=\${SSH_AGENT_PID}\" >> ~/.ssh/agent_env' >> /home/${CURRENT_USER}/.bashrc
+              echo '    # Re-add keys to agent' >> /home/${CURRENT_USER}/.bashrc
+              echo '    for key in ~/.ssh/id_*; do' >> /home/${CURRENT_USER}/.bashrc
+              echo '      [ -f \"\${key}\" ] && [ ! -f \"\${key}.pub\" ] && ssh-add \"\${key}\" < /dev/null 2>/dev/null || true' >> /home/${CURRENT_USER}/.bashrc
+              echo '    done' >> /home/${CURRENT_USER}/.bashrc
+              echo '  fi' >> /home/${CURRENT_USER}/.bashrc
+              echo 'fi' >> /home/${CURRENT_USER}/.bashrc
+            fi
+            
+            # Add Homebrew to PATH (for Aqua, Windsor CLI and other tools) - only if brew binary exists
+            if [ -f /home/linuxbrew/.linuxbrew/bin/brew ] && ! grep -q 'linuxbrew' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.bashrc
+              echo '# Add Homebrew to PATH' >> /home/${CURRENT_USER}/.bashrc
+              echo 'eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"' >> /home/${CURRENT_USER}/.bashrc
+            fi
+            
+            # Ensure /usr/local/bin is in PATH (though it's usually already there)
+            if ! grep -q '/usr/local/bin' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.bashrc
+              echo '# Ensure /usr/local/bin is in PATH' >> /home/${CURRENT_USER}/.bashrc
+              echo 'export PATH=\"/usr/local/bin:\$PATH\"' >> /home/${CURRENT_USER}/.bashrc
+            fi
+            
+            # Add Windsor hook (must be at the end, after rvm, git-prompt, and other prompt extensions)
+            if ! grep -q 'windsor hook bash' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.bashrc
+              echo '# Windsor CLI hook (must be after prompt extensions like rvm, git-prompt)' >> /home/${CURRENT_USER}/.bashrc
+              echo 'eval \"\$(windsor hook bash)\"' >> /home/${CURRENT_USER}/.bashrc
+            fi
+            
+            # Set ownership
+            chown ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.bashrc 2>/dev/null || true
+          " || echo "⚠️  Warning: bashrc configuration may have failed"
+          
+          # Create Windsor CLI config directory with proper permissions
+          echo "  Setting up Windsor CLI configuration..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            mkdir -p /home/${CURRENT_USER}/.config/windsor
+            chown -R ${CURRENT_UID}:${CURRENT_GID} /home/${CURRENT_USER}/.config 2>/dev/null || true
+            chmod 755 /home/${CURRENT_USER}/.config 2>/dev/null || true
+            chmod 755 /home/${CURRENT_USER}/.config/windsor 2>/dev/null || true
+          " || echo "⚠️  Warning: Windsor CLI config directory setup may have failed"
+          
+          # Verify installations (check as user to get correct PATH)
+          echo "  Verifying installations..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            echo 'Verification:'
+            # Check Docker (as root)
+            if command -v docker >/dev/null 2>&1; then
+              DOCKER_VER=\$(docker --version 2>/dev/null | head -n1)
+              echo \"  ✓ Docker: \${DOCKER_VER}\"
+            else
+              echo '  ✗ Docker: not found'
+            fi
+            # Check Aqua and Windsor CLI as user (to get Homebrew PATH)
+            # Source bashrc to ensure PATH is set correctly
+            AQUA_CHECK=\$(su - ${CURRENT_USER} -c 'source ~/.bashrc 2>/dev/null || true; if [ -f /home/linuxbrew/.linuxbrew/bin/aqua ]; then /home/linuxbrew/.linuxbrew/bin/aqua --version 2>/dev/null | head -n1; elif command -v aqua >/dev/null 2>&1; then aqua --version 2>/dev/null | head -n1; else echo \"not found\"; fi' 2>/dev/null)
+            if [ \"\${AQUA_CHECK}\" != \"not found\" ] && [ -n \"\${AQUA_CHECK}\" ]; then
+              echo \"  ✓ Aqua: \${AQUA_CHECK}\"
+            else
+              # Check if binary exists even if not in PATH
+              if [ -f /home/linuxbrew/.linuxbrew/bin/aqua ]; then
+                AQUA_VER=\$(/home/linuxbrew/.linuxbrew/bin/aqua --version 2>/dev/null | head -n1 || echo \"installed but version check failed\")
+                echo \"  ✓ Aqua: \${AQUA_VER} (binary exists, may need PATH setup)\"
+              else
+                echo '  ✗ Aqua: binary not found'
+              fi
+            fi
+            WINDSOR_CHECK=\$(su - ${CURRENT_USER} -c 'source ~/.bashrc 2>/dev/null || true; if [ -f /home/linuxbrew/.linuxbrew/bin/windsor ]; then /home/linuxbrew/.linuxbrew/bin/windsor version 2>/dev/null | head -n1; elif command -v windsor >/dev/null 2>&1; then windsor version 2>/dev/null | head -n1; elif [ -f /usr/local/bin/windsor ]; then /usr/local/bin/windsor version 2>/dev/null | head -n1; else echo \"not found\"; fi' 2>/dev/null)
+            if [ \"\${WINDSOR_CHECK}\" != \"not found\" ] && [ -n \"\${WINDSOR_CHECK}\" ]; then
+              echo \"  ✓ Windsor CLI: \${WINDSOR_CHECK}\"
+            else
+              # Check if binary exists even if not in PATH
+              if [ -f /home/linuxbrew/.linuxbrew/bin/windsor ]; then
+                WINDSOR_VER=\$(/home/linuxbrew/.linuxbrew/bin/windsor version 2>/dev/null | head -n1 || echo \"installed but version check failed\")
+                echo \"  ✓ Windsor CLI: \${WINDSOR_VER} (binary exists, may need PATH setup)\"
+              elif [ -f /usr/local/bin/windsor ]; then
+                WINDSOR_VER=\$(/usr/local/bin/windsor version 2>/dev/null | head -n1 || echo \"installed but version check failed\")
+                echo \"  ✓ Windsor CLI: \${WINDSOR_VER} (installed to /usr/local/bin)\"
+              else
+                echo '  ✗ Windsor CLI: not found'
+              fi
+            fi
+            echo ''
+            echo 'Note: After SSH login, run \"source ~/.bashrc\" or restart your shell to load PATH changes'
+            echo '      Aqua and Windsor CLI will be available via Homebrew PATH'
+          " || true
+          
+          # Initialize workspace contents (AFTER user is created)
+          INIT_WORKSPACE="{{.DEV_INIT_WORKSPACE}}"
+          INIT_WORKSPACE="${INIT_WORKSPACE:-false}"
+          
+          if [ "${INIT_WORKSPACE}" = "true" ]; then
+            echo ""
+            echo "Initializing workspace contents..."
+            
+            # Get workspace folder name from host path
+            WORKSPACE_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+            WORKSPACE_NAME=$(basename "${WORKSPACE_ROOT}")
+            
+            # Workspace is always copied to user's home directory with same name as on host
+            INIT_PATH="/home/${CURRENT_USER}/${WORKSPACE_NAME}"
+            
+            echo "  Source: ${WORKSPACE_ROOT}"
+            echo "  Destination: ${INIT_PATH}"
+            
+            # Create the workspace directory in the VM (in user's home directory)
+            incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+              mkdir -p ${INIT_PATH}
+              chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH} 2>/dev/null || true
+            "
+            
+            # Copy workspace contents using incus file push
+            # Push contents of workspace root directly into INIT_PATH (not as a nested folder)
+            if [ -d "${WORKSPACE_ROOT}" ]; then
+              echo "Copying workspace contents..."
+              # Use a more robust approach: iterate through all items in the workspace root
+              # This handles hidden files and ensures all items are processed
+              for item in "${WORKSPACE_ROOT}"/* "${WORKSPACE_ROOT}"/.[!.]* "${WORKSPACE_ROOT}"/..?*; do
+                # Skip if glob didn't match anything
+                [ -e "${item}" ] || continue
+                
+                basename_item=$(basename "${item}")
+                echo "  Copying ${basename_item}..."
+                
+                # For files: push to the directory, incus will use the filename
+                if [ -f "${item}" ]; then
+                  if ! incus file push "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${INIT_PATH}/" 2>/dev/null; then
+                    echo "⚠️  Warning: Failed to copy ${basename_item}"
+                  fi
+                elif [ -d "${item}" ]; then
+                  # It's a directory - push the directory itself (not its contents) to avoid nesting
+                  # Push the directory to the target location
+                  if ! incus file push -r "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${INIT_PATH}/" 2>/dev/null; then
+                    echo "⚠️  Warning: Failed to copy ${basename_item}"
+                  fi
+                  # Set ownership on the copied directory
+                  incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                    chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH}/${basename_item} 2>/dev/null || true
+                  " || true
+                fi
+              done
+              
+              # Set proper ownership on all copied files
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH} 2>/dev/null || true
+                # Ensure user has full access
+                chmod -R u+rwX ${INIT_PATH} 2>/dev/null || true
+              "
+              
+              echo "✅ Workspace contents initialized at ${INIT_PATH}"
+            else
+              echo "⚠️  Warning: Workspace root '${WORKSPACE_ROOT}' not found, skipping initialization"
+            fi
+          fi
+          
+          # Install and configure SSH server
+          echo "  Setting up SSH server..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y -qq openssh-server > /dev/null 2>&1 || true
+            mkdir -p /var/run/sshd
+            # Backup original config
+            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
+            # Configure SSH for passwordless access
+            # Disable password authentication
+            sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+            sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+            # Enable public key authentication
+            sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
+            # Disable root login
+            sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
+            # Ensure these settings are present (add if not found)
+            grep -q '^PasswordAuthentication no' /etc/ssh/sshd_config || echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
+            grep -q '^PubkeyAuthentication yes' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
+            grep -q '^ChallengeResponseAuthentication no' /etc/ssh/sshd_config || echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config
+            # Enable and start SSH service
+            systemctl enable ssh 2>/dev/null || systemctl enable sshd 2>/dev/null || true
+            systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
+            # Wait a moment for SSH to start
+            sleep 2
+            # Verify SSH is running
+            if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then
+              echo 'SSH server is running'
+            else
+              echo 'Warning: SSH server may not be running'
+            fi
+          " || echo "⚠️  Warning: SSH server setup may have issues"
+          
+          # Verify SSH key setup
+          echo "  Verifying SSH key setup..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            if [ -f /home/${CURRENT_USER}/.ssh/authorized_keys ]; then
+              KEY_COUNT=\$(wc -l < /home/${CURRENT_USER}/.ssh/authorized_keys)
+              echo \"    Found \${KEY_COUNT} key(s) in authorized_keys\"
+              echo \"    authorized_keys permissions: \$(ls -l /home/${CURRENT_USER}/.ssh/authorized_keys | awk '{print \$1}')\"
+              echo \"    .ssh directory permissions: \$(ls -ld /home/${CURRENT_USER}/.ssh | awk '{print \$1}')\"
+            else
+              echo \"    Warning: authorized_keys file not found\"
+            fi
+          " || true
+          
+          echo "✅ Developer environment initialized"
         fi
         
         echo ""
         echo "✅ Instance '${INSTANCE_NAME_ARG}' created successfully"
         echo ""
         echo "Next steps:"
+        echo "  incus list"
+        echo "  ssh <username>@<ip>"
+        echo ""
         echo "  task dev:shell -- ${INSTANCE_NAME_ARG}    # Open a shell"
         echo "  task dev:info -- ${INSTANCE_NAME_ARG}     # Get instance info"
-        echo "  task dev:start -- ${INSTANCE_NAME_ARG}    # Start the instance"
-        echo "  task dev:stop -- ${INSTANCE_NAME_ARG}     # Stop the instance"
-
+  
   start:
+    silent: true
     desc: Start a dev instance
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -150,24 +921,25 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
         fi
         
         echo "Starting instance '${INSTANCE_NAME_ARG}'..."
-        incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+        incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
         echo "✅ Instance started"
 
   stop:
+    silent: true
     desc: Stop a dev instance
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -178,24 +950,25 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
         fi
         
         echo "Stopping instance '${INSTANCE_NAME_ARG}'..."
-        incus stop "${REMOTE}:${INSTANCE_NAME_ARG}"
+        incus stop "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
         echo "✅ Instance stopped"
 
   restart:
+    silent: true
     desc: Restart a dev instance
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -206,24 +979,25 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
         fi
         
         echo "Restarting instance '${INSTANCE_NAME_ARG}'..."
-        incus restart "${REMOTE}:${INSTANCE_NAME_ARG}"
+        incus restart "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
         echo "✅ Instance restarted"
 
   shell:
+    silent: true
     desc: Open an interactive shell in a dev instance (like docker exec -it)
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -234,30 +1008,31 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
         fi
         
         # Check if instance is running
-        if ! incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
           echo "Instance '${INSTANCE_NAME_ARG}' is not running. Starting it..."
-          incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
           sleep 2
         fi
         
         # Open interactive shell
-        incus exec "${REMOTE}:${INSTANCE_NAME_ARG}" -- bash
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash
 
   exec:
+    silent: true
     desc: Execute a command in a dev instance (like docker exec)
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -268,7 +1043,7 @@ tasks:
           echo "Error: Command required"
           echo "Usage: task dev:exec -- <command>"
           echo "Usage: task dev:exec -- <instance-name> -- <command>"
-          echo "Example: task dev:exec -- ls -la /workspace"
+          echo "Example: task dev:exec -- ls -la ~/workspace-name"
           echo "Example: task dev:exec -- my-container -- apt update"
           exit 1
         fi
@@ -283,15 +1058,15 @@ tasks:
           INSTANCE_NAME_ARG="${FIRST_ARG}"
           shift 2
           COMMAND="$*"
-        elif incus list "${REMOTE}:" --format csv -c n 2>/dev/null | grep -q "^${FIRST_ARG}$"; then
+        elif incus list "{{.INCUS_REMOTE_NAME}}:" --format csv -c n 2>/dev/null | grep -q "^${FIRST_ARG}$"; then
           # First arg is an instance name that exists
           INSTANCE_NAME_ARG="${FIRST_ARG}"
           shift
           COMMAND="$*"
         else
           # No instance name provided, use default
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
@@ -299,22 +1074,23 @@ tasks:
         fi
         
         # Check if instance is running
-        if ! incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
           echo "Instance '${INSTANCE_NAME_ARG}' is not running. Starting it..."
-          incus start "${REMOTE}:${INSTANCE_NAME_ARG}"
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
           sleep 2
         fi
         
         # Execute command
-        incus exec "${REMOTE}:${INSTANCE_NAME_ARG}" -- bash -c "${COMMAND}"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "${COMMAND}"
 
   info:
+    silent: true
     desc: Get information about a dev instance
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -325,40 +1101,142 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
         fi
         
         echo "Instance: ${INSTANCE_NAME_ARG}"
-        echo "Remote: ${REMOTE}"
+        echo "Remote: {{.INCUS_REMOTE_NAME}}"
         echo ""
-        incus info "${REMOTE}:${INSTANCE_NAME_ARG}"
+        incus info "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
 
+  ssh-info:
+    desc: Show SSH connection information for the container
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        else
+          INSTANCE_NAME_ARG="dev-container"
+        fi
+        
+        # Get container IP address
+        # Try to get IP from inside the container (most reliable)
+        CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          ip -4 addr show eth0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -n 1 || \
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+        
+        # Get current user
+        CURRENT_USER=$(whoami)
+        
+        if [ -z "${CONTAINER_IP}" ]; then
+          echo "⚠️  Container IP not found. Is the container running?"
+          echo "   Start the container with: task dev:start -- ${INSTANCE_NAME_ARG}"
+          exit 1
+        fi
+        
+        echo "SSH Connection Information:"
+        echo "  Container: ${INSTANCE_NAME_ARG}"
+        echo "  IP Address: ${CONTAINER_IP}"
+        echo "  User: ${CURRENT_USER}"
+        echo ""
+        echo "To SSH into the container:"
+        echo "  ssh ${CURRENT_USER}@${CONTAINER_IP}"
+        echo ""
+        echo "Or use:"
+        echo "  ssh ${CURRENT_USER}@${CONTAINER_IP} -t 'cd ~/workspace-name && bash'"
+        echo ""
+        echo "Note: Make sure the container has SSH server running and is accessible from your network."
+
+  ssh:
+    desc: SSH into the dev-vm (connects directly via SSH)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        else
+          INSTANCE_NAME_ARG="dev-container"
+        fi
+        
+        # Check if instance is running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Instance '${INSTANCE_NAME_ARG}' is not running. Starting it..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          sleep 3
+        fi
+        
+        # Get container IP address
+        # Try to get IP from inside the container (most reliable)
+        CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          ip -4 addr show eth0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -n 1 || \
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          hostname -I 2>/dev/null | awk '{print $1}' || \
+          incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+          grep -oP '"ipv4":\s*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "")
+        
+        # Get current user
+        CURRENT_USER=$(whoami)
+        
+        if [ -z "${CONTAINER_IP}" ]; then
+          echo "⚠️  Error: Could not determine IP address for '${INSTANCE_NAME_ARG}'"
+          echo "   The instance may not have a network interface configured"
+          echo "   Try: task dev:ssh-info -- ${INSTANCE_NAME_ARG}"
+          exit 1
+        fi
+        
+        echo "Connecting to ${INSTANCE_NAME_ARG} at ${CONTAINER_IP} as ${CURRENT_USER}..."
+        echo ""
+        
+        # SSH into the VM
+        ssh ${CURRENT_USER}@${CONTAINER_IP}
+  
   list:
+    silent: true
     desc: List all dev instances
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
         
-        echo "Dev instances on remote '${REMOTE}':"
+        echo "Dev instances on remote '{{.INCUS_REMOTE_NAME}}':"
         echo ""
-        incus list "${REMOTE}:" --format table
+        incus list "{{.INCUS_REMOTE_NAME}}:" --format table
 
   delete:
+    silent: true
     desc: Delete a dev instance
     cmds:
       - |
         set -euo pipefail
         
-        if [ -z "${REMOTE}" ]; then
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
           echo "Error: INCUS_REMOTE_NAME variable is not defined"
           exit 1
         fi
@@ -369,8 +1247,8 @@ tasks:
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
         else
-          if [ -n "${INSTANCE_NAME}" ]; then
-            INSTANCE_NAME_ARG="${INSTANCE_NAME}"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
             INSTANCE_NAME_ARG="dev-container"
           fi
@@ -382,17 +1260,382 @@ tasks:
         sleep 5
         
         # Stop instance if running
-        if incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+        if incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
           echo "Stopping instance..."
-          incus stop "${REMOTE}:${INSTANCE_NAME_ARG}"
+          incus stop "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
         fi
         
         # Delete instance
         echo "Deleting instance..."
-        incus delete "${REMOTE}:${INSTANCE_NAME_ARG}"
+        incus delete "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
         echo "✅ Instance deleted"
 
+  init-workspace:
+    desc: Initialize workspace contents in an existing VM (copies workspace to user's home directory)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ "{{.INCUS_REMOTE_NAME}}" = "local" ]; then
+          echo "Error: Workspace initialization is only for remote VMs"
+          echo "   For local instances, the workspace can be accessed directly from the host filesystem"
+          exit 1
+        fi
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        else
+          INSTANCE_NAME_ARG="dev-container"
+        fi
+        
+        # Get current user info from host
+        CURRENT_USER=$(whoami)
+        CURRENT_UID=$(id -u)
+        CURRENT_GID=$(id -g)
+        
+        # Get workspace folder name from host path
+        WORKSPACE_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+        WORKSPACE_NAME=$(basename "${WORKSPACE_ROOT}")
+        
+        # Workspace is always copied to user's home directory with same name as on host
+        INIT_PATH="/home/${CURRENT_USER}/${WORKSPACE_NAME}"
+        
+        echo "Initializing workspace contents for '${INSTANCE_NAME_ARG}'..."
+        echo "  Source: ${WORKSPACE_ROOT}"
+        echo "  Destination: ${INIT_PATH}"
+        
+        # Check if instance exists and is running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "Error: Instance '${INSTANCE_NAME_ARG}' does not exist"
+          exit 1
+        fi
+        
+        # Start instance if not running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Starting instance..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          sleep 3
+        fi
+        
+        # Wait for VM agent to be ready if it's a VM
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "container")
+        if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+          echo "  Waiting for VM agent to be ready..."
+          MAX_RETRIES=24
+          RETRY_COUNT=0
+          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+              echo "  VM agent is ready"
+              break
+            fi
+            sleep 2
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+            echo "⚠️  Error: VM agent not ready after $((MAX_RETRIES * 2)) seconds"
+            exit 1
+          fi
+        fi
+        
+        # Create the workspace directory in the VM (in user's home directory)
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+          mkdir -p ${INIT_PATH}
+          chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH} 2>/dev/null || true
+        "
+        
+        # Copy workspace contents using incus file push
+        if [ -d "${WORKSPACE_ROOT}" ]; then
+          echo "Copying workspace contents..."
+          # Use a more robust approach: iterate through all items in the workspace root
+          # This handles hidden files and ensures all items are processed
+          for item in "${WORKSPACE_ROOT}"/* "${WORKSPACE_ROOT}"/.[!.]* "${WORKSPACE_ROOT}"/..?*; do
+            # Skip if glob didn't match anything
+            [ -e "${item}" ] || continue
+            
+            basename_item=$(basename "${item}")
+            echo "  Copying ${basename_item}..."
+            
+            # For files: push to the directory
+            if [ -f "${item}" ]; then
+              if ! incus file push "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${INIT_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+            elif [ -d "${item}" ]; then
+              # It's a directory - push the directory itself (not its contents) to avoid nesting
+              # Push the directory to the target location
+              if ! incus file push -r "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${INIT_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+              # Set ownership on the copied directory
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH}/${basename_item} 2>/dev/null || true
+              " || true
+            fi
+          done
+          
+          # Set proper ownership on all copied files
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH} 2>/dev/null || true
+            chmod -R u+rwX ${INIT_PATH} 2>/dev/null || true
+          "
+          
+          echo "✅ Workspace contents initialized at ${INIT_PATH}"
+        else
+          echo "⚠️  Error: Workspace root '${WORKSPACE_ROOT}' not found"
+          exit 1
+        fi
+
+  copy-workspace:
+    desc: Copy entire workspace to dev-vm (replaces existing workspace in user's home directory)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        else
+          INSTANCE_NAME_ARG="dev-container"
+        fi
+        
+        # Get current user info from host
+        CURRENT_USER=$(whoami)
+        CURRENT_UID=$(id -u)
+        CURRENT_GID=$(id -g)
+        
+        # Get workspace folder name from host path
+        WORKSPACE_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+        WORKSPACE_NAME=$(basename "${WORKSPACE_ROOT}")
+        
+        # Workspace is copied to user's home directory with same name as on host
+        TARGET_PATH="/home/${CURRENT_USER}/${WORKSPACE_NAME}"
+        
+        echo "Copying workspace to '${INSTANCE_NAME_ARG}'..."
+        echo "  Source: ${WORKSPACE_ROOT}"
+        echo "  Destination: ${TARGET_PATH}"
+        
+        # Check if instance exists
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "Error: Instance '${INSTANCE_NAME_ARG}' does not exist"
+          exit 1
+        fi
+        
+        # Start instance if not running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Starting instance..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          sleep 3
+        fi
+        
+        # Wait for VM agent to be ready if it's a VM
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "container")
+        if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+          echo "  Waiting for VM agent to be ready..."
+          MAX_RETRIES=24
+          RETRY_COUNT=0
+          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+              echo "  VM agent is ready"
+              break
+            fi
+            sleep 2
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+            echo "⚠️  Error: VM agent not ready after $((MAX_RETRIES * 2)) seconds"
+            exit 1
+          fi
+        fi
+        
+        # Remove existing workspace directory if it exists (to ensure clean copy)
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+          if [ -d ${TARGET_PATH} ]; then
+            rm -rf ${TARGET_PATH}
+          fi
+          mkdir -p ${TARGET_PATH}
+          chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH} 2>/dev/null || true
+        "
+        
+        # Copy workspace contents
+        if [ -d "${WORKSPACE_ROOT}" ]; then
+          echo "Copying workspace contents..."
+          for item in "${WORKSPACE_ROOT}"/* "${WORKSPACE_ROOT}"/.[!.]* "${WORKSPACE_ROOT}"/..?*; do
+            [ -e "${item}" ] || continue
+            
+            basename_item=$(basename "${item}")
+            echo "  Copying ${basename_item}..."
+            
+            if [ -f "${item}" ]; then
+              if ! incus file push "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${TARGET_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+            elif [ -d "${item}" ]; then
+              if ! incus file push -r "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${TARGET_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH}/${basename_item} 2>/dev/null || true
+              " || true
+            fi
+          done
+          
+          # Set proper ownership
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH} 2>/dev/null || true
+            chmod -R u+rwX ${TARGET_PATH} 2>/dev/null || true
+          "
+          
+          echo "✅ Workspace copied to ${TARGET_PATH}"
+        else
+          echo "⚠️  Error: Workspace root '${WORKSPACE_ROOT}' not found"
+          exit 1
+        fi
+
+  add-workspace:
+    desc: Add workspace to dev-vm (copies workspace to user's home directory, same as during creation)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        else
+          INSTANCE_NAME_ARG="dev-container"
+        fi
+        
+        # Get current user info from host
+        CURRENT_USER=$(whoami)
+        CURRENT_UID=$(id -u)
+        CURRENT_GID=$(id -g)
+        
+        # Get workspace folder name from host path
+        WORKSPACE_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+        WORKSPACE_NAME=$(basename "${WORKSPACE_ROOT}")
+        
+        # Workspace is copied to user's home directory with same name as on host
+        TARGET_PATH="/home/${CURRENT_USER}/${WORKSPACE_NAME}"
+        
+        echo "Adding workspace to '${INSTANCE_NAME_ARG}'..."
+        echo "  Source: ${WORKSPACE_ROOT}"
+        echo "  Destination: ${TARGET_PATH}"
+        
+        # Check if instance exists
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "Error: Instance '${INSTANCE_NAME_ARG}' does not exist"
+          exit 1
+        fi
+        
+        # Start instance if not running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Starting instance..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          sleep 3
+        fi
+        
+        # Wait for VM agent to be ready if it's a VM
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "container")
+        if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+          echo "  Waiting for VM agent to be ready..."
+          MAX_RETRIES=24
+          RETRY_COUNT=0
+          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+              echo "  VM agent is ready"
+              break
+            fi
+            sleep 2
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+            echo "⚠️  Error: VM agent not ready after $((MAX_RETRIES * 2)) seconds"
+            exit 1
+          fi
+        fi
+        
+        # Create workspace directory (merge with existing if it exists)
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+          mkdir -p ${TARGET_PATH}
+          chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH} 2>/dev/null || true
+        "
+        
+        # Copy workspace contents (will merge with existing files)
+        if [ -d "${WORKSPACE_ROOT}" ]; then
+          echo "Copying workspace contents..."
+          for item in "${WORKSPACE_ROOT}"/* "${WORKSPACE_ROOT}"/.[!.]* "${WORKSPACE_ROOT}"/..?*; do
+            [ -e "${item}" ] || continue
+            
+            basename_item=$(basename "${item}")
+            echo "  Copying ${basename_item}..."
+            
+            if [ -f "${item}" ]; then
+              if ! incus file push "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${TARGET_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+            elif [ -d "${item}" ]; then
+              if ! incus file push -r "${item}" "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}${TARGET_PATH}/" 2>/dev/null; then
+                echo "⚠️  Warning: Failed to copy ${basename_item}"
+              fi
+              incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+                chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH}/${basename_item} 2>/dev/null || true
+              " || true
+            fi
+          done
+          
+          # Set proper ownership
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            chown -R ${CURRENT_UID}:${CURRENT_GID} ${TARGET_PATH} 2>/dev/null || true
+            chmod -R u+rwX ${TARGET_PATH} 2>/dev/null || true
+          "
+          
+          echo "✅ Workspace added to ${TARGET_PATH}"
+        else
+          echo "⚠️  Error: Workspace root '${WORKSPACE_ROOT}' not found"
+          exit 1
+        fi
+  
   help:
+    silent: true
     desc: Dev environment commands
     cmds:
       - |
@@ -413,15 +1656,21 @@ tasks:
         echo ""
         echo "Access:"
         echo "    task dev:shell [-- <instance-name>]     # Interactive shell"
+        echo "    task dev:ssh [-- <instance-name>]      # SSH into VM"
+        echo "    task dev:ssh-info [-- <instance-name>] # Show SSH connection info"
         echo "    task dev:exec -- <command>               # Execute command"
         echo "    task dev:exec -- <instance-name> -- <command>"
+        echo ""
+        echo "Utilities:"
+        echo "    task dev:init-workspace [-- <instance-name>]  # Initialize workspace in existing VM"
+        echo "    task dev:copy-workspace [-- <instance-name>]  # Copy workspace (replaces existing)"
+        echo "    task dev:add-workspace [-- <instance-name>]  # Add workspace (merges with existing)"
         echo ""
         echo "Examples:"
         echo "    task dev:create -- container ubuntu/22.04"
         echo "    task dev:shell"
-        echo "    task dev:exec -- ls -la /workspace"
+        echo "    task dev:exec -- ls -la ~/workspace-name"
         echo "    task dev:exec -- apt update"
         echo ""
-        echo "The workspace directory is automatically mounted at /workspace inside the instance"
-    silent: true
+        echo "The workspace is copied to ~/workspace-name (same folder name as on host) inside the instance"
 
