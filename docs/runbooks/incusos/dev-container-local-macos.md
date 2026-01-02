@@ -81,8 +81,8 @@ environment:
   DEV_SHARE_WORKSPACE: true
   DEV_WORKSPACE_PATH: ""  # Optional: defaults to WINDSOR_PROJECT_ROOT
   
-  # Default instance name (optional, defaults to dev-container)
-  DEV_INSTANCE_NAME: dev-container
+  # Default instance name (optional, defaults to dev)
+  DEV_INSTANCE_NAME: dev
   
   # Default image (optional, defaults to ubuntu/22.04)
   DEV_IMAGE: ubuntu/22.04
@@ -112,7 +112,7 @@ task dev:create -- container ubuntu/22.04
 ```
 
 This will:
-- Create a container named `dev-container` (or the name in `DEV_INSTANCE_NAME`)
+- Create a container named `dev` (or the name in `DEV_INSTANCE_NAME`)
 - Use Ubuntu 22.04 as the base image
 - Mount your workspace directory at `/workspace` inside the container
 - Configure the container with the specified resources
@@ -255,11 +255,11 @@ However, for better integration, you may want to copy your SSH keys into the con
 
 ```bash
 # Copy your SSH key to the container
-incus file push ~/.ssh/id_rsa local:dev-container/root/.ssh/id_rsa
+incus file push ~/.ssh/id_rsa local:dev/root/.ssh/id_rsa
 task dev:exec -- chmod 600 /root/.ssh/id_rsa
 
 # Copy your public key
-incus file push ~/.ssh/id_rsa.pub local:dev-container/root/.ssh/id_rsa.pub
+incus file push ~/.ssh/id_rsa.pub local:dev/root/.ssh/id_rsa.pub
 ```
 
 **Future Enhancement**: The taskfile will be enhanced to automatically copy SSH keys and configure the container user to match your local user.
@@ -308,7 +308,7 @@ task dev:list
 task dev:info
 
 # Or specify the container name
-task dev:info -- my-dev-container
+task dev:info -- my-dev
 ```
 
 ### Start/Stop Container
@@ -343,7 +343,7 @@ colima start --runtime=incus
 task dev:delete
 
 # Or specify the container name
-task dev:delete -- my-dev-container
+task dev:delete -- my-dev
 ```
 
 ## Confirmation Checklist
@@ -448,10 +448,10 @@ colima start --runtime=incus
 task dev:info
 
 # Check Incus logs
-incus info local:dev-container
+incus info local:dev
 
 # Try starting manually
-incus start local:dev-container
+incus start local:dev
 ```
 
 ### Workspace Not Accessible

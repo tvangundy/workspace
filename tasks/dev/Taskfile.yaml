@@ -5,7 +5,69 @@ version: '3'
 tasks:
   create:
     silent: true
-    desc: Create a dev-container or dev-vm instance
+    desc: Create a dev container or virtual machine instance
+    cmds:
+      - task: create:validate
+      - task: create:instance
+      - |
+        set -euo pipefail
+        # Parse CLI arguments to get instance name for setup tasks (reuse defaults from validate)
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        
+        # Use defaults from environment variables (same logic as validate)
+        INSTANCE_TYPE="{{.DEV_INSTANCE_TYPE}}"
+        INSTANCE_TYPE="${INSTANCE_TYPE:-container}"
+        INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        
+        # Override with CLI arguments if provided
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          # First argument: instance type (optional)
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            INSTANCE_TYPE="${1}"
+            shift
+          fi
+          # Skip second argument (image) for this task
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            shift
+          fi
+          
+          # Parse --name if provided
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --name)
+                INSTANCE_NAME_ARG="${2}"
+                shift 2
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+        fi
+        
+        # Set default instance name if not provided
+        if [ -z "${INSTANCE_NAME_ARG}" ]; then
+          INSTANCE_NAME_ARG="dev-${INSTANCE_TYPE}"
+        fi
+        # Setup developer environment for remote deployments
+        if [ "{{.INCUS_REMOTE_NAME}}" != "local" ]; then
+          task dev:create:setup-env -- ${INSTANCE_NAME_ARG}
+        fi
+        echo ""
+        echo "✅ Instance '${INSTANCE_NAME_ARG}' created successfully"
+        echo ""
+        echo "Next steps:"
+        echo "  incus list"
+        echo "  ssh <username>@<ip>"
+        echo ""
+        echo "  task dev:shell -- ${INSTANCE_NAME_ARG}    # Open a shell"
+        echo "  task dev:info -- ${INSTANCE_NAME_ARG}     # Get instance info"
+        echo "  task dev:help                             # Show help"
+  
+  create:validate:
+    silent: true
+    desc: Validate input and check prerequisites for instance creation
     cmds:
       - |
         set -euo pipefail
@@ -25,40 +87,55 @@ tasks:
           exit 1
         fi
         
-        # Parse CLI arguments: <type> <image> [--name <name>]
+        # Parse CLI arguments: [<type>] [<image>] [--name <name>]
+        # All arguments are optional if environment variables are set
         CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -z "${CLI_ARGS_STR}" ]; then
-          echo "Error: Instance type and image required"
-          echo "Usage: task dev:create -- <container|vm> <image> [--name <name>]"
-          echo "Example: task dev:create -- container ubuntu/22.04"
-          echo "Example: task dev:create -- vm ubuntu/22.04 --name my-dev-vm"
-          exit 1
-        fi
         
-        eval set -- ${CLI_ARGS_STR}
-        INSTANCE_TYPE="${1}"
-        IMAGE_ARG="${2:-{{.DEV_IMAGE}}}"
+        # Use defaults from environment variables
+        INSTANCE_TYPE="{{.DEV_INSTANCE_TYPE}}"
+        INSTANCE_TYPE="${INSTANCE_TYPE:-container}"
+        IMAGE_ARG="{{.DEV_IMAGE}}"
         IMAGE_ARG="${IMAGE_ARG:-ubuntu/22.04}"
         INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
-        INSTANCE_NAME_ARG="${INSTANCE_NAME_ARG:-dev-${INSTANCE_TYPE}}"
         
-        # Parse --name if provided
-        while [ $# -gt 0 ]; do
-          case "$1" in
-            --name)
-              INSTANCE_NAME_ARG="${2}"
-              shift 2
-              ;;
-            *)
-              shift
-              ;;
-          esac
-        done
+        # Override with CLI arguments if provided
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          # First argument: instance type (optional)
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            INSTANCE_TYPE="${1}"
+            shift
+          fi
+          # Second argument: image (optional)
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            IMAGE_ARG="${1}"
+            shift
+          fi
+          
+          # Parse --name if provided
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --name)
+                INSTANCE_NAME_ARG="${2}"
+                shift 2
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+        fi
+        
+        # Set default instance name if not provided
+        if [ -z "${INSTANCE_NAME_ARG}" ]; then
+          INSTANCE_NAME_ARG="dev-${INSTANCE_TYPE}"
+        fi
         
         # Validate instance type
         if [ "${INSTANCE_TYPE}" != "container" ] && [ "${INSTANCE_TYPE}" != "vm" ]; then
           echo "Error: Instance type must be 'container' or 'vm'"
-          echo "Usage: task dev:create -- <container|vm> <image>"
+          echo "Usage: task dev:create [-- <type> <image> [--name <name>]]"
+          echo "       (Defaults: DEV_INSTANCE_TYPE, DEV_IMAGE, DEV_INSTANCE_NAME)"
           exit 1
         fi
         
@@ -67,6 +144,57 @@ tasks:
           echo "Instance '${INSTANCE_NAME_ARG}' already exists on remote '{{.INCUS_REMOTE_NAME}}'"
           echo "Use 'task dev:delete -- ${INSTANCE_NAME_ARG}' to remove it first, or use a different name"
           exit 1
+        fi
+
+  create:instance:
+    silent: true
+    desc: Create and launch the instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Parse CLI arguments: [<type>] [<image>] [--name <name>]
+        # All arguments are optional if environment variables are set
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        
+        # Use defaults from environment variables
+        INSTANCE_TYPE="{{.DEV_INSTANCE_TYPE}}"
+        INSTANCE_TYPE="${INSTANCE_TYPE:-container}"
+        IMAGE_ARG="{{.DEV_IMAGE}}"
+        IMAGE_ARG="${IMAGE_ARG:-ubuntu/22.04}"
+        INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+        
+        # Override with CLI arguments if provided
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          # First argument: instance type (optional)
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            INSTANCE_TYPE="${1}"
+            shift
+          fi
+          # Second argument: image (optional)
+          if [ $# -gt 0 ] && [ "${1}" != "--name" ]; then
+            IMAGE_ARG="${1}"
+            shift
+          fi
+          
+          # Parse --name if provided
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --name)
+                INSTANCE_NAME_ARG="${2}"
+                shift 2
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+        fi
+        
+        # Set default instance name if not provided
+        if [ -z "${INSTANCE_NAME_ARG}" ]; then
+          INSTANCE_NAME_ARG="dev-${INSTANCE_TYPE}"
         fi
         
         # Set defaults for resources if not provided
@@ -171,6 +299,28 @@ tasks:
           # Containers start quickly
           sleep 3
         fi
+
+  create:setup-env:
+    silent: true
+    desc: Setup developer environment in the instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Parse instance name from CLI args
+        INSTANCE_NAME_ARG="{{.CLI_ARGS}}"
+        if [ -z "${INSTANCE_NAME_ARG}" ]; then
+          echo "Error: Instance name required"
+          exit 1
+        fi
+        
+        # Detect instance type from the instance itself
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "container")
+        if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+          INSTANCE_TYPE="vm"
+        else
+          INSTANCE_TYPE="container"
+        fi
         
         # Workspace is never mounted to /workspace
         # For remote deployments, use DEV_INIT_WORKSPACE=true to copy workspace contents to user's home directory
@@ -226,6 +376,7 @@ tasks:
               vim \
               nano \
               openssh-client \
+              openssh-server \
               sudo \
               ca-certificates \
               gnupg \
@@ -524,19 +675,156 @@ tasks:
             chmod a+r /etc/apt/keyrings/docker.gpg
             # Set up the repository
             echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(. /etc/os-release && echo \"\$VERSION_CODENAME\") stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-            # Install Docker Engine
+            # Update package lists
             apt-get update -qq
-            apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null 2>&1
-            # Start and enable Docker service
-            systemctl enable docker > /dev/null 2>&1 || true
-            systemctl start docker > /dev/null 2>&1 || true
+            
+            # Install runc first (dependency of containerd)
+            if ! dpkg -l | grep -q '^ii.*runc'; then
+              apt-get install -y -qq runc 2>/dev/null || true
+            fi
+            
+            # Install containerd from Ubuntu repos (to avoid Docker repo's broken containerd.io)
+            if ! dpkg -l | grep -q '^ii.*containerd'; then
+              apt-get install -y -qq containerd 2>/dev/null || true
+            fi
+            
+            # Create apt preferences to prevent Docker repo's broken containerd.io from being installed
+            mkdir -p /etc/apt/preferences.d
+            echo 'Package: containerd.io' > /etc/apt/preferences.d/docker-containerd-pin
+            echo 'Pin: release o=Docker' >> /etc/apt/preferences.d/docker-containerd-pin
+            echo 'Pin-Priority: -1' >> /etc/apt/preferences.d/docker-containerd-pin
+            apt-get update -qq
+            
+            # Always use workaround for docker-ce installation due to broken containerd.io in Docker repo
+            # First, install Docker runtime dependencies (needed even with --force-depends)
+            apt-get install -y -qq \
+              libnftables1 \
+              iptables \
+              nftables \
+              libip6tc2 \
+              libnetfilter-conntrack3 \
+              libnfnetlink0 \
+              libnftnl11 \
+              libjansson4 \
+              apparmor \
+              pigz \
+              2>/dev/null || true
+            
+            # Install docker-ce-cli first (no containerd.io dependency)
+            apt-get install -y -qq docker-ce-cli 2>/dev/null || true
+            
+            # Get docker-ce package version and install with workaround
+            DOCKER_CE_PKG=\$(apt-cache madison docker-ce 2>/dev/null | head -1 | awk '{print \$3}' || echo \"\")
+            if [ -n \"\${DOCKER_CE_PKG}\" ]; then
+              # Download docker-ce package
+              cd /tmp
+              apt-get download docker-ce=\${DOCKER_CE_PKG} 2>/dev/null || true
+              DOCKER_CE_DEB=\$(ls docker-ce_*.deb 2>/dev/null | head -1)
+              if [ -n \"\${DOCKER_CE_DEB}\" ] && [ -f \"\${DOCKER_CE_DEB}\" ]; then
+                # Install ignoring containerd.io dependency (Ubuntu's containerd is compatible)
+                dpkg -i --force-depends \"\${DOCKER_CE_DEB}\" 2>/dev/null || true
+                rm -f \"\${DOCKER_CE_DEB}\"
+              fi
+            fi
+            
+            # Install plugins (these don't require containerd.io)
+            apt-get install -y -qq docker-buildx-plugin docker-compose-plugin 2>/dev/null || true
+            
+            # Check if systemd is available and running
+            if systemctl is-system-running > /dev/null 2>&1 || [ -d /run/systemd/system ]; then
+              # Use systemd (for VMs and containers with systemd)
+              # Unmask and start containerd first
+              systemctl unmask containerd 2>/dev/null || true
+              systemctl daemon-reload 2>/dev/null || true
+              systemctl enable containerd > /dev/null 2>&1 || true
+              systemctl start containerd > /dev/null 2>&1 || true
+              sleep 3
+              
+              # Verify containerd is running
+              if systemctl is-active --quiet containerd 2>/dev/null; then
+                echo \"containerd service is running\"
+              else
+                echo \"⚠️  Warning: containerd service may not be running\"
+              fi
+              
+              # Unmask and start Docker service
+              systemctl unmask docker 2>/dev/null || true
+              systemctl daemon-reload 2>/dev/null || true
+              
+              # Enable Docker service (for auto-start on boot)
+              systemctl enable docker > /dev/null 2>&1 || true
+              
+              # Verify service is enabled
+              if systemctl is-enabled docker > /dev/null 2>&1; then
+                echo \"Docker service enabled for auto-start\"
+              fi
+              
+              # Start Docker service
+              systemctl start docker > /dev/null 2>&1 || true
+              sleep 4
+              
+              # Verify Docker is running
+              if systemctl is-active --quiet docker 2>/dev/null; then
+                echo \"Docker service is running\"
+              else
+                # Try restart with longer wait
+                systemctl restart docker > /dev/null 2>&1 || true
+                sleep 5
+                if systemctl is-active --quiet docker 2>/dev/null; then
+                  echo \"Docker service is running (after restart)\"
+                else
+                  # Check if there are any obvious errors
+                  DOCKER_STATUS=\$(systemctl status docker --no-pager -l 2>&1 | head -15)
+                  if echo \"\${DOCKER_STATUS}\" | grep -q 'masked'; then
+                    echo \"⚠️  Warning: Docker service is masked, trying to unmask...\"
+                    systemctl unmask docker 2>/dev/null || true
+                    systemctl daemon-reload 2>/dev/null || true
+                    systemctl start docker > /dev/null 2>&1 || true
+                    sleep 3
+                  fi
+                  if systemctl is-active --quiet docker 2>/dev/null; then
+                    echo \"Docker service is running (after unmask)\"
+                  else
+                    echo \"⚠️  Warning: Docker service failed to start\"
+                    echo \"   You can manually start it with: sudo systemctl start docker\"
+                    echo \"   Or check logs with: sudo journalctl -u docker -n 50\"
+                  fi
+                fi
+              fi
+            else
+              # Fallback for containers without systemd
+              # Start containerd directly first
+              if command -v containerd > /dev/null 2>&1; then
+                containerd > /dev/null 2>&1 &
+                sleep 2
+              fi
+              # Start dockerd directly
+              if command -v dockerd > /dev/null 2>&1; then
+                dockerd --containerd=/run/containerd/containerd.sock > /dev/null 2>&1 &
+                sleep 3
+              fi
+            fi
+            
             # Add user to docker group
             usermod -aG docker ${CURRENT_USER} 2>/dev/null || true
+            
             # Verify Docker installation
-            if command -v docker >/dev/null 2>&1 && systemctl is-active --quiet docker; then
-              echo \"Docker installed and running\"
+            if command -v docker >/dev/null 2>&1; then
+              # Give Docker a moment to fully start and verify
+              sleep 2
+              # Check if we can access docker (might need sudo)
+              if docker info > /dev/null 2>&1 || sudo docker info > /dev/null 2>&1; then
+                echo \"Docker installed and running\"
+              else
+                # Check service status for more info
+                if systemctl is-active --quiet docker 2>/dev/null; then
+                  echo \"⚠️  Warning: Docker service is running but 'docker info' failed (may need to add user to docker group)\"
+                else
+                  echo \"⚠️  Warning: Docker installed but daemon may not be running\"
+                fi
+              fi
             else
-              echo \"⚠️  Warning: Docker may not be running\"
+              echo \"⚠️  Warning: Docker binary not found\"
             fi
           " || echo "⚠️  Warning: Docker installation may have failed"
           
@@ -711,6 +999,13 @@ tasks:
               echo 'export PATH=\"/usr/local/bin:\$PATH\"' >> /home/${CURRENT_USER}/.bashrc
             fi
             
+            # Add Aqua bin directory to PATH (must be early to prioritize Aqua-installed tools)
+            if ! grep -q 'AQUA_ROOT_DIR' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
+              echo '' >> /home/${CURRENT_USER}/.bashrc
+              echo '# Add Aqua bin directory to PATH (for Aqua-installed tools like terraform)' >> /home/${CURRENT_USER}/.bashrc
+              echo 'export PATH=\"\${AQUA_ROOT_DIR:-\${XDG_DATA_HOME:-\$HOME/.local/share}/aquaproj-aqua}/bin:\${PATH}\"' >> /home/${CURRENT_USER}/.bashrc
+            fi
+            
             # Add Windsor hook (must be at the end, after rvm, git-prompt, and other prompt extensions)
             if ! grep -q 'windsor hook bash' /home/${CURRENT_USER}/.bashrc 2>/dev/null; then
               echo '' >> /home/${CURRENT_USER}/.bashrc
@@ -738,9 +1033,28 @@ tasks:
             # Check Docker (as root)
             if command -v docker >/dev/null 2>&1; then
               DOCKER_VER=\$(docker --version 2>/dev/null | head -n1)
-              echo \"  ✓ Docker: \${DOCKER_VER}\"
+              # Check if Docker daemon is running
+              if docker info > /dev/null 2>&1; then
+                echo \"  ✓ Docker: \${DOCKER_VER} (running)\"
+              else
+                # Check if service is enabled/running
+                if systemctl is-enabled docker > /dev/null 2>&1; then
+                  if systemctl is-active --quiet docker 2>/dev/null; then
+                    echo \"  ✓ Docker: \${DOCKER_VER} (service active, but docker info failed)\"
+                  else
+                    echo \"  ⚠ Docker: \${DOCKER_VER} (installed, service not active)\"
+                  fi
+                else
+                  echo \"  ⚠ Docker: \${DOCKER_VER} (installed, service not enabled)\"
+                fi
+              fi
             else
-              echo '  ✗ Docker: not found'
+              # Check if docker binary exists in standard location
+              if [ -f /usr/bin/docker ]; then
+                echo '  ⚠ Docker: binary exists at /usr/bin/docker but not in PATH'
+              else
+                echo '  ✗ Docker: not found'
+              fi
             fi
             # Check Aqua and Windsor CLI as user (to get Homebrew PATH)
             # Source bashrc to ensure PATH is set correctly
@@ -844,35 +1158,71 @@ tasks:
             fi
           fi
           
-          # Install and configure SSH server
+          # Configure SSH server (openssh-server should already be installed with developer tools)
           echo "  Setting up SSH server..."
           incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
             export DEBIAN_FRONTEND=noninteractive
-            apt-get install -y -qq openssh-server > /dev/null 2>&1 || true
+            # Check if openssh-server is installed, if not try to install it
+            if ! dpkg -l | grep -q '^ii.*openssh-server'; then
+              echo 'openssh-server not found, attempting to install...'
+              apt-get update -qq
+              # Configure all packages first (helps with broken dependency state from Docker)
+              dpkg --configure -a 2>/dev/null || true
+              # Try installing openssh-server
+              if ! apt-get install -y -qq openssh-server 2>&1; then
+                echo 'Warning: Failed to install openssh-server (may be due to broken Docker dependencies)'
+                echo 'You can manually install it later with: sudo apt-get install openssh-server'
+              fi
+            fi
+            
+            # Ensure SSH directory exists
+            mkdir -p /etc/ssh
             mkdir -p /var/run/sshd
-            # Backup original config
-            cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
-            # Configure SSH for passwordless access
-            # Disable password authentication
-            sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
-            sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
-            # Enable public key authentication
-            sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
-            # Disable root login
-            sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
-            # Ensure these settings are present (add if not found)
-            grep -q '^PasswordAuthentication no' /etc/ssh/sshd_config || echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
-            grep -q '^PubkeyAuthentication yes' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
-            grep -q '^ChallengeResponseAuthentication no' /etc/ssh/sshd_config || echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config
+            
+            # Check if config file exists, if not, generate it
+            if [ ! -f /etc/ssh/sshd_config ]; then
+              echo 'Generating SSH server configuration...'
+              ssh-keygen -A 2>/dev/null || true
+              # If still doesn't exist, create a minimal config
+              if [ ! -f /etc/ssh/sshd_config ]; then
+                dpkg-reconfigure -f noninteractive openssh-server 2>/dev/null || true
+              fi
+            fi
+            
+            # Backup original config if it exists
+            if [ -f /etc/ssh/sshd_config ]; then
+              cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 2>/dev/null || true
+              
+              # Configure SSH for passwordless access
+              # Disable password authentication
+              sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+              sed -i 's/^#*ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config 2>/dev/null || true
+              # Enable public key authentication
+              sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
+              # Disable root login
+              sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config 2>/dev/null || true
+              
+              # Ensure these settings are present (add if not found)
+              grep -q '^PasswordAuthentication' /etc/ssh/sshd_config || echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config
+              grep -q '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
+              grep -q '^ChallengeResponseAuthentication' /etc/ssh/sshd_config || echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config
+            else
+              echo 'Warning: /etc/ssh/sshd_config still does not exist after installation'
+            fi
+            
             # Enable and start SSH service
             systemctl enable ssh 2>/dev/null || systemctl enable sshd 2>/dev/null || true
-            systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
+            systemctl daemon-reload 2>/dev/null || true
+            systemctl start ssh 2>/dev/null || systemctl start sshd 2>/dev/null || true
             # Wait a moment for SSH to start
-            sleep 2
+            sleep 3
+            
             # Verify SSH is running
             if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then
               echo 'SSH server is running'
             else
+              # Try to check what went wrong
+              systemctl status ssh --no-pager -l 2>&1 | head -10 || systemctl status sshd --no-pager -l 2>&1 | head -10 || true
               echo 'Warning: SSH server may not be running'
             fi
           " || echo "⚠️  Warning: SSH server setup may have issues"
@@ -892,17 +1242,7 @@ tasks:
           
           echo "✅ Developer environment initialized"
         fi
-        
-        echo ""
-        echo "✅ Instance '${INSTANCE_NAME_ARG}' created successfully"
-        echo ""
-        echo "Next steps:"
-        echo "  incus list"
-        echo "  ssh <username>@<ip>"
-        echo ""
-        echo "  task dev:shell -- ${INSTANCE_NAME_ARG}    # Open a shell"
-        echo "  task dev:info -- ${INSTANCE_NAME_ARG}     # Get instance info"
-  
+
   start:
     silent: true
     desc: Start a dev instance
@@ -924,7 +1264,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -953,7 +1293,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -982,7 +1322,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -1011,7 +1351,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -1068,7 +1408,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
           COMMAND="$*"
         fi
@@ -1104,7 +1444,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -1113,39 +1453,425 @@ tasks:
         echo ""
         incus info "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
 
+  debug:
+    silent: true
+    desc: Debug performance and resource usage of a dev instance
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Parse instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
+        fi
+        
+        # Check if instance exists
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "⚠️  Error: Instance '${INSTANCE_NAME_ARG}' does not exist on remote '{{.INCUS_REMOTE_NAME}}'"
+          exit 1
+        fi
+        
+        # Temporarily disable strict error checking for diagnostic commands
+        set +e
+        set +u
+        
+        echo "🔍 Performance Diagnostics for '${INSTANCE_NAME_ARG}'"
+        echo "════════════════════════════════════════════════════════"
+        echo ""
+        
+        # Instance status and type
+        echo "📊 Instance Status:"
+        INSTANCE_STATUS=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+          grep -oE '"status":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "unknown")
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+          grep -oE '"type":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "unknown")
+        echo "  Status: ${INSTANCE_STATUS}"
+        echo "  Type: ${INSTANCE_TYPE}"
+        echo ""
+        
+        # Resource limits from Incus
+        echo "⚙️  Resource Limits (from Incus):"
+        incus config show "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" 2>/dev/null | grep -E '^(limits\.|boot\.)' || echo "  (no limits configured)"
+        echo ""
+        
+        # System load and uptime
+        echo "📈 System Load (inside instance):"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'uptime && echo "" && cat /proc/loadavg 2>/dev/null || echo "  (unavailable)"' 2>/dev/null
+        echo ""
+        
+        # CPU usage
+        echo "🖥️  CPU Usage (top processes):"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'top -bn1 | head -n 20 2>/dev/null || ps aux --sort=-%cpu | head -n 10 2>/dev/null || echo "  (unavailable)"' 2>/dev/null
+        echo ""
+        
+        # Memory usage
+        echo "💾 Memory Usage:"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'free -h 2>/dev/null || cat /proc/meminfo | grep -E "^(MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree)" 2>/dev/null || echo "  (unavailable)"' 2>/dev/null
+        echo ""
+        
+        # Disk usage
+        echo "💿 Disk Usage:"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'df -h / 2>/dev/null || echo "  (unavailable)"' 2>/dev/null
+        echo ""
+        
+        # I/O wait and disk I/O
+        echo "📊 I/O Statistics:"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'iostat -x 1 1 2>/dev/null || vmstat 1 1 2>/dev/null || echo "  (iostat/vmstat not available)"' 2>/dev/null
+        echo ""
+        
+        # Network statistics
+        echo "🌐 Network Statistics:"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'ss -s 2>/dev/null || netstat -s 2>/dev/null | head -n 20 || echo "  (unavailable)"' 2>/dev/null
+        echo ""
+        
+        # Process count
+        echo "🔢 Process Information:"
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'echo "  Total processes: $(ps aux 2>/dev/null | wc -l || echo "unknown")" && echo "  Running processes: $(ps aux 2>/dev/null | grep -c "[R] " || echo "unknown")"' 2>/dev/null
+        echo ""
+        
+        # Network latency and connectivity
+        echo "🌐 Network Performance:"
+        echo "  Testing DNS resolution..."
+        DNS_TIME=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'time (getent hosts github.com >/dev/null 2>&1 || host github.com >/dev/null 2>&1) 2>&1 | grep -oE "real.*[0-9.]+s" | head -n 1 || echo "unknown"' 2>/dev/null || echo "unknown")
+        if [ "${DNS_TIME}" != "unknown" ]; then
+          echo "  DNS resolution: ${DNS_TIME}"
+        else
+          echo "  DNS resolution: Testing..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            sh -c 'timeout 3 getent hosts github.com >/dev/null 2>&1 && echo "  ✅ DNS: Working" || echo "  ⚠️  DNS: Slow or failing"' 2>/dev/null || echo "  ⚠️  DNS: Unable to test"
+        fi
+        
+        echo "  Testing connectivity to common hosts..."
+        for host in github.com google.com 8.8.8.8; do
+          PING_RESULT=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            sh -c "ping -c 1 -W 2 ${host} 2>/dev/null | grep -oE 'time=[0-9.]+' | head -n 1 || echo 'timeout'" 2>/dev/null || echo "failed")
+          if [ "${PING_RESULT}" != "timeout" ] && [ "${PING_RESULT}" != "failed" ]; then
+            echo "    ${host}: ${PING_RESULT}"
+          else
+            echo "    ${host}: ⚠️  Unreachable or slow"
+          fi
+        done
+        echo ""
+        
+        # Disk write performance test
+        echo "💿 Disk Performance:"
+        # Check if bc is installed, install if needed
+        if ! incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- command -v bc >/dev/null 2>&1; then
+          echo "  Installing bc for performance tests..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            if command -v apt-get >/dev/null 2>&1; then
+              apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq bc >/dev/null 2>&1
+            elif command -v yum >/dev/null 2>&1; then
+              yum install -y -q bc >/dev/null 2>&1
+            elif command -v dnf >/dev/null 2>&1; then
+              dnf install -y -q bc >/dev/null 2>&1
+            fi
+          " 2>/dev/null || true
+        fi
+        
+        echo "  Testing write speed..."
+        WRITE_TEST=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'WRITE_FILE=/tmp/disk_test_$$; \
+            START=$(date +%s.%N); \
+            dd if=/dev/zero of=${WRITE_FILE} bs=1M count=100 2>/dev/null; \
+            END=$(date +%s.%N); \
+            DURATION=$(echo "${END} - ${START}" | bc 2>/dev/null || echo "0"); \
+            if [ "$(echo "${DURATION} > 0" | bc 2>/dev/null || echo 0)" = "1" ]; then \
+              SPEED=$(echo "scale=2; 100 / ${DURATION}" | bc 2>/dev/null || echo "0"); \
+              echo "${SPEED} MB/s"; \
+            else \
+              echo "test failed"; \
+            fi; \
+            rm -f ${WRITE_FILE} 2>/dev/null' 2>/dev/null || echo "unavailable")
+        if [ "${WRITE_TEST}" != "unavailable" ] && [ "${WRITE_TEST}" != "test failed" ]; then
+          echo "  Write speed: ${WRITE_TEST}"
+        else
+          echo "  Write speed: ⚠️  Unable to test (bc may not be installed)"
+        fi
+        
+        echo "  Testing read speed..."
+        READ_TEST=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'READ_FILE=/tmp/disk_read_test_$$; \
+            dd if=/dev/zero of=${READ_FILE} bs=1M count=100 >/dev/null 2>&1; \
+            START=$(date +%s.%N); \
+            dd if=${READ_FILE} of=/dev/null bs=1M 2>/dev/null; \
+            END=$(date +%s.%N); \
+            DURATION=$(echo "${END} - ${START}" | bc 2>/dev/null || echo "0"); \
+            if [ "$(echo "${DURATION} > 0" | bc 2>/dev/null || echo 0)" = "1" ]; then \
+              SPEED=$(echo "scale=2; 100 / ${DURATION}" | bc 2>/dev/null || echo "0"); \
+              echo "${SPEED} MB/s"; \
+            else \
+              echo "test failed"; \
+            fi; \
+            rm -f ${READ_FILE} 2>/dev/null' 2>/dev/null || echo "unavailable")
+        if [ "${READ_TEST}" != "unavailable" ] && [ "${READ_TEST}" != "test failed" ]; then
+          echo "  Read speed: ${READ_TEST}"
+        else
+          echo "  Read speed: ⚠️  Unable to test"
+        fi
+        
+        # Check filesystem type and mount options
+        echo "  Filesystem info:"
+        FS_INFO=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'df -T / 2>/dev/null | tail -n 1 | awk "{print \"    Type: \" \$2 \", Mount: \" \$1}" || mount | grep " on / " | head -n 1' 2>/dev/null || echo "")
+        if [ -n "${FS_INFO}" ]; then
+          echo "${FS_INFO}"
+        else
+          echo "    (unavailable)"
+        fi
+        echo ""
+        
+        # Check for common performance issues
+        echo "🔍 Common Issues Check:"
+        
+        # Check if swap is being used
+        SWAP_USAGE=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'free | grep Swap | awk "{if (\$3 > 0) print \"⚠️  Swap is being used: \" \$3 \" KB\"}"' 2>/dev/null || echo "")
+        if [ -n "${SWAP_USAGE}" ]; then
+          echo "  ${SWAP_USAGE}"
+        else
+          echo "  ✅ Swap: Not in use"
+        fi
+        
+        # Check disk space
+        DISK_USAGE=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'df / | tail -n 1 | awk "{usage=\$5; gsub(/%/, \"\", usage); if (usage > 90) print \"⚠️  Disk usage: \" \$5 \" (\" \$3 \"/\" \$2 \")\"} else {print \"✅ Disk usage: \" \$5}}"' 2>/dev/null || echo "")
+        if [ -n "${DISK_USAGE}" ]; then
+          echo "  ${DISK_USAGE}"
+        fi
+        
+        # Check load average
+        LOAD_AVG=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+          sh -c 'cat /proc/loadavg 2>/dev/null | awk "{load1=\$1; if (load1 > 2.0) print \"⚠️  High load average: \" load1} else {print \"✅ Load average: \" load1}}"' 2>/dev/null || echo "")
+        if [ -n "${LOAD_AVG}" ]; then
+          echo "  ${LOAD_AVG}"
+        fi
+        
+        echo ""
+        echo "💡 Tips:"
+        echo "  - High load: Check CPU-intensive processes with 'task dev:exec -- top'"
+        echo "  - Memory issues: Check 'task dev:exec -- free -h'"
+        echo "  - Disk I/O: Check 'task dev:exec -- iostat -x 1 5'"
+        echo "  - Network issues: Check 'task dev:exec -- ping -c 5 github.com'"
+        echo "  - Slow downloads: Check DNS with 'task dev:exec -- nslookup github.com'"
+        echo "  - Increase resources: Edit limits with 'incus config set {{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG} limits.cpu=4 limits.memory=8GB'"
+        echo ""
+        echo "🔧 For slow 'aqua i' command:"
+        echo "  - Check network speed: 'task dev:exec -- curl -o /dev/null -s -w \"%{speed_download}\" https://github.com'"
+        echo "  - Check DNS: 'task dev:exec -- nslookup registry-aqua.slsa.dev'"
+        echo "  - Monitor during install: 'task dev:exec -- watch -n 1 \"ps aux | grep aqua\"'"
+        echo "  - Check disk I/O during install: 'task dev:exec -- iostat -x 1'"
+        echo ""
+        
+        # Re-enable strict error checking
+        set -e
+        set -u
+
   ssh-info:
     desc: Show SSH connection information for the container
     cmds:
       - |
         set -euo pipefail
         
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
         # Get instance name
         CLI_ARGS_STR="{{.CLI_ARGS}}"
         if [ -n "${CLI_ARGS_STR}" ]; then
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
-        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
-          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         else
-          INSTANCE_NAME_ARG="dev-container"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
+        fi
+        
+        # Check if instance exists
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "⚠️  Error: Instance '${INSTANCE_NAME_ARG}' does not exist on remote '{{.INCUS_REMOTE_NAME}}'"
+          echo ""
+          echo "   Available instances:"
+          incus list "{{.INCUS_REMOTE_NAME}}:" --format csv -c n 2>/dev/null | sed 's/^/     - /' || echo "     (none found)"
+          echo ""
+          echo "   Create an instance with:"
+          echo "     task dev:create -- vm ubuntu/22.04"
+          exit 1
+        fi
+        
+        # Check if instance is running
+        INSTANCE_STATUS=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+          grep -oE '"status":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "")
+        
+        if [ "${INSTANCE_STATUS}" != "Running" ]; then
+          echo "⚠️  Warning: Instance '${INSTANCE_NAME_ARG}' is not running (status: ${INSTANCE_STATUS:-unknown})"
+          echo "   Starting instance..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" 2>/dev/null || true
+          echo "   Waiting for instance to be ready..."
+          sleep 3
+          
+          # Wait for VM agent if it's a VM
+          INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+            grep -oE '"type":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "container")
+          if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+            MAX_RETRIES=12
+            RETRY_COUNT=0
+            while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+              if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+                break
+              fi
+              sleep 2
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+            done
+          fi
         fi
         
         # Get container IP address
         # Try to get IP from inside the container (most reliable)
-        CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
-          ip -4 addr show eth0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -n 1 || \
-          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
-          hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+        CONTAINER_IP=""
+        
+        echo "   Attempting to find IP address..."
+        
+        # Temporarily disable strict error checking for IP detection
+        set +e
+        set +u
+        
+        # Method 1: Try ip addr show eth0
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip -4 addr show eth0 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+          if [ -n "${CONTAINER_IP}" ]; then
+            echo "   ✓ Found IP via method 1 (ip addr show eth0): ${CONTAINER_IP}"
+          fi
+        fi
+        
+        # Method 2: Try hostname -I (get first non-loopback IP)
+        if [ -z "${CONTAINER_IP}" ]; then
+          ALL_IPS=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            hostname -I 2>/dev/null || echo "")
+          if [ -n "${ALL_IPS}" ]; then
+            # Get first IP that doesn't start with 127.
+            for ip in ${ALL_IPS}; do
+              if [ "${ip#127.}" != "${ip}" ]; then
+                continue
+              fi
+              CONTAINER_IP="${ip}"
+              echo "   ✓ Found IP via method 2 (hostname -I): ${CONTAINER_IP}"
+              break
+            done
+          fi
+        fi
+        
+        # Method 3: Try incus list JSON output (use awk for better compatibility)
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+            grep -oE '"ipv4":\s*"[^"]*"' | head -n 1 | awk -F'"' '{print $4}' 2>/dev/null || echo "")
+          if [ -n "${CONTAINER_IP}" ]; then
+            echo "   ✓ Found IP via method 3 (incus list): ${CONTAINER_IP}"
+          fi
+        fi
+        
+        # Method 4: Directly parse ip addr show output (most reliable fallback)
+        if [ -z "${CONTAINER_IP}" ]; then
+          # Get all IPv4 addresses from ip addr show, skip loopback
+          # Run the command and parse output on host side
+          IP_OUTPUT=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- ip -4 addr show 2>/dev/null || echo "")
+          if [ -n "${IP_OUTPUT}" ]; then
+            ALL_IPS=$(echo "${IP_OUTPUT}" | grep -oE 'inet [0-9.]+' | awk '{print $2}' || echo "")
+            if [ -n "${ALL_IPS}" ]; then
+              # Find first IP that doesn't start with 127.
+              for ip in ${ALL_IPS}; do
+                if echo "${ip}" | grep -q '^127\.'; then
+                  continue
+                fi
+                CONTAINER_IP="${ip}"
+                echo "   ✓ Found IP via method 4 (ip addr show): ${CONTAINER_IP}"
+                break
+              done
+            fi
+          fi
+        fi
+        
+        # Re-enable strict error checking
+        set -e
+        set -u
+        
+        # Method 5: Try to find any network interface by name
+        if [ -z "${CONTAINER_IP}" ]; then
+          # Get list of network interfaces - try multiple methods
+          # Method 5a: From ip link show
+          INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip link show 2>/dev/null | grep -oE '^[0-9]+:\s+[^:@]+' | awk '{print $2}' | grep -v '^lo$' 2>/dev/null || echo "")
+          
+          # Method 5b: If that fails, try from /sys/class/net
+          if [ -z "${INTERFACES}" ]; then
+            INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+              ls -1 /sys/class/net 2>/dev/null | grep -v '^lo$' 2>/dev/null || echo "")
+          fi
+          
+          if [ -n "${INTERFACES}" ]; then
+            for iface in ${INTERFACES}; do
+              TEST_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+                ip -4 addr show "${iface}" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+              if [ -n "${TEST_IP}" ]; then
+                CONTAINER_IP="${TEST_IP}"
+                echo "   ✓ Found IP via method 5 (interface ${iface}): ${CONTAINER_IP}"
+                break
+              fi
+            done
+          fi
+        fi
         
         # Get current user
         CURRENT_USER=$(whoami)
         
         if [ -z "${CONTAINER_IP}" ]; then
+          echo "   ✗ All IP detection methods failed"
+          echo ""
           echo "⚠️  Container IP not found. Is the container running?"
-          echo "   Start the container with: task dev:start -- ${INSTANCE_NAME_ARG}"
+          echo ""
+          echo "   Troubleshooting steps:"
+          echo "   1. Check if instance is running:"
+          echo "      incus list {{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          echo ""
+          echo "   2. Start the instance if needed:"
+          echo "      task dev:start -- ${INSTANCE_NAME_ARG}"
+          echo ""
+          echo "   3. Check network configuration:"
+          echo "      incus network list {{.INCUS_REMOTE_NAME}}:"
+          echo "      incus config show {{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG} | grep -i network"
+          echo ""
+          echo "   4. Check network interfaces inside the instance:"
+          echo "      incus exec {{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG} -- ip addr show"
           exit 1
         fi
         
+        echo ""
         echo "SSH Connection Information:"
         echo "  Container: ${INSTANCE_NAME_ARG}"
         echo "  IP Address: ${CONTAINER_IP}"
@@ -1175,10 +1901,12 @@ tasks:
         if [ -n "${CLI_ARGS_STR}" ]; then
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
-        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
-          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         else
-          INSTANCE_NAME_ARG="dev-container"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
         fi
         
         # Check if instance is running
@@ -1190,12 +1918,88 @@ tasks:
         
         # Get container IP address
         # Try to get IP from inside the container (most reliable)
-        CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
-          ip -4 addr show eth0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -n 1 || \
-          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
-          hostname -I 2>/dev/null | awk '{print $1}' || \
-          incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
-          grep -oP '"ipv4":\s*"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "")
+        CONTAINER_IP=""
+        
+        # Temporarily disable strict error checking for IP detection
+        set +e
+        set +u
+        
+        # Method 1: Try ip addr show eth0
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip -4 addr show eth0 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+        fi
+        
+        # Method 2: Try hostname -I (get first non-loopback IP)
+        if [ -z "${CONTAINER_IP}" ]; then
+          ALL_IPS=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            hostname -I 2>/dev/null || echo "")
+          if [ -n "${ALL_IPS}" ]; then
+            # Get first IP that doesn't start with 127.
+            for ip in ${ALL_IPS}; do
+              if [ "${ip#127.}" != "${ip}" ]; then
+                continue
+              fi
+              CONTAINER_IP="${ip}"
+              break
+            done
+          fi
+        fi
+        
+        # Method 3: Try incus list JSON output (use awk for better compatibility)
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+            grep -oE '"ipv4":\s*"[^"]*"' | head -n 1 | awk -F'"' '{print $4}' 2>/dev/null || echo "")
+        fi
+        
+        # Method 4: Directly parse ip addr show output (most reliable fallback)
+        if [ -z "${CONTAINER_IP}" ]; then
+          # Get all IPv4 addresses from ip addr show, skip loopback
+          # Run the command and parse output on host side
+          IP_OUTPUT=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- ip -4 addr show 2>/dev/null || echo "")
+          if [ -n "${IP_OUTPUT}" ]; then
+            ALL_IPS=$(echo "${IP_OUTPUT}" | grep -oE 'inet [0-9.]+' | awk '{print $2}' || echo "")
+            if [ -n "${ALL_IPS}" ]; then
+              # Find first IP that doesn't start with 127.
+              for ip in ${ALL_IPS}; do
+                if echo "${ip}" | grep -q '^127\.'; then
+                  continue
+                fi
+                CONTAINER_IP="${ip}"
+                break
+              done
+            fi
+          fi
+        fi
+        
+        # Method 5: Try to find any network interface by name
+        if [ -z "${CONTAINER_IP}" ]; then
+          # Get list of network interfaces - try multiple methods
+          # Method 5a: From ip link show
+          INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip link show 2>/dev/null | grep -oE '^[0-9]+:\s+[^:@]+' | awk '{print $2}' | grep -v '^lo$' 2>/dev/null || echo "")
+          
+          # Method 5b: If that fails, try from /sys/class/net
+          if [ -z "${INTERFACES}" ]; then
+            INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+              ls -1 /sys/class/net 2>/dev/null | grep -v '^lo$' 2>/dev/null || echo "")
+          fi
+          
+          if [ -n "${INTERFACES}" ]; then
+            for iface in ${INTERFACES}; do
+              TEST_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+                ip -4 addr show "${iface}" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+              if [ -n "${TEST_IP}" ]; then
+                CONTAINER_IP="${TEST_IP}"
+                break
+              fi
+            done
+          fi
+        fi
+        
+        # Re-enable strict error checking
+        set -e
+        set -u
         
         # Get current user
         CURRENT_USER=$(whoami)
@@ -1207,11 +2011,54 @@ tasks:
           exit 1
         fi
         
-        echo "Connecting to ${INSTANCE_NAME_ARG} at ${CONTAINER_IP} as ${CURRENT_USER}..."
+        # Validate IP address format
+        if ! echo "${CONTAINER_IP}" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+          echo "⚠️  Error: Invalid IP address format: ${CONTAINER_IP}"
+          echo "   Try: task dev:ssh-info -- ${INSTANCE_NAME_ARG}"
+          exit 1
+        fi
+        
+        echo "📋 Connection Details:"
+        echo "   Instance: ${INSTANCE_NAME_ARG}"
+        echo "   IP Address: ${CONTAINER_IP}"
+        echo "   User: ${CURRENT_USER}"
         echo ""
         
-        # SSH into the VM
-        ssh ${CURRENT_USER}@${CONTAINER_IP}
+        # Test connectivity first
+        echo "Testing connectivity to ${CONTAINER_IP}..."
+        if ! ping -c 1 -W 2 ${CONTAINER_IP} >/dev/null 2>&1; then
+          echo "⚠️  Warning: Cannot ping ${CONTAINER_IP}. SSH may still work if ICMP is blocked."
+        else
+          echo "✅ Ping successful"
+        fi
+        echo ""
+        
+        # SSH into the VM (don't exit on SSH failure, let user see the error)
+        # Use -v flag for verbose output to help debug connection issues
+        # Also use -o ConnectTimeout=10 to avoid hanging
+        # Redirect stderr to stdout so verbose output is visible
+        set +e
+        ssh -v -o ConnectTimeout=10 ${CURRENT_USER}@${CONTAINER_IP} 2>&1
+        SSH_EXIT_CODE=$?
+        set -e
+        
+        if [ ${SSH_EXIT_CODE} -ne 0 ]; then
+          echo ""
+          echo "⚠️  SSH connection failed with exit code ${SSH_EXIT_CODE}"
+          echo "   IP Address: ${CONTAINER_IP}"
+          echo "   User: ${CURRENT_USER}"
+          echo ""
+          echo "   Common issues:"
+          echo "   - SSH keys not set up (run: task dev:create to initialize the VM)"
+          echo "   - Network connectivity issues (try: ping ${CONTAINER_IP})"
+          echo "   - SSH server not running in the VM"
+          echo "   - Firewall blocking port 22"
+          echo ""
+          echo "   Try: task dev:ssh-info -- ${INSTANCE_NAME_ARG} for more details"
+        fi
+        
+        # Exit with the SSH exit code (0 for successful connection, non-zero for failure)
+        exit ${SSH_EXIT_CODE}
   
   list:
     silent: true
@@ -1250,7 +2097,7 @@ tasks:
           if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
             INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
           else
-            INSTANCE_NAME_ARG="dev-container"
+            INSTANCE_NAME_ARG="dev"
           fi
         fi
         
@@ -1292,10 +2139,12 @@ tasks:
         if [ -n "${CLI_ARGS_STR}" ]; then
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
-        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
-          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         else
-          INSTANCE_NAME_ARG="dev-container"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
         fi
         
         # Get current user info from host
@@ -1417,10 +2266,12 @@ tasks:
         if [ -n "${CLI_ARGS_STR}" ]; then
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
-        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
-          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         else
-          INSTANCE_NAME_ARG="dev-container"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
         fi
         
         # Get current user info from host
@@ -1538,10 +2389,12 @@ tasks:
         if [ -n "${CLI_ARGS_STR}" ]; then
           eval set -- ${CLI_ARGS_STR}
           INSTANCE_NAME_ARG="${1}"
-        elif [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
-          INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         else
-          INSTANCE_NAME_ARG="dev-container"
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
         fi
         
         # Get current user info from host
@@ -1633,7 +2486,255 @@ tasks:
           echo "⚠️  Error: Workspace root '${WORKSPACE_ROOT}' not found"
           exit 1
         fi
-  
+
+  sync-workspace:
+    desc: Sync workspace changes to dev-vm (uploads only changed files using rsync)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        # Get instance name
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          eval set -- ${CLI_ARGS_STR}
+          INSTANCE_NAME_ARG="${1}"
+        else
+          if [ -n "{{.DEV_INSTANCE_NAME}}" ]; then
+            INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
+          else
+            INSTANCE_NAME_ARG="dev"
+          fi
+        fi
+        
+        # Get current user info from host
+        CURRENT_USER=$(whoami)
+        
+        # Get workspace folder name from host path
+        WORKSPACE_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+        WORKSPACE_NAME=$(basename "${WORKSPACE_ROOT}")
+        
+        # Workspace is in user's home directory with same name as on host
+        REMOTE_PATH="/home/${CURRENT_USER}/${WORKSPACE_NAME}"
+        
+        echo "Syncing workspace to '${INSTANCE_NAME_ARG}'..."
+        echo "  Source: ${WORKSPACE_ROOT}"
+        echo "  Destination: ${CURRENT_USER}@<ip>:${REMOTE_PATH}"
+        echo ""
+        
+        # Check if instance exists
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
+          echo "⚠️  Error: Instance '${INSTANCE_NAME_ARG}' does not exist on remote '{{.INCUS_REMOTE_NAME}}'"
+          exit 1
+        fi
+        
+        # Start instance if not running
+        if ! incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+          echo "Starting instance..."
+          incus start "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}"
+          sleep 3
+        fi
+        
+        # Wait for VM agent to be ready if it's a VM
+        INSTANCE_TYPE=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "container")
+        if [ "${INSTANCE_TYPE}" = "virtual-machine" ]; then
+          echo "  Waiting for VM agent to be ready..."
+          MAX_RETRIES=24
+          RETRY_COUNT=0
+          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            if incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- true 2>/dev/null; then
+              echo "  VM agent is ready"
+              break
+            fi
+            sleep 2
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+            echo "⚠️  Error: VM agent not ready after $((MAX_RETRIES * 2)) seconds"
+            exit 1
+          fi
+        fi
+        
+        # Get container IP address
+        CONTAINER_IP=""
+        
+        # Temporarily disable strict error checking for IP detection
+        set +e
+        set +u
+        
+        # Method 1: Try ip addr show eth0
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip -4 addr show eth0 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+        fi
+        
+        # Method 2: Try hostname -I (get first non-loopback IP)
+        if [ -z "${CONTAINER_IP}" ]; then
+          ALL_IPS=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            hostname -I 2>/dev/null || echo "")
+          if [ -n "${ALL_IPS}" ]; then
+            # Get first IP that doesn't start with 127.
+            for ip in ${ALL_IPS}; do
+              if [ "${ip#127.}" != "${ip}" ]; then
+                continue
+              fi
+              CONTAINER_IP="${ip}"
+              break
+            done
+          fi
+        fi
+        
+        # Method 3: Try incus list JSON output
+        if [ -z "${CONTAINER_IP}" ]; then
+          CONTAINER_IP=$(incus list "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" --format json 2>/dev/null | \
+            grep -oE '"ipv4":\s*"[^"]*"' | head -n 1 | awk -F'"' '{print $4}' 2>/dev/null || echo "")
+        fi
+        
+        # Method 4: Directly parse ip addr show output
+        if [ -z "${CONTAINER_IP}" ]; then
+          IP_OUTPUT=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- ip -4 addr show 2>/dev/null || echo "")
+          if [ -n "${IP_OUTPUT}" ]; then
+            ALL_IPS=$(echo "${IP_OUTPUT}" | grep -oE 'inet [0-9.]+' | awk '{print $2}' || echo "")
+            if [ -n "${ALL_IPS}" ]; then
+              for ip in ${ALL_IPS}; do
+                if echo "${ip}" | grep -q '^127\.'; then
+                  continue
+                fi
+                CONTAINER_IP="${ip}"
+                break
+              done
+            fi
+          fi
+        fi
+        
+        # Method 5: Try to find any network interface by name
+        if [ -z "${CONTAINER_IP}" ]; then
+          INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+            ip link show 2>/dev/null | grep -oE '^[0-9]+:\s+[^:@]+' | awk '{print $2}' | grep -v '^lo$' 2>/dev/null || echo "")
+          if [ -z "${INTERFACES}" ]; then
+            INTERFACES=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+              ls -1 /sys/class/net 2>/dev/null | grep -v '^lo$' 2>/dev/null || echo "")
+          fi
+          if [ -n "${INTERFACES}" ]; then
+            for iface in ${INTERFACES}; do
+              TEST_IP=$(incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- \
+                ip -4 addr show "${iface}" 2>/dev/null | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -n 1 2>/dev/null || echo "")
+              if [ -n "${TEST_IP}" ]; then
+                CONTAINER_IP="${TEST_IP}"
+                break
+              fi
+            done
+          fi
+        fi
+        
+        # Re-enable strict error checking
+        set -e
+        set -u
+        
+        if [ -z "${CONTAINER_IP}" ]; then
+          echo "⚠️  Error: Could not determine IP address for instance '${INSTANCE_NAME_ARG}'"
+          echo ""
+          echo "   Troubleshooting:"
+          echo "   1. Check if instance is running: task dev:list"
+          echo "   2. Start the instance: task dev:start -- ${INSTANCE_NAME_ARG}"
+          echo "   3. Check network: task dev:ssh-info -- ${INSTANCE_NAME_ARG}"
+          exit 1
+        fi
+        
+        echo "  Instance IP: ${CONTAINER_IP}"
+        echo ""
+        
+        # Check if rsync is available
+        if ! command -v rsync >/dev/null 2>&1; then
+          echo "⚠️  Error: rsync is not installed on the host"
+          echo "   Install it with: brew install rsync (macOS) or apt-get install rsync (Linux)"
+          exit 1
+        fi
+        
+        # Check if rsync is available in the remote instance
+        if ! incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- command -v rsync >/dev/null 2>&1; then
+          echo "⚠️  Warning: rsync not found in instance. Installing..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            if command -v apt-get >/dev/null 2>&1; then
+              apt-get update -qq && apt-get install -y -qq rsync
+            elif command -v yum >/dev/null 2>&1; then
+              yum install -y -q rsync
+            elif command -v dnf >/dev/null 2>&1; then
+              dnf install -y -q rsync
+            else
+              echo 'Error: Cannot install rsync automatically'
+              exit 1
+            fi
+          " || {
+            echo "⚠️  Error: Failed to install rsync in the instance"
+            exit 1
+          }
+        fi
+        
+        # Ensure remote directory exists
+        echo "  Ensuring remote directory exists..."
+        incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+          mkdir -p ${REMOTE_PATH}
+          chown -R ${CURRENT_USER}:${CURRENT_USER} ${REMOTE_PATH} 2>/dev/null || true
+        " || true
+        
+        # Perform rsync sync
+        echo "  Syncing files..."
+        echo ""
+        
+        # Build rsync command
+        # -a: archive mode (preserves permissions, timestamps, etc.)
+        # -v: verbose
+        # -z: compress during transfer
+        # --delete: remove files that don't exist locally (optional, but good for sync)
+        # --exclude: exclude common build artifacts and dependencies
+        RSYNC_CMD="rsync -avz --delete \
+          --exclude='.git/' \
+          --exclude='node_modules/' \
+          --exclude='.venv/' \
+          --exclude='venv/' \
+          --exclude='__pycache__/' \
+          --exclude='*.pyc' \
+          --exclude='.pytest_cache/' \
+          --exclude='.mypy_cache/' \
+          --exclude='dist/' \
+          --exclude='build/' \
+          --exclude='.tox/' \
+          --exclude='.coverage' \
+          --exclude='.DS_Store' \
+          --exclude='*.swp' \
+          --exclude='*.swo' \
+          --exclude='*~' \
+          --exclude='.idea/' \
+          --exclude='.vscode/' \
+          -e 'ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10' \
+          '${WORKSPACE_ROOT}/' \
+          '${CURRENT_USER}@${CONTAINER_IP}:${REMOTE_PATH}/'"
+        
+        # Execute rsync
+        eval "${RSYNC_CMD}"
+        RSYNC_EXIT_CODE=$?
+        
+        if [ ${RSYNC_EXIT_CODE} -eq 0 ]; then
+          echo ""
+          echo "✅ Workspace synced successfully to ${REMOTE_PATH}"
+        else
+          echo ""
+          echo "⚠️  Warning: rsync exited with code ${RSYNC_EXIT_CODE}"
+          echo "   Some files may not have been synced. Check the output above for errors."
+          exit ${RSYNC_EXIT_CODE}
+        fi
+
   help:
     silent: true
     desc: Dev environment commands
@@ -1642,16 +2743,16 @@ tasks:
         echo "Development Environment (Incus)"
         echo ""
         echo "Create:"
-        echo "    task dev:create -- <container|vm> <image> [--name <name>]"
-        echo "    Example: task dev:create -- container ubuntu/22.04"
-        echo "    Example: task dev:create -- vm ubuntu/22.04 --name my-dev-vm"
+        echo "    task dev:create [-- <type> <image> [--name <name>]]"
+        echo "    (Defaults: DEV_INSTANCE_TYPE, DEV_IMAGE, DEV_INSTANCE_NAME)"
         echo ""
         echo "Manage:"
         echo "    task dev:start [-- <instance-name>]"
         echo "    task dev:stop [-- <instance-name>]"
         echo "    task dev:restart [-- <instance-name>]"
         echo "    task dev:list"
-        echo "    task dev:info [-- <instance-name>]"
+        echo "    task dev:info [-- <instance-name>]     # Get instance info"
+        echo "    task dev:debug [-- <instance-name>]     # Debug performance issues"
         echo "    task dev:delete [-- <instance-name>]"
         echo ""
         echo "Access:"
@@ -1665,12 +2766,6 @@ tasks:
         echo "    task dev:init-workspace [-- <instance-name>]  # Initialize workspace in existing VM"
         echo "    task dev:copy-workspace [-- <instance-name>]  # Copy workspace (replaces existing)"
         echo "    task dev:add-workspace [-- <instance-name>]  # Add workspace (merges with existing)"
+        echo "    task dev:sync-workspace [-- <instance-name>]  # Sync only changed files (rsync)"
         echo ""
-        echo "Examples:"
-        echo "    task dev:create -- container ubuntu/22.04"
-        echo "    task dev:shell"
-        echo "    task dev:exec -- ls -la ~/workspace-name"
-        echo "    task dev:exec -- apt update"
-        echo ""
-        echo "The workspace is copied to ~/workspace-name (same folder name as on host) inside the instance"
 

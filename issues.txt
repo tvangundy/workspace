@@ -1,3 +1,0 @@
-1. windsor down --clean does not remove .windsor folder
-2. windsor up followed by windsor down does not take down the cluster
-3. When not in a project directory the windsor hook reports an error

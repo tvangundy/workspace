@@ -6,25 +6,147 @@ tasks:
   health-controlplane:
     desc: Health check the controlplane
     cmds:
-      - talosctl health --endpoints 127.0.0.1:50000,127.0.0.1:50001 --nodes controlplane-1 
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${CONTROL_PLANE_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
 
   health-worker:
-    desc: Health check the worker
-    cmds:
-      - talosctl health --endpoints 127.0.0.1:50000,127.0.0.1:50001 --nodes worker-1
-
-  fetch-node-server-certificate:
-    desc: Fetch the server certificate from the node
-    cmds:
-      - openssl s_client -connect 127.0.0.1:50000 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
-  
-  help:
-    desc: Talos releated commands
+    desc: Health check the worker nodes
     cmds:
       - |
-        echo "Talos"
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        # Check both workers
+        echo "Checking ${WORKER_0_VM} (${WORKER_0_IP})..."
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${WORKER_0_IP}"
         echo ""
-        echo "    task talos:health-controlplane"
-        echo "    task talos:health-worker"
-        echo "    task talos:fetch-node-server-certificate"
+        echo "Checking ${WORKER_1_VM} (${WORKER_1_IP})..."
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${WORKER_1_IP}"
+
+  health-worker-0:
+    desc: Health check worker-0
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${WORKER_0_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
+
+  health-worker-1:
+    desc: Health check worker-1
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${WORKER_1_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
+
+  fetch-node-server-certificate:
+    desc: Fetch the server certificate from the control plane node
+    cmds:
+      - openssl s_client -connect "${CONTROL_PLANE_IP}:50000" -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
+
+  cleanup:
+    desc: Destroy the entire Talos cluster and clean up resources
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "${INCUS_REMOTE_NAME:-}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "${CONTROL_PLANE_VM:-}" ]; then
+          echo "Error: CONTROL_PLANE_VM variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "${WORKER_0_VM:-}" ]; then
+          echo "Error: WORKER_0_VM variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "${WORKER_1_VM:-}" ]; then
+          echo "Error: WORKER_1_VM variable is not defined"
+          exit 1
+        fi
+        
+        REMOTE="${INCUS_REMOTE_NAME}"
+        CP_VM="${CONTROL_PLANE_VM}"
+        WORKER_0="${WORKER_0_VM}"
+        WORKER_1="${WORKER_1_VM}"
+        
+        echo "⚠️  WARNING: This will permanently destroy the Talos cluster and all data!"
+        echo ""
+        echo "This will:"
+        echo "  - Stop and delete all cluster VMs (${CP_VM}, ${WORKER_0}, ${WORKER_1})"
+        echo "  - Remove all Kubernetes cluster state"
+        echo "  - Delete all workloads and persistent volumes"
+        echo ""
+        read -p "Are you sure you want to continue? (yes/no): " CONFIRM
+        
+        if [ "${CONFIRM}" != "yes" ]; then
+          echo "Cleanup cancelled"
+          exit 0
+        fi
+        
+        echo ""
+        echo "Stopping VMs..."
+        incus stop ${REMOTE}:${CP_VM} 2>/dev/null || true
+        incus stop ${REMOTE}:${WORKER_0} 2>/dev/null || true
+        incus stop ${REMOTE}:${WORKER_1} 2>/dev/null || true
+        
+        echo "Deleting VMs..."
+        incus delete ${REMOTE}:${CP_VM} 2>/dev/null || echo "  ${CP_VM} not found or already deleted"
+        incus delete ${REMOTE}:${WORKER_0} 2>/dev/null || echo "  ${WORKER_0} not found or already deleted"
+        incus delete ${REMOTE}:${WORKER_1} 2>/dev/null || echo "  ${WORKER_1} not found or already deleted"
+        
+        echo ""
+        echo "✅ Cluster VMs deleted successfully"
+        echo ""
+        
+        # Show optional cleanup paths if context is available
+        if [ -n "${WINDSOR_CONTEXT:-}" ]; then
+          CONTEXT_PATH="contexts/${WINDSOR_CONTEXT}"
+          CLUSTER_PATH="${CONTEXT_PATH}/clusters/${CLUSTER_NAME:-<cluster-name>}"
+          
+          echo "Optional cleanup:"
+          echo "  - Configuration files: ${CLUSTER_PATH}"
+          echo "  - Talos config: ${CONTEXT_PATH}/.talos/talosconfig"
+          echo "  - Kubeconfig: ${CONTEXT_PATH}/.kube/config"
+          echo "  - Talos image: ${CONTEXT_PATH}/devices/talos/talos-metal-amd64.qcow2"
+          echo ""
+          echo "To remove configuration files, run:"
+          echo "  rm -rf ${CLUSTER_PATH}"
+          echo "  rm -f ${CONTEXT_PATH}/.talos/talosconfig"
+          echo "  rm -f ${CONTEXT_PATH}/.kube/config"
+          echo ""
+          echo "To remove the Talos image, run:"
+          echo "  rm -f ${CONTEXT_PATH}/devices/talos/talos-metal-amd64.qcow2"
+        else
+          echo "Note: Set WINDSOR_CONTEXT to see cleanup paths for configuration files"
+        fi
+  
+  help:
+    desc: Talos related commands
+    cmds:
+      - |
+        echo "Talos Health Checks"
+        echo ""
+        echo "    task talos:health-controlplane    # Check control plane node health"
+        echo "    task talos:health-worker          # Check all worker nodes health"
+        echo "    task talos:health-worker-0        # Check worker-0 node health"
+        echo "    task talos:health-worker-1        # Check worker-1 node health"
+        echo "    task talos:fetch-node-server-certificate  # Fetch server certificate from control plane"
+        echo "    task talos:cleanup                # Destroy the entire cluster and clean up resources"
+        echo ""
+        echo "Environment variables used:"
+        echo "  CONTROL_PLANE_IP: ${CONTROL_PLANE_IP:-<not set>}"
+        echo "  WORKER_0_IP: ${WORKER_0_IP:-<not set>}"
+        echo "  WORKER_1_IP: ${WORKER_1_IP:-<not set>}"
+        echo "  TALOSCONFIG: ${TALOSCONFIG:-<not set>}"
     silent: true

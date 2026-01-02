@@ -531,6 +531,76 @@ kubectl cluster-info
 
 Your Talos cluster should now be fully operational and ready for workloads.
 
+## Destroying the Cluster
+
+To completely destroy the Talos cluster and remove all resources, use the cleanup task:
+
+```bash
+task talos:cleanup
+```
+
+This task will:
+
+### What Gets Cleaned Up
+
+1. **Virtual Machines** (Required):
+   - Stops and deletes the control plane VM (`${CONTROL_PLANE_VM}`)
+   - Stops and deletes worker-0 VM (`${WORKER_0_VM}`)
+   - Stops and deletes worker-1 VM (`${WORKER_1_VM}`)
+   - **Warning**: This permanently destroys all data on these VMs, including:
+     - Kubernetes cluster state (etcd data)
+     - All workloads and pods
+     - Persistent volumes
+     - Any data stored on the VMs
+
+2. **Configuration Files** (Optional - manual cleanup):
+   - Talos cluster configuration: `contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}/`
+   - Talos client config: `contexts/${WINDSOR_CONTEXT}/.talos/talosconfig`
+   - Kubernetes kubeconfig: `contexts/${WINDSOR_CONTEXT}/.kube/config`
+   - **Note**: These are not automatically deleted. You can keep them for future reference or manually remove them if needed.
+
+3. **Talos Image** (Optional - manual cleanup):
+   - Downloaded Talos image: `contexts/${WINDSOR_CONTEXT}/devices/talos/talos-metal-amd64.qcow2`
+   - **Note**: The image is not automatically deleted. You can keep it to reuse for future clusters, or manually remove it to free up disk space.
+
+4. **Physical Network** (Not cleaned up):
+   - The physical network created for the cluster is **not** deleted
+   - **Reason**: The network can be shared across multiple clusters and VMs
+   - **Note**: If you want to remove it, you must do so manually with `incus network delete ${INCUS_REMOTE_NAME}:${PHYSICAL_INTERFACE:-eno1}` (only if no other VMs are using it)
+
+### Manual Cleanup (Optional)
+
+After running `task talos:cleanup`, you can optionally clean up configuration files and images:
+
+```bash
+# Remove Talos configuration files (optional)
+rm -rf contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}
+rm -f contexts/${WINDSOR_CONTEXT}/.talos/talosconfig
+rm -f contexts/${WINDSOR_CONTEXT}/.kube/config
+
+# Remove Talos image to free up disk space (optional)
+rm -f contexts/${WINDSOR_CONTEXT}/devices/talos/talos-metal-amd64.qcow2
+```
+
+**Note**: Only remove these if you're sure you won't need them again. Keeping them allows you to recreate the cluster with the same settings or reuse the image.
+
+### Verification
+
+After cleanup, verify that all cluster VMs have been removed:
+
+```bash
+incus list ${INCUS_REMOTE_NAME}:
+```
+
+The cluster VMs should no longer appear in the list.
+
+### Important Notes
+
+- **Data Loss**: Destroying the cluster will permanently delete all Kubernetes data, workloads, and persistent volumes. Ensure you have backups if needed.
+- **Network**: The physical network can be reused for other clusters, so it's not deleted automatically.
+- **Images**: The Talos image can be reused, so it's not deleted automatically.
+- **Recreation**: To recreate the cluster, simply follow this runbook again from the beginning.
+
 ## Managing VMs
 
 ### View VM Status

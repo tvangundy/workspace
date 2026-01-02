@@ -38,14 +38,15 @@ environment:
   DEV_INIT_WORKSPACE: true  # Set to true to copy workspace contents on creation
   # Workspace will be copied to ~/workspace-name (same folder name as on host, in user's home directory)
   
-  # Default VM name (optional, defaults to dev-container)
-  DEV_INSTANCE_NAME: dev-container
+  # Default VM name (optional, defaults to dev)
+  DEV_INSTANCE_NAME: dev
+  DEV_INSTANCE_TYPE: vm
   
   # Default image (optional, defaults to ubuntu/22.04)
   DEV_IMAGE: ubuntu/22.04
   
   # VM resources (optional)
-  DEV_MEMORY: 4GB
+  DEV_MEMORY: 8GB
   DEV_CPU: 2
 ```
 
@@ -103,7 +104,7 @@ Add `instances` to the `roles` list for your physical interface. See [IncusOS Se
 **Note**: After configuring the network, you may need to restart existing VMs for them to get new IP addresses on your local network.
 
 The VM will:
-- Create a VM named `dev-container` (or the name in `DEV_INSTANCE_NAME`)
+- Create a VM named `dev` (or the name in `DEV_INSTANCE_NAME`)
 - Use Ubuntu 22.04 as the base image
 - Optionally initialize with workspace contents if `DEV_INIT_WORKSPACE=true`
 - **Automatically install developer tools** (git, build-essential, curl, vim, etc.)
@@ -230,27 +231,27 @@ Since the VM runs on a remote server, you'll need to transfer files between your
 
 ```bash
 # Push a file to the VM
-incus file push local-file.txt nuc:dev-container/tmp/
+incus file push local-file.txt nuc:dev/tmp/
 
 # Push to workspace directory (replace 'workspace-name' with your actual workspace folder name)
-incus file push local-file.txt nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push local-file.txt nuc:dev/home/$(whoami)/workspace-name/
 ```
 
 #### Push Directory
 
 ```bash
 # Push entire directory recursively (replace 'workspace-name' with your actual workspace folder name)
-incus file push -r ./src nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r ./src nuc:dev/home/$(whoami)/workspace-name/
 
 # Push with specific permissions
-incus file push -r --mode=0755 ./scripts nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r --mode=0755 ./scripts nuc:dev/home/$(whoami)/workspace-name/
 ```
 
 #### Push from Workspace Root
 
 ```bash
 # Push entire workspace to VM (replace 'workspace-name' with your actual workspace folder name)
-incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev/home/$(whoami)/workspace-name/
 ```
 
 ### Transferring Files from VM
@@ -259,20 +260,20 @@ incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev-container/home/$(whoami)/w
 
 ```bash
 # Pull a file from the VM
-incus file pull nuc:dev-container/tmp/file.txt ./
+incus file pull nuc:dev/tmp/file.txt ./
 
 # Pull from workspace directory (replace 'workspace-name' with your actual workspace folder name)
-incus file pull nuc:dev-container/home/$(whoami)/workspace-name/output.txt ./
+incus file pull nuc:dev/home/$(whoami)/workspace-name/output.txt ./
 ```
 
 #### Pull Directory
 
 ```bash
 # Pull entire directory recursively (replace 'workspace-name' with your actual workspace folder name)
-incus file pull -r nuc:dev-container/home/$(whoami)/workspace-name/output ./
+incus file pull -r nuc:dev/home/$(whoami)/workspace-name/output ./
 
 # Pull to specific destination
-incus file pull -r nuc:dev-container/home/$(whoami)/workspace-name/build ./local-build/
+incus file pull -r nuc:dev/home/$(whoami)/workspace-name/build ./local-build/
 ```
 
 ### Sync Workspace (Bidirectional)
@@ -282,10 +283,10 @@ For ongoing development, you may want to sync your local workspace with the remo
 ```bash
 # Sync local workspace to remote VM (replace 'workspace-name' with your actual workspace folder name)
 rsync -avz --exclude='.git' "${WINDSOR_PROJECT_ROOT}/" user@nuc:/tmp/workspace-sync/
-incus file push -r /tmp/workspace-sync/ nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r /tmp/workspace-sync/ nuc:dev/home/$(whoami)/workspace-name/
 
 # Or use incus file push directly (slower but simpler)
-incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev/home/$(whoami)/workspace-name/
 ```
 
 **Note**: For large workspaces, consider using `rsync` over SSH to the remote server first, then using `incus file push` from the server to the VM.
@@ -384,7 +385,7 @@ task dev:list
 task dev:info
 
 # Or specify the VM name
-task dev:info -- my-dev-container
+task dev:info -- my-dev
 ```
 
 ### Get SSH Connection Info
@@ -419,7 +420,7 @@ task dev:restart
 task dev:delete
 
 # Or specify the VM name
-task dev:delete -- my-dev-container
+task dev:delete -- my-dev
 ```
 
 ## Confirmation Checklist
@@ -506,13 +507,13 @@ git clone git@github.com:user/repo.git
 task dev:start
 
 # 2. Sync latest changes from local workspace (if needed)
-incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev-container/home/$(whoami)/workspace-name/
+incus file push -r "${WINDSOR_PROJECT_ROOT}/" nuc:dev/home/$(whoami)/workspace-name/
 
 # 3. Work in VM
 task dev:shell
 
 # 4. When done, pull changes back to local (if needed)
-incus file pull -r nuc:dev-container/home/$(whoami)/workspace-name/ "${WINDSOR_PROJECT_ROOT}/"
+incus file pull -r nuc:dev/home/$(whoami)/workspace-name/ "${WINDSOR_PROJECT_ROOT}/"
 ```
 
 ### Working with GitHub
@@ -535,7 +536,7 @@ git push
 # 4. All done! Changes are in the remote VM's workspace
 # If you need to sync back to local workspace:
 exit  # Exit SSH session
-incus file pull -r nuc:dev-container/home/$(whoami)/workspace-name/project "${WINDSOR_PROJECT_ROOT}/"
+incus file pull -r nuc:dev/home/$(whoami)/workspace-name/project "${WINDSOR_PROJECT_ROOT}/"
 ```
 
 ## Troubleshooting
@@ -547,10 +548,10 @@ incus file pull -r nuc:dev-container/home/$(whoami)/workspace-name/project "${WI
 task dev:info
 
 # Check Incus logs
-incus info nuc:dev-container
+incus info nuc:dev
 
 # Try starting manually
-incus start nuc:dev-container
+incus start nuc:dev
 ```
 
 ### File Transfer Fails
