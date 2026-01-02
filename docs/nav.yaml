@@ -8,8 +8,8 @@ nav:
     - IncusOS Server: runbooks/incusos/incusos-setup.md
     - Talos Cluster: runbooks/talos/talos-incus-vm.md
     - Dev Containers:
-      - Remote (IncusOS): runbooks/incusos/dev-container-remote.md
-      - Local (macOS): runbooks/incusos/dev-container-local-macos.md
+      - Remote (IncusOS): runbooks/incusos/dev-vm-remote.md
+      - Local (IncusOS/macOS): runbooks/incusos/dev-container-local-macos.md
     - GitHub Runner: runbooks/incusos/github-runner.md
     - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
     - Bootstrapping Nodes:
