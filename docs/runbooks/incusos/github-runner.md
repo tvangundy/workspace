@@ -306,6 +306,7 @@ task runner:install-github-runner -- $UBUNTU_GITHUB_RUNNER_0_NAME
 ```
 
 This task will automatically:
+
 - Download the latest GitHub Actions runner (or use the version specified in `GITHUB_RUNNER_VERSION`)
 - Extract the runner files
 - Configure the runner for your repository using the token

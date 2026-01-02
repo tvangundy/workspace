@@ -45,6 +45,7 @@ task sops:generate-secrets-file
 ```
 
 This command:
+
 - Creates the `contexts/$WINDSOR_CONTEXT/` directory if it doesn't exist
 - Generates a `secrets.yaml` file with a sample secret (`TEST_ENV_VAR: value`)
 - The file is created at `contexts/$WINDSOR_CONTEXT/secrets.yaml`
@@ -98,6 +99,7 @@ task sops:encrypt-secrets-file
 ```
 
 This command:
+
 - Encrypts `contexts/$WINDSOR_CONTEXT/secrets.yaml`
 - Creates `contexts/$WINDSOR_CONTEXT/secrets.enc.yaml` (the encrypted version)
 - Uses your configured SOPS encryption keys (typically AWS KMS or age keys)
@@ -111,6 +113,7 @@ ls -la contexts/$WINDSOR_CONTEXT/
 ```
 
 You should see both:
+
 - `secrets.yaml` (unencrypted - keep this secure!)
 - `secrets.enc.yaml` (encrypted - safe to commit)
 
@@ -210,6 +213,7 @@ sops contexts/$WINDSOR_CONTEXT/secrets.enc.yaml
 ```
 
 This will:
+
 1. Decrypt the file temporarily
 2. Open it in your default editor
 3. Re-encrypt it when you save and close

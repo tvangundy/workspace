@@ -97,6 +97,7 @@ After initializing your workspace:
 ### Workspace Already Exists
 
 If the workspace path already exists, you may need to:
+
 - Choose a different path
 - Remove the existing directory if it's safe to do so
 
@@ -116,6 +117,7 @@ If `windsor init` runs but doesn't generate files in your workspace directory:
 ### Windsor Context Not Found
 
 If Windsor reports that a context is not found:
+
 - Verify the context name is correct
 - Check that the context configuration exists in your Windsor setup
 - Review the [Windsor CLI documentation](https://windsorcli.github.io/latest/) for context management
@@ -123,6 +125,7 @@ If Windsor reports that a context is not found:
 ### Permission Errors
 
 If you encounter permission errors:
+
 - Ensure you have write permissions to the workspace path
 - Check that the directory structure can be created
 

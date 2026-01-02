@@ -73,6 +73,7 @@ Before bootstrapping, ensure you have:
 - **Storage**: SD card or disk for the device
 
 For Omni bootstrapping, you'll also need:
+
 - A management server or VM
 - Network access to target devices
 - Understanding of Sidero Omni architecture

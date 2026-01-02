@@ -5,6 +5,7 @@ This runbook guides you through creating and managing development virtual machin
 ## Overview
 
 Remote development VMs run on an IncusOS server and provide:
+
 - Isolated, reproducible development environments
 - Persistent storage on the remote server
 - **Direct SSH access** from your local network (gets IP on your local network)
@@ -66,6 +67,7 @@ windsor env | grep INCUS_REMOTE_NAME
 ```
 
 **Expected output:**
+
 - Your remote should appear in `incus remote list`
 - `incus list nuc:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should match your remote name
@@ -75,10 +77,11 @@ windsor env | grep INCUS_REMOTE_NAME
 Create a VM on the remote server:
 
 ```bash
-task dev:create -- vm $DEV_IMAGE
+task dev:create
 ```
 
 **Why VMs?**
+
 - Gets an IP address on your local network (via bridged networking, e.g., `192.168.2.x`)
 - Directly accessible via SSH from any machine on your network
 - Full OS isolation
@@ -104,6 +107,7 @@ Add `instances` to the `roles` list for your physical interface. See [IncusOS Se
 **Note**: After configuring the network, you may need to restart existing VMs for them to get new IP addresses on your local network.
 
 The VM will:
+
 - Create a VM named `dev` (or the name in `DEV_INSTANCE_NAME`)
 - Use Ubuntu 22.04 as the base image
 - Optionally initialize with workspace contents if `DEV_INIT_WORKSPACE=true`
@@ -177,6 +181,7 @@ ssh $(whoami)@<vm-ip> -t 'cd ~/workspace-name && bash'
 ```
 
 **Benefits of SSH access:**
+
 - **Works immediately** - VM gets an IP on your local network right after creation
 - Native terminal experience
 - Can run all the same tasks you run locally
@@ -184,10 +189,12 @@ ssh $(whoami)@<vm-ip> -t 'cd ~/workspace-name && bash'
 - Full shell integration
 
 **Network Access:**
+
 - **VMs**: Get IPs on your local network (e.g., `192.168.2.x`) and are directly accessible from any machine on your network
 - The IP address is shown by `task dev:ssh-info` and remains stable
 
 **Note**: The VM is automatically configured with:
+
 - Your host username and UID/GID
 - Your SSH keys (for GitHub access)
 - Your Git configuration

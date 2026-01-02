@@ -134,6 +134,7 @@ task device:generate-talosconfig -- /dev/nvme0n1
 Replace `/dev/nvme0n1` with the disk device where Talos will be installed (e.g., `/dev/sda` or `/dev/nvme0n1`). You can determine the correct disk by reviewing the output from Step 6.
 
 This will generate:
+
 - `controlplane.yaml` - Configuration for control plane nodes
 - `worker.yaml` - Configuration for worker nodes
 - `talosconfig.yaml` - Client configuration file (saved to `contexts/<context>/.talos/talosconfig`)

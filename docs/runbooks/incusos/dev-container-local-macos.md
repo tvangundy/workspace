@@ -5,6 +5,7 @@ This runbook guides you through creating and managing development containers loc
 ## Overview
 
 Local development containers run on your macOS machine using Colima and provide:
+
 - Real-time workspace sharing (changes sync instantly)
 - Direct integration with your local IDE and tools
 - Fast file access without network transfer
@@ -47,6 +48,7 @@ colima start --runtime=incus
 ```
 
 This will:
+
 - Create a Linux VM using Colima
 - Install and configure Incus server inside the VM
 - Set up the `local` remote automatically
@@ -64,6 +66,7 @@ incus list local:
 ```
 
 **Expected output:**
+
 - `colima status` should show "Status: Running"
 - `incus remote list` should show `local` remote
 - `incus list local:` should work (may show empty list)
@@ -112,6 +115,7 @@ task dev:create -- container ubuntu/22.04
 ```
 
 This will:
+
 - Create a container named `dev` (or the name in `DEV_INSTANCE_NAME`)
 - Use Ubuntu 22.04 as the base image
 - Mount your workspace directory at `/workspace` inside the container

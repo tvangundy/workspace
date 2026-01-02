@@ -88,6 +88,7 @@ environment:
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:
+
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
 - `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 2)
 - `INCUS_REMOTE_IP_0`: IP for a remote incus server
@@ -453,6 +454,7 @@ If you need to completely wipe the NUC's boot disk to start fresh (for example, 
 #### Step 1: Download Ubuntu ISO
 
 Download the Ubuntu Desktop ISO from the official website:
+
 - [Ubuntu Desktop Download](https://ubuntu.com/download/desktop)
 
 #### Step 2: Create Bootable USB
@@ -506,11 +508,13 @@ sudo fdisk -l /dev/nvme0n1
 **Warning**: Replace `/dev/nvme0n1` with your actual disk device. Be absolutely certain you're targeting the correct disk, as this operation is destructive and cannot be undone.
 
 **Important Notes**:
+
 - The `wipefs` command only removes partition table metadata (quick, ~1 second)
 - The `dd` command zeros the first 10MB (takes a few seconds, more thorough)
 - For a complete wipe of the entire disk, use: `sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M status=progress` (this takes much longer)
 
 After wiping, you can:
+
 - Reboot and install IncusOS from USB again
 - Install a different operating system
 - Leave the disk empty for a fresh start
