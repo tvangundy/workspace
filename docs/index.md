@@ -57,6 +57,7 @@ This persistence means you can:
 - **Reproduce environments**: Recreate the same setup across different machines or teams
 
 Together, these components form a complete system where:
+
 - **Runbooks** provide the knowledge and context
 - **Taskfiles** provide the automation and repeatability
 - **Configurations and secrets** provide the environment-specific context
