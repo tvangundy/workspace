@@ -10,13 +10,13 @@ A workspace is a **repeatable environment** for building and managing infrastruc
 
 ## Why Workspaces?
 
-**🚀 Speed and Consistency**: Workspaces make it easy to bring infrastructure up quickly, especially using runbooks. They provide an agreed-upon way of doing things, making it easier for teams to share knowledge and collaborate effectively.
+**🚀 Speed and Consistency**: Quickly bring infrastructure up using runbooks. Standardized workflows help teams share knowledge and collaborate effectively.
 
-**🔄 Repeatability and Persistence**: Create a workspace, deploy your infrastructure, then save it to disk or S3. When you need to perform maintenance or upgrades, simply retrieve your saved workspace and pick up exactly where you left off.
+**🔄 Repeatability and Persistence**: Deploy infrastructure, save to disk or S3, then retrieve and resume exactly where you left off for maintenance or upgrades.
 
-**🛠️ Tool Adoption and Abstraction**: With so many tools available today, workspaces help you adopt new tools quickly while maintaining legacy systems. **Runbooks** help you get far fast by providing step-by-step guidance, while **taskfiles** obfuscate complicated tasks while still showing what's happening under the hood through the `--dry` flag. This abstraction allows you to modify underlying tool usage without impacting higher-level workflows, and provides similar flexibility when choosing between cloud providers and bare-metal deployments. Workspaces leverage native support for Terraform, Kubernetes, Incus, Docker, and many other infrastructure tools, allowing you to work with the tools you know while benefiting from standardized workflows.
+**🛠️ Tool Adoption and Abstraction**: Adopt new tools quickly while maintaining legacy systems. **Runbooks** provide step-by-step guidance, while **taskfiles** abstract complex tasks . Modify underlying tools without impacting workflows, with flexibility across cloud providers and bare-metal. Native support for Terraform, Kubernetes, Incus, Docker, and more.
 
-**🔒 Security Built-In**: Security is fundamental to the workspace methodology, not an afterthought. Workspaces leverage the [Windsor CLI](https://github.com/windsorcli/cli) project to provide built-in security features including encrypted secret management with SOPS, context-based configuration isolation, secure credential handling, and environment variable protection. Secrets are never stored in plain text, and the Windsor CLI context system ensures that sensitive data is properly scoped and managed throughout the infrastructure lifecycle.
+**🔒 Security Built-In**: Security is fundamental, not an afterthought. [Windsor CLI](https://github.com/windsorcli/cli) provides encrypted secret management with SOPS, context-based isolation, secure credential handling, and environment variable protection. Secrets are never stored in plain text.
 
 **📦 Complexity Reduction**: By standardizing how infrastructure work is done, workspaces reduce complexity and make it easier to understand, maintain, and evolve your infrastructure over time.
 
@@ -81,9 +81,7 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 
 ## Taskfiles
 
-This workspace uses [Taskfile](https://taskfile.dev) to organize and automate common operations. Tasks are organized into namespaces and placed in the `./tasks` folder, making it easy to discover and execute common operations.
-
-Tasks are organized into namespaces and stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml` that defines the available tasks for that domain. This pattern keeps related tasks grouped together, makes it easy to discover functionality, and allows you to add new namespaces as needed.
+This workspace uses [Taskfile](https://taskfile.dev) to organize and automate common operations. Tasks are organized into namespaces (e.g., `dev:`, `talos:`, `docker:`) and stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml` that groups related tasks together, making it easy to discover functionality and add new capabilities as needed.
 
 ### Available Taskfiles
 
@@ -99,15 +97,7 @@ Tasks are organized into namespaces and stored in the `./tasks` folder. Each nam
 
 ### Taskfile Organization
 
-Tasks are organized into namespaces using the `namespace:task` syntax. Tasks are executed using the `task <Namespace>:<taskname>` syntax, where each namespace groups related functionality. 
-
-For example: `task sops:decrypt -- <file>` or `task device:write-disk`
-
-### Common Commands
-
-- **View available tasks**: `task <namespace>:help` (e.g., `task device:help`)
-- **Open documentation**: `task help` (opens https://tvangundy.github.io)
-- **Dry run**: `task <namespace>:<task> --dry` (preview commands without executing)
+Tasks are organized into namespaces using the `namespace:task` syntax (e.g., `task sops:decrypt -- <file>` or `task device:write-disk`). Use `task <namespace>:help` to view available tasks, `task help` to open documentation, or `task <namespace>:<task> --dry` to preview commands without executing.
 
 ## How Taskfiles Enhance Runbooks
 

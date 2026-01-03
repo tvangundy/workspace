@@ -21,9 +21,40 @@ Remote development VMs run on an IncusOS server and provide:
 - Workspace initialized (see [Initialize Workspace](../workspace/init.md))
 - Windsor context initialized
 
+
 ## Setup
 
-### Step 1: Configure Environment Variables
+### Step 1: Install Tools Dependencies
+
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
+
+Create an `aqua.yaml` file in your project's root directory with the following content:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+# aqua - Declarative CLI Version Manager
+# https://aquaproj.github.io/
+# checksum:
+#   enabled: true
+#   require_checksum: true
+#   supported_envs:
+#   - all
+registries:
+  - type: standard
+    ref: v4.285.0
+packages:
+- name: hashicorp/terraform@v1.10.3
+- name: siderolabs/talos@v1.9.1
+- name: kubernetes/kubectl@v1.32.0
+- name: docker/cli@v27.4.1
+- name: docker/compose@v2.32.1
+- name: lxc/incus@v6.20.0
+- name: helm/helm@v3.17.3
+- name: fluxcd/flux2@v2.5.1
+- name: derailed/k9s@v0.50.3
+```
+
+### Step 2: Configure Environment Variables
 
 Add the following to your `contexts/<context>/windsor.yaml`:
 
@@ -49,9 +80,69 @@ environment:
   # VM resources (optional)
   DEV_MEMORY: 8GB
   DEV_CPU: 2
+  
+  DOCKER_HOST: unix:///var/run/docker.sock
+
 ```
 
-### Step 2: Verify Remote Connection
+### Step 3: Configure Talos Machine Settings (If Setting Up a Talos Kubernetes Cluster)
+
+#### Create Terraform Configuration File
+
+**Note**: If this file doesn't exist, you may need to:
+1. Ensure your `blueprint.yaml` includes the Talos Terraform module:
+   ```yaml
+   terraform:
+   - source: core
+     path: cluster/talos
+   ```
+
+#### Add Kernel Module Configuration
+
+Create this file: `contexts/<context>/terraform/cluster/talos/terraform.tfvars`
+
+Add the `br_netfilter` kernel module configuration to the `common_config_patches` field. 
+
+This is required for Flannel CNI to work properly:
+
+```hcl
+// A YAML string of common config patches to apply. Can be an empty string or valid YAML.
+common_config_patches = <<EOF
+"machine":
+  "kernel":
+    "modules":
+    - "name": "br_netfilter"
+  "sysctls":
+    "net.bridge.bridge-nf-call-iptables": "1"
+    "net.bridge.bridge-nf-call-ip6tables": "1"
+EOF
+```
+
+**Note**: If you already have a `common_config_patches` section, merge the `kernel` and `sysctls` settings into your existing `machine` configuration. For example:
+
+```hcl
+common_config_patches = <<EOF
+"machine":
+  "certSANs":
+  - "localhost"
+  - "127.0.0.1"
+  "kubelet":
+    "extraArgs":
+      "rotate-server-certificates": "true"
+  "kernel":
+    "modules":
+    - "name": "br_netfilter"
+  "sysctls":
+    "net.bridge.bridge-nf-call-iptables": "1"
+    "net.bridge.bridge-nf-call-ip6tables": "1"
+EOF
+```
+
+**Important**: This configuration must be in place before creating the VM. The kernel module configuration will take effect when you generate and apply Talos machine configurations.
+
+If you're not using Terraform/Windsor CLI and generating Talos configs directly, you'll need to patch the generated YAML files manually or use `talosctl` patch commands.
+
+### Step 4: Verify Remote Connection
 
 Before creating a VM, verify you can connect to the remote Incus server:
 
@@ -72,7 +163,7 @@ windsor env | grep INCUS_REMOTE_NAME
 - `incus list nuc:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should match your remote name
 
-### Step 3: Create the Development VM
+### Step 5: Create the Development VM
 
 Create a VM on the remote server:
 
@@ -139,7 +230,7 @@ task dev:exec -- curl --version
 task dev:exec -- whoami
 ```
 
-### Step 4: Access the Development VM
+### Step 6: Access the Development VM
 
 You can access the VM in three ways:
 
@@ -420,15 +511,64 @@ task dev:stop
 task dev:restart
 ```
 
-### Delete VM
+### Delete VM (Take Down the Remote VM)
+
+To completely remove the remote development VM and all its data:
 
 ```bash
-# Delete the VM (destructive)
+# Delete the VM (destructive, includes 5-second confirmation delay)
 task dev:delete
 
 # Or specify the VM name
 task dev:delete -- my-dev
 ```
+
+**What Gets Deleted:**
+
+- The VM instance and all its data
+- All files in the VM, including:
+  - Workspace directory contents (`~/workspace-name`)
+  - User data and configuration
+  - Installed packages and tools
+  - Any work or changes not backed up
+
+**Warning**: Deleting the VM is **irreversible** and will permanently destroy all data on the VM. Make sure you have:
+- Backed up any important files
+- Pushed any Git commits to remote repositories
+- Saved any work you want to keep
+
+**Steps to Take Down the VM:**
+
+1. **Back up any important data** (if needed):
+   ```bash
+   # Pull files from VM before deletion
+   incus file pull -r nuc:dev/home/$(whoami)/workspace-name/ ./backup/
+   ```
+
+2. **Stop the VM** (optional, deletion will stop it automatically):
+   ```bash
+   task dev:stop
+   ```
+
+3. **Delete the VM**:
+   ```bash
+   task dev:delete
+   ```
+   
+   The command includes a 5-second confirmation delay. Press `Ctrl+C` to cancel if needed.
+
+4. **Verify deletion**:
+   ```bash
+   # List VMs - your VM should no longer appear
+   task dev:list
+   ```
+
+**After Deletion:**
+
+- The VM is completely removed from the remote Incus server
+- All data on the VM is permanently deleted
+- You can create a new VM using `task dev:create` if needed
+- The VM's IP address will be released back to your network's DHCP pool
 
 ## Confirmation Checklist
 
