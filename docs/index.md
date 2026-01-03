@@ -6,7 +6,7 @@ description: "Welcome to Workspaces"
 
 # Welcome to Workspace
 
-A workspace is a **repeatable environment** for building and managing infrastructure that can be created instantly, modified consistently, and saved for later retrieval. Whether deploying to the cloud or bare-metal, a workspace provides a standardized way to do work, put it on the shelf, and come back later for maintenance or upgrades.
+A workspace is a **repeatable environment** for building and managing infrastructure using standardized runbooks, taskfiles, and configurations. Workspaces bundle everything needed to deploy and manage infrastructure—from Terraform modules and Kubernetes manifests to secrets and environment variables—into a version-controlled, shareable package that works consistently across cloud and bare-metal deployments.
 
 ## Why Workspaces?
 
