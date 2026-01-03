@@ -11,8 +11,8 @@ nav:
       - Remote (IncusOS): runbooks/incusos/dev-vm-remote.md
       - Local (IncusOS/macOS): runbooks/incusos/dev-container-local-macos.md
     - GitHub Runner: runbooks/incusos/github-runner.md
-    - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
-    - Bootstrapping Nodes:
+    - Bare Metal Ubuntu: runbooks/ubuntu/ubuntu-setup.md
+    - Bare Metal Talos:
       - Introduction: runbooks/bootstrapping/README.md
       - Raspberry Pi: runbooks/bootstrapping/rpi-bootstrapping.md
       - Intel NUC: runbooks/bootstrapping/nuc-bootstrapping.md
