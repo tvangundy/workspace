@@ -15,8 +15,7 @@ Local development containers run on your macOS machine using Colima and provide:
 ## Prerequisites
 
 - macOS with Homebrew installed
-- Workspace initialized (see [Initialize Workspace](../workspace/init.md))
-- Windsor context initialized
+- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
 ## Setup
 
@@ -49,6 +48,7 @@ packages:
 - name: fluxcd/flux2@v2.5.1
 - name: derailed/k9s@v0.50.3
 - name: abiosoft/colima@v0.8.1
+- name: lxc/incus@v6.20.0
 ```
 
 To install the tools specified in `aqua.yaml`, run:
@@ -118,8 +118,8 @@ environment:
   DEV_INSTANCE_NAME: dev
   DEV_INSTANCE_TYPE: container  # Use container for local development
   
-  # Default image (optional, defaults to ubuntu/22.04)
-  DEV_IMAGE: ubuntu/22.04
+  # Default image (optional, defaults to ubuntu/24.04)
+  DEV_IMAGE: ubuntu/24.04
   
   # Container resources (optional)
   DEV_MEMORY: 4GB
@@ -235,7 +235,7 @@ task dev:create
 The container will:
 
 - Create a container named `dev` (or the name in `DEV_INSTANCE_NAME`)
-- Use Ubuntu 22.04 as the base image
+- Use Ubuntu 24.04 as the base image
 - **Share your workspace directory** in real-time (if `DEV_SHARE_WORKSPACE=true`)
 - Optionally initialize with workspace contents if `DEV_INIT_WORKSPACE=true`
 - **Automatically install developer tools** (git, build-essential, curl, vim, etc.)

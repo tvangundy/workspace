@@ -5,12 +5,14 @@ nav:
     - Introduction: runbooks/README.md
     - Workspace Init: runbooks/workspace/init.md
     - Secrets Management: runbooks/secrets/secrets.md
-    - IncusOS Server: runbooks/incusos/incusos-setup.md
-    - Talos Cluster: runbooks/talos/talos-incus-vm.md
-    - Dev Containers:
-      - Remote (IncusOS): runbooks/incusos/dev-vm-remote.md
-      - Local (IncusOS/macOS): runbooks/incusos/dev-container-local-macos.md
-    - GitHub Runner: runbooks/incusos/github-runner.md
+    - IncusOS:
+      - Introduction: runbooks/incusos/incusos.md
+      - Server Setup: runbooks/incusos/incusos-setup.md
+      - Talos Cluster: runbooks/incusos/talos-incus-vm.md
+      - Dev Containers:
+        - Remote (IncusOS): runbooks/incusos/dev-vm-remote.md
+        - Local (IncusOS/macOS): runbooks/incusos/dev-container-local-macos.md
+      - GitHub Runner: runbooks/incusos/github-runner.md
     - Bare Metal Ubuntu: runbooks/ubuntu/ubuntu-setup.md
     - Bare Metal Talos:
       - Introduction: runbooks/bootstrapping/README.md

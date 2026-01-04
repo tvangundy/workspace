@@ -17,9 +17,61 @@ tasks:
         fi
 
   create-instance:
-    desc: Creates an Incus instance
+    desc: Creates an Incus instance (defaults to UBUNTU_GITHUB_RUNNER_0_NAME if no name provided)
     cmds:
-      - incus launch images:ubuntu/22.04 my-container
+      - |
+        set -euo pipefail
+        
+        # Get instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          INSTANCE_NAME="${CLI_ARGS_STR}"
+        else
+          if [ -z "{{.UBUNTU_GITHUB_RUNNER_0_NAME}}" ]; then
+            echo "Error: UBUNTU_GITHUB_RUNNER_0_NAME variable is not defined and no instance name provided"
+            echo "Usage: task incus:create-instance [<instance-name>]"
+            echo "Example: task incus:create-instance -- ubuntu-runner-0"
+            exit 1
+          fi
+          INSTANCE_NAME="{{.UBUNTU_GITHUB_RUNNER_0_NAME}}"
+        fi
+        
+        echo "Creating Incus instance: ${INSTANCE_NAME}"
+        incus launch images:ubuntu/24.04 "${INSTANCE_NAME}"
+        
+  delete-instance:
+    desc: Deletes an Incus instance (defaults to UBUNTU_GITHUB_RUNNER_0_NAME if no name provided)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Get instance name from CLI args or use default
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          INSTANCE_NAME="${CLI_ARGS_STR}"
+        else
+          if [ -z "{{.UBUNTU_GITHUB_RUNNER_0_NAME}}" ]; then
+            echo "Error: UBUNTU_GITHUB_RUNNER_0_NAME variable is not defined and no instance name provided"
+            echo "Usage: task incus:delete-instance [<instance-name>]"
+            echo "Example: task incus:delete-instance -- ubuntu-runner-0"
+            exit 1
+          fi
+          INSTANCE_NAME="{{.UBUNTU_GITHUB_RUNNER_0_NAME}}"
+        fi
+        
+        echo "Deleting Incus instance: ${INSTANCE_NAME}"
+        
+        # Stop the instance first if it's running
+        if incus list --format json | grep -q "\"name\":\"${INSTANCE_NAME}\""; then
+          echo "Stopping instance..."
+          incus stop "${INSTANCE_NAME}" 2>/dev/null || true
+          echo "Deleting instance..."
+          incus delete "${INSTANCE_NAME}"
+          echo "Instance '${INSTANCE_NAME}' deleted successfully"
+        else
+          echo "Instance '${INSTANCE_NAME}' not found"
+          exit 1
+        fi
 
   download-talos-image:
     desc: Downloads the Talos cloud image for VMs
@@ -359,14 +411,164 @@ tasks:
         echo "VM IP should be: ${VM_IP}"
         echo "Note: The VM may take a few minutes to fully boot"
 
+  start-daemon:
+    desc: Start the Incus daemon
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Check if running on macOS (likely using Colima)
+        if [[ "$(uname)" == "Darwin" ]]; then
+          # Check if Colima is running
+          if ! colima status >/dev/null 2>&1; then
+            echo "Starting Colima with Incus runtime..."
+            colima start --runtime=incus
+          else
+            echo "Colima is already running"
+            # Check if Incus is accessible
+            if incus list local: >/dev/null 2>&1; then
+              echo "Incus daemon is already accessible"
+            else
+              echo "Colima is running but Incus daemon may not be ready"
+              echo "Wait a few seconds and try again"
+            fi
+          fi
+        else
+          # On Linux, try multiple methods
+          DAEMON_STARTED=false
+          
+          # Method 1: Check if installed via snap
+          if command -v snap >/dev/null 2>&1 && snap list incus >/dev/null 2>&1; then
+            echo "Starting Incus daemon via snap..."
+            sudo snap start incus.daemon || sudo snap start incus
+            sleep 2
+            if incus list >/dev/null 2>&1; then
+              echo "Incus daemon started successfully (via snap)"
+              DAEMON_STARTED=true
+            fi
+          fi
+          
+          # Method 2: Check if systemd service exists
+          if [ "$DAEMON_STARTED" = false ] && command -v systemctl >/dev/null 2>&1; then
+            if systemctl list-unit-files | grep -q incus.service; then
+              echo "Starting Incus daemon using systemd..."
+              sudo systemctl start incus
+              sudo systemctl enable incus
+              sleep 2
+              if incus list >/dev/null 2>&1; then
+                echo "Incus daemon started successfully (via systemd)"
+                DAEMON_STARTED=true
+              fi
+            fi
+          fi
+          
+          # Method 3: Try to start incusd directly
+          if [ "$DAEMON_STARTED" = false ]; then
+            if command -v incusd >/dev/null 2>&1; then
+              echo "Starting Incus daemon directly (incusd)..."
+              # Check if already running
+              if pgrep -x incusd >/dev/null 2>&1; then
+                echo "Incus daemon (incusd) is already running"
+                DAEMON_STARTED=true
+              else
+                # Start in background
+                sudo incusd --group incus --logfile /var/log/incus/incusd.log &
+                sleep 3
+                if incus list >/dev/null 2>&1; then
+                  echo "Incus daemon started successfully (direct)"
+                  DAEMON_STARTED=true
+                fi
+              fi
+            fi
+          fi
+          
+          # Method 4: Try incus daemon command
+          if [ "$DAEMON_STARTED" = false ] && command -v incus >/dev/null 2>&1; then
+            if incus list >/dev/null 2>&1; then
+              echo "Incus daemon is already running"
+              DAEMON_STARTED=true
+            else
+              echo "Attempting to start Incus daemon..."
+              # Some installations use 'incus admin init' or have the daemon auto-start
+              if incus admin init --auto >/dev/null 2>&1; then
+                sleep 2
+                if incus list >/dev/null 2>&1; then
+                  echo "Incus daemon initialized and started"
+                  DAEMON_STARTED=true
+                fi
+              fi
+            fi
+          fi
+          
+          # Final check
+          if [ "$DAEMON_STARTED" = false ]; then
+            echo ""
+            echo "Warning: Could not start Incus daemon using standard methods"
+            echo ""
+            echo "Please try one of the following:"
+            echo "1. If using snap: sudo snap start incus"
+            echo "2. If systemd service exists: sudo systemctl start incus"
+            echo "3. Start manually: sudo incusd &"
+            echo "4. Check if Incus is installed: incus version"
+            echo ""
+            echo "If Incus is not installed, you may need to:"
+            echo "- Install via snap: sudo snap install incus"
+            echo "- Install via apt: sudo apt-get install incus"
+            echo "- Or use Colima on macOS: colima start --runtime=incus"
+            exit 1
+          fi
+        fi
+
+  stop-daemon:
+    desc: Stop the Incus daemon
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Check if running on macOS (likely using Colima)
+        if [[ "$(uname)" == "Darwin" ]]; then
+          # Stop Colima (this stops the Incus daemon inside it)
+          if colima status >/dev/null 2>&1; then
+            echo "Stopping Colima (this will stop the Incus daemon)..."
+            colima stop
+          else
+            echo "Colima is not running"
+          fi
+        else
+          # On Linux, check if systemd is available
+          if command -v systemctl >/dev/null 2>&1; then
+            echo "Stopping Incus daemon using systemd..."
+            sudo systemctl stop incus
+          else
+            # Try to find and kill incus process
+            echo "Stopping Incus daemon..."
+            INCUS_PID=$(pgrep -f "incus daemon" || echo "")
+            if [ -n "${INCUS_PID}" ]; then
+              sudo kill "${INCUS_PID}"
+              echo "Incus daemon stopped"
+            else
+              echo "Incus daemon process not found (may already be stopped)"
+            fi
+          fi
+        fi
+
   help:
     desc: Incus related commands
     cmds:
       - |
         echo "Incus"
         echo ""
+        echo "Daemon Management:"
+        echo "    task incus:start-daemon"
+        echo "    task incus:stop-daemon"
+        echo ""
+        echo "Instance Management:"
+        echo "    task incus:create-instance [<instance-name>]"
+        echo "    task incus:delete-instance [<instance-name>]"
+        echo "    (defaults to UBUNTU_GITHUB_RUNNER_0_NAME if no name provided)"
+        echo ""
+        echo "Other:"
         echo "    task incus:web-ui"
-        echo "    task incus:create-instance"
         echo ""
         echo "Talos VM Deployment:"
         echo "    task incus:download-talos-image"

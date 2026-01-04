@@ -18,17 +18,15 @@ IncusOS provides a complete, dedicated operating system optimized for running In
 
 ## Prerequisites
 
-Before starting, ensure you have:
-
-- **Intel NUC device**: Compatible Intel NUC (x86_64 architecture, 5 years old or newer)
-- **USB memory device**: At least 8GB capacity (16GB or larger recommended) for the boot media
-- **Computer with macOS or Linux**: For preparing the boot media and running the Incus CLI
-- **Network connectivity**: The Intel NUC must be able to connect to your network via Ethernet
-- **TPM 2.0**: The NUC must have a TPM 2.0 security module
-- **UEFI with Secure Boot support**: Required for IncusOS installation
-- **At least 50GiB of storage**: On the NUC's internal storage device
-- **Physical access**: To the NUC for BIOS configuration and boot media insertion
-- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
+- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
+- Intel NUC device (compatible Intel NUC, x86_64 architecture, 5 years old or newer)
+- USB memory device (at least 8GB capacity, 16GB or larger recommended) for the boot media
+- Computer with macOS or Linux for preparing the boot media and running the Incus CLI
+- Network connectivity: The Intel NUC must be able to connect to your network via Ethernet
+- TPM 2.0: The NUC must have a TPM 2.0 security module
+- UEFI with Secure Boot support (required for IncusOS installation)
+- At least 50GiB of storage on the NUC's internal storage device
+- Physical access to the NUC for BIOS configuration and boot media insertion
 
 ## System Requirements
 
@@ -40,26 +38,7 @@ IncusOS requires modern system features and will not function properly on older 
 - At least 50GiB of storage
 - At least one wired network port
 
-## Step 1: Initialize Workspace and Context
-
-### Create Workspace (if not already done)
-
-If you haven't already initialized a workspace, follow the [Initialize Workspace](../workspace/init.md) runbook:
-
-```bash
-task workspace:initialize -- incus ../incus
-cd ../incus
-```
-
-### Initialize Windsor Context
-
-Create a new context called "incus":
-
-```bash
-windsor init incus
-```
-
-## Step 2: Acquire IncusOS Image
+## Step 1: Acquire IncusOS Image
 
 ### Download from IncusOS Customizer
 
@@ -68,9 +47,9 @@ Visit the [IncusOS Customizer](https://incusos-customizer.linuxcontainers.org/ui
 1. Configure your image settings (storage, network, etc.)
 2. Download the generated image file (typically named like `IncusOS_YYYYMMDDHHMM.img`)
 
-**Note**: After downloading, note the full path to the image file. You'll need this path for the environment variable in Step 3.
+**Note**: After downloading, note the full path to the image file. You'll need this path for the environment variable in Step 2.
 
-## Step 3: Set Environment Variables
+## Step 2: Set Environment Variables
 
 ### Determine the Target Disk for Image Copy
 
@@ -90,7 +69,7 @@ environment:
 **Note**: Replace the placeholder values with your actual configuration:
 
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
-- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 2)
+- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 1)
 - `INCUS_REMOTE_IP_0`: IP for a remote incus server
 
 ### Prepare Image in Workspace
@@ -103,7 +82,7 @@ task device:download-incus-image
 
 This will copy the image file specified in `INCUS_IMAGE_FILE` to `contexts/<context>/devices/incus/incusos.img`.
 
-## Step 4: Prepare the Intel NUC
+## Step 3: Prepare the Intel NUC
 
 ### Update the BIOS
 
@@ -150,7 +129,7 @@ Access the NUC's BIOS settings (typically by pressing F2 during boot):
 **Important**: Secure Boot must be configured in "Custom" mode for IncusOS to install and boot properly.
 
 
-## Step 5: Prepare USB Boot Device
+## Step 4: Prepare USB Boot Device
 
 ### Write IncusOS Image to USB
 
@@ -170,7 +149,7 @@ task device:eject-disk [-- 3]
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
 
-## Step 6: Boot and Install IncusOS
+## Step 5: Boot and Install IncusOS
 
 1. **Insert the boot media**: Insert the USB memory device into a USB port on your Intel NUC
 2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet
@@ -181,7 +160,7 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 **Note**: The installation process will automatically install IncusOS to the internal storage device. After installation completes and the system reboots, you can remove the USB boot device.
 
-## Step 7: Install Incus CLI Client
+## Step 6: Install Incus CLI Client
 
 On your development system (macOS or Linux), install the Incus CLI client:
 
@@ -201,7 +180,7 @@ Verify the installation:
 incus version
 ```
 
-## Step 8: Connect to Incus Server
+## Step 7: Connect to Incus Server
 
 ### Add the Remote Server
 
@@ -354,7 +333,7 @@ Once the certificate is imported and you've restarted your browser, you can:
 The web UI provides a graphical interface for all Incus operations, making it easy to manage your infrastructure without using the command line.
 
 
-## Step 9: Get Client Certificate (Optional)
+## Step 8: Get Client Certificate (Optional)
 
 If you need to retrieve the client certificate for authentication or documentation purposes:
 
@@ -382,7 +361,7 @@ incus network list
 incus image list images:
 
 # Test creating an instance
-incus launch images:ubuntu/22.04 test-instance
+incus launch images:ubuntu/24.04 test-instance
 incus list
 incus delete test-instance
 ```
@@ -544,8 +523,8 @@ This section demonstrates how to launch an Incus instance and connect to it via 
 Launch a new container instance on the remote Incus server you just set up. To launch on a remote server, prefix the instance name with the remote name followed by a colon:
 
 ```bash
-# Launch an Ubuntu 22.04 container named "my-container" on the remote server
-incus launch images:ubuntu/22.04 <remote-name>:my-container
+# Launch an Ubuntu 24.04 container named "my-container" on the remote server
+incus launch images:ubuntu/24.04 <remote-name>:my-container
 ```
 
 Replace `<remote-name>` with the name you used when adding the remote (e.g., if you added the remote as `nuc`, use `nuc:my-container`).
@@ -566,7 +545,7 @@ If you've set the remote as your default (using `incus remote switch <remote-nam
 
 ```bash
 # If remote is set as default, you can launch without the prefix
-incus launch images:ubuntu/22.04 my-container
+incus launch images:ubuntu/24.04 my-container
 
 # List instances
 incus list
@@ -598,7 +577,7 @@ Here's a complete example of launching a container on the remote server, setting
 
 ```bash
 # 1. Launch the container on the remote server
-incus launch images:ubuntu/22.04 <remote-name>:test-server
+incus launch images:ubuntu/24.04 <remote-name>:test-server
 
 # 2. Wait for it to start (usually instant)
 incus list <remote-name>:test-server
@@ -622,7 +601,7 @@ If you're using virtual machines instead of containers, the process is similar b
 
 ```bash
 # Launch a VM on the remote server
-incus launch images:ubuntu/22.04 my-vm --vm
+incus launch images:ubuntu/24.04 my-vm --vm
 
 # Get VM information
 incus info my-vm

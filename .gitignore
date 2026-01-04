@@ -11,9 +11,12 @@ backend_override.tf
 .aws/
 .azure/
 terraform/**/backend_override.tf
-terraform/**/providers_override.tf
+contexts/**/.terraform/
+contexts/**/.tfstate/
 contexts/**/.kube/
 contexts/**/.talos/
 contexts/**/.omni/
 contexts/**/.aws/
 contexts/**/.azure/
+secrets.yaml
+

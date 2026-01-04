@@ -76,7 +76,7 @@ environment:
   USB_DISK: "/dev/disk4"
   
   # Path to the downloaded Ubuntu ISO file
-  UBUNTU_ISO_FILE: "/Users/$USER/Downloads/ubuntu-22.04.3-desktop-amd64.iso"
+  UBUNTU_ISO_FILE: "/Users/$USER/Downloads/ubuntu-24.04-desktop-amd64.iso"
 ```
 
 **Note**: Replace the placeholder values with your actual configuration:

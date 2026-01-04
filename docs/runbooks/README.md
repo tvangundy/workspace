@@ -26,7 +26,7 @@ Complete guide for managing encrypted secrets using SOPS (Secrets Operations). L
 ### 🐳 [IncusOS Setup](./incusos/incusos-setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
-### ☸️ [Talos on IncusOS VMs](./talos/talos-incus-vm.md)
+### ☸️ [Talos on IncusOS VMs](./incusos/talos-incus-vm.md)
 Complete guide for deploying a Talos Linux Kubernetes cluster using virtual machines on an IncusOS system. Deploy 3 VMs (1 control plane, 2 workers) and configure them to form a complete Kubernetes cluster.
 
 ### 🏃 [GitHub Runner on IncusOS VMs](./incusos/github-runner.md)

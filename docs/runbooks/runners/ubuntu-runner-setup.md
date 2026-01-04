@@ -14,7 +14,7 @@ This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi
 ### 1. Install Ubuntu Server
 
 1. **Download Ubuntu Server**
-   - Use [Ubuntu 22.04 Server](https://releases.ubuntu.com/jammy/) (NOT 24.04 - Docker not supported)
+   - Use [Ubuntu 24.04 Server](https://releases.ubuntu.com/noble/)
    - Select appropriate architecture (ARM64 for RPI, x86_64 for NUC)
 
 2. **Create Boot Media**

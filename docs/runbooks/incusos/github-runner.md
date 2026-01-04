@@ -21,14 +21,12 @@ This approach allows you to run GitHub Actions workflows on self-hosted infrastr
 
 ## Prerequisites
 
-Before starting, ensure you have:
-
-- **IncusOS system**: An IncusOS host with Incus installed and running (see [IncusOS Setup](incusos-setup.md))
-- **Incus CLI client**: Installed and configured on your local machine
-- **Incus remote configured**: Connected to your IncusOS server (see [IncusOS Setup](incusos-setup.md))
-- **Network access**: The IncusOS host must be on a network with available IP addresses
-- **GitHub repository or organization access**: You need admin permissions to add self-hosted runners
-- **Sufficient resources**: At least 4GB RAM and 50GB storage per VM on the IncusOS host
+- Incus client installed on your local machine
+- IncusOS server set up and accessible (see [IncusOS Setup](incusos-setup.md))
+- Incus remote configured (see [IncusOS Setup - Step 7](incusos-setup.md#step-7-connect-to-incus-server))
+- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
+- GitHub repository or organization access (admin permissions to add self-hosted runners)
+- Sufficient resources: At least 4GB RAM and 50GB storage per VM on the IncusOS host
 
 ## System Requirements
 
@@ -37,26 +35,7 @@ Each runner VM will require:
 - **Ubuntu runner VM**: Minimum 2GB RAM, 20GB disk (4GB RAM, 40GB disk recommended)
 - **Network**: The VM needs network connectivity to reach GitHub and your repositories
 
-## Step 1: Initialize Workspace and Context
-
-### Create Workspace (if not already done)
-
-If you haven't already initialized a workspace, follow the [Initialize Workspace](../workspace/init.md) runbook:
-
-```bash
-task workspace:initialize -- github-runners ../github-runners
-cd ../github-runners
-```
-
-### Initialize Windsor Context
-
-Create a new context for your GitHub runners:
-
-```bash
-windsor init github-runners
-```
-
-## Step 2: Set Up Runner in GitHub
+## Step 1: Set Up Runner in GitHub
 
 Before configuring environment variables, you need to set up the runner in GitHub to obtain the required configuration values:
 
@@ -77,7 +56,7 @@ Before configuring environment variables, you need to set up the runner in GitHu
 
 **Note**: Repository-level runners are only available to that specific repository. Organization-level runners are available to all repositories in the organization. Choose based on your needs.
 
-## Step 3: Set Environment Variables
+## Step 2: Set Environment Variables
 
 Use the information you obtained from GitHub (repository URL and token) to configure the environment variables below.
 
@@ -135,7 +114,7 @@ environment:
    - For x86_64/AMD64 VMs: Use `"x64"` (default)
    - For ARM64 VMs: Use `"arm64"`
 
-## Step 4: Store GitHub Runner Token as a Secret
+## Step 3: Store GitHub Runner Token as a Secret
 
 The `GITHUB_RUNNER_TOKEN` should be stored as an encrypted secret using SOPS rather than in the environment variables. This keeps the sensitive token secure. Follow these steps:
 
@@ -199,23 +178,23 @@ environment:
 
 **Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../secrets/secrets.md) runbook.
 
-## Step 5: Verify the environment variables and secrets are present:
+## Step 4: Verify the environment variables and secrets are present:
 
 ```bash
 windsor env
 ```
 
-## Step 6: Configure Network for VMs
+## Step 5: Configure Network for VMs
 
-Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](../talos/talos-incus-vm.md) runbook to set up the network.
+Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](talos-incus-vm.md) runbook to set up the network.
 
-## Step 7: Launch Ubuntu Runner VM
+## Step 6: Launch Ubuntu Runner VM
 
 Launch an Ubuntu virtual machine that will serve as your Linux GitHub Actions runner:
 
 ```bash
-# Launch Ubuntu 22.04 Server VM (recommended for Docker support)
-incus launch images:ubuntu/22.04 $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME --vm \
+# Launch Ubuntu 24.04 Server VM (recommended for Docker support)
+incus launch images:ubuntu/24.04 $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME --vm \
   --network $INCUS_NETWORK_NAME \
   --config limits.memory=$UBUNTU_GITHUB_RUNNER_0_MEMORY \
   --config limits.cpu=$UBUNTU_GITHUB_RUNNER_0_CPU \
@@ -268,7 +247,7 @@ incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- apt update
 
 **Note**: If you need console access (e.g., for troubleshooting boot issues), you can use `incus console $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME`, but you'll need to configure a password first via `incus exec`.
 
-## Step 8: Initialize Ubuntu Runner VM
+## Step 7: Initialize Ubuntu Runner VM
 
 Initialize the Ubuntu VM for use as a GitHub Actions runner. This will install all required dependencies and set up the runner user:
 
@@ -285,7 +264,7 @@ This task will:
 
 **Note**: The `runner:initialize` task uses the `INCUS_REMOTE_NAME`, `RUNNER_USER`, and `RUNNER_HOME` environment variables from your `windsor.yaml` file.
 
-## Step 9: Install GitHub Actions Runner
+## Step 8: Install GitHub Actions Runner
 
 #### Verify Environment Variables
 
@@ -500,7 +479,7 @@ cd ~/actions-runner
 ### VM Not Getting IP Address
 
 - Verify network configuration: `incus network show $INCUS_REMOTE_NAME:$INCUS_NETWORK_NAME`
-- Check if `instances` role is added to physical interface (see [Talos on IncusOS VMs](../talos/talos-incus-vm.md) for network setup)
+- Check if `instances` role is added to physical interface (see [Talos on IncusOS VMs](talos-incus-vm.md) for network setup)
 - Restart the VM: `incus restart $INCUS_REMOTE_NAME:<vm-name>`
 - Check DHCP server is running and has available IPs
 
@@ -533,4 +512,4 @@ After successfully setting up your GitHub runners:
 - [GitHub Actions Self-Hosted Runners](https://docs.github.com/en/actions/hosting-your-own-runners)
 - [Runner Configuration](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners)
 - [IncusOS Setup](incusos-setup.md) - Setting up IncusOS
-- [Talos on IncusOS VMs](../talos/talos-incus-vm.md) - Example of VM deployment on IncusOS
+- [Talos on IncusOS VMs](talos-incus-vm.md) - Example of VM deployment on IncusOS

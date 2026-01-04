@@ -95,7 +95,7 @@ tasks:
         INSTANCE_TYPE="{{.DEV_INSTANCE_TYPE}}"
         INSTANCE_TYPE="${INSTANCE_TYPE:-container}"
         IMAGE_ARG="{{.DEV_IMAGE}}"
-        IMAGE_ARG="${IMAGE_ARG:-ubuntu/22.04}"
+        IMAGE_ARG="${IMAGE_ARG:-ubuntu/24.04}"
         INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         
         # Override with CLI arguments if provided
@@ -161,7 +161,7 @@ tasks:
         INSTANCE_TYPE="{{.DEV_INSTANCE_TYPE}}"
         INSTANCE_TYPE="${INSTANCE_TYPE:-container}"
         IMAGE_ARG="{{.DEV_IMAGE}}"
-        IMAGE_ARG="${IMAGE_ARG:-ubuntu/22.04}"
+        IMAGE_ARG="${IMAGE_ARG:-ubuntu/24.04}"
         INSTANCE_NAME_ARG="{{.DEV_INSTANCE_NAME}}"
         
         # Override with CLI arguments if provided
@@ -383,6 +383,47 @@ tasks:
               lsb-release \
               > /dev/null 2>&1
           " || echo "⚠️  Warning: Some packages may have failed to install"
+          
+          # Install Incus on Ubuntu 24.04 LTS (native package available)
+          echo "  Installing Incus (Ubuntu 24.04 LTS)..."
+          incus exec "{{.INCUS_REMOTE_NAME}}:${INSTANCE_NAME_ARG}" -- bash -c "
+            export DEBIAN_FRONTEND=noninteractive
+            
+            # Check if we're on Ubuntu 24.04 or later
+            if [ -f /etc/os-release ]; then
+              . /etc/os-release
+              if [ \"\${ID}\" = \"ubuntu\" ] && [ -n \"\${VERSION_ID}\" ]; then
+                # Check if version is 24.04 or later (e.g., 24.04, 24.10, etc.)
+                MAJOR_VERSION=\$(echo \${VERSION_ID} | cut -d. -f1)
+                MINOR_VERSION=\$(echo \${VERSION_ID} | cut -d. -f2)
+                
+                if [ \${MAJOR_VERSION} -gt 24 ] || ([ \${MAJOR_VERSION} -eq 24 ] && [ \${MINOR_VERSION} -ge 4 ]); then
+                  echo \"Detected Ubuntu \${VERSION_ID}, installing Incus...\"
+                  
+                  # Install Incus (native package available in Ubuntu 24.04+)
+                  apt-get update -qq
+                  apt-get install -y -qq incus > /dev/null 2>&1
+                  
+                  # Install qemu-system for VM support (needed if running VMs inside the container/VM)
+                  if [ \"${INSTANCE_TYPE}\" = \"vm\" ]; then
+                    apt-get install -y -qq qemu-system > /dev/null 2>&1 || true
+                  fi
+                  
+                  # Note: incus-tools (for LXD migration) is available but not installed by default
+                  # Users can install it manually with: apt install incus-tools
+                  
+                  echo \"Incus installed successfully\"
+                else
+                  echo \"Ubuntu version \${VERSION_ID} detected (24.04+ required for native Incus package)\"
+                  echo \"Skipping Incus installation\"
+                fi
+              else
+                echo \"Not Ubuntu, skipping Incus installation\"
+              fi
+            else
+              echo \"Unable to detect OS version, skipping Incus installation\"
+            fi
+          " || echo "⚠️  Warning: Incus installation may have failed"
           
           # Create user matching host user (must be done before installing tools that need user home directory)
           echo "  Creating user '${CURRENT_USER}'..."
@@ -1720,7 +1761,7 @@ tasks:
           incus list "{{.INCUS_REMOTE_NAME}}:" --format csv -c n 2>/dev/null | sed 's/^/     - /' || echo "     (none found)"
           echo ""
           echo "   Create an instance with:"
-          echo "     task dev:create -- vm ubuntu/22.04"
+          echo "     task dev:create -- vm ubuntu/24.04"
           exit 1
         fi
         

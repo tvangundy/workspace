@@ -17,10 +17,8 @@ Remote development VMs run on an IncusOS server and provide:
 
 - Incus client installed on your local machine
 - IncusOS server set up and accessible (see [IncusOS Setup](./incusos-setup.md))
-- Incus remote configured (see [IncusOS Setup - Step 8](./incusos-setup.md#step-8-connect-to-incus-server))
-- Workspace initialized (see [Initialize Workspace](../workspace/init.md))
-- Windsor context initialized
-
+- Incus remote configured (see [IncusOS Setup - Step 7](./incusos-setup.md#step-7-connect-to-incus-server))
+- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
 ## Setup
 
@@ -52,6 +50,8 @@ packages:
 - name: helm/helm@v3.17.3
 - name: fluxcd/flux2@v2.5.1
 - name: derailed/k9s@v0.50.3
+- name: lxc/incus@v6.20.0
+
 ```
 
 ### Step 2: Configure Environment Variables
@@ -74,8 +74,8 @@ environment:
   DEV_INSTANCE_NAME: dev
   DEV_INSTANCE_TYPE: vm
   
-  # Default image (optional, defaults to ubuntu/22.04)
-  DEV_IMAGE: ubuntu/22.04
+  # Default image (optional, defaults to ubuntu/24.04)
+  DEV_IMAGE: ubuntu/24.04
   
   # VM resources (optional)
   DEV_MEMORY: 8GB
@@ -200,7 +200,7 @@ Add `instances` to the `roles` list for your physical interface. See [IncusOS Se
 The VM will:
 
 - Create a VM named `dev` (or the name in `DEV_INSTANCE_NAME`)
-- Use Ubuntu 22.04 as the base image
+- Use Ubuntu 24.04 as the base image
 - Optionally initialize with workspace contents if `DEV_INIT_WORKSPACE=true`
 - **Automatically install developer tools** (git, build-essential, curl, vim, etc.)
 - **Create a user matching your host username** with the same UID/GID
@@ -598,7 +598,7 @@ Use this checklist to verify your setup is working correctly:
 
 ```bash
 # 1. Create VM (automatically installs tools, sets up user, copies SSH keys, gets IP on local network)
-task dev:create -- vm ubuntu/22.04
+task dev:create -- vm ubuntu/24.04
 
 # 2. Get SSH connection info (VM will have an IP on your local network)
 task dev:ssh-info

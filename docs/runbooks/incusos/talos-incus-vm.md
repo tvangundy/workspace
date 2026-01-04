@@ -21,15 +21,13 @@ This approach allows you to run a complete Kubernetes cluster on a single physic
 
 ## Prerequisites
 
-Before starting, ensure you have:
-
-- **IncusOS system**: An IncusOS host with Incus installed and running (see [IncusOS Setup](../incusos/incusos-setup.md))
-- **Incus CLI client**: Installed and configured on your local machine
-- **Incus remote configured**: Connected to your IncusOS server (see [IncusOS Setup](../incusos/incusos-setup.md))
-- **Network access**: The IncusOS host must be on a network with available IP addresses
-- **Sufficient resources**: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
-- **talosctl installed**: See the [Installation Guide](../../install.md) for setup instructions
-- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
+- Incus client installed on your local machine
+- IncusOS server set up and accessible (see [IncusOS Setup](incusos-setup.md))
+- Incus remote configured (see [IncusOS Setup - Step 7](incusos-setup.md#step-7-connect-to-incus-server))
+- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
+- talosctl installed (see the [Installation Guide](../../install.md) for setup instructions)
+- Sufficient resources: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
+- Network access: The IncusOS host must be on a network with available IP addresses
 
 ## System Requirements
 
@@ -39,26 +37,7 @@ Each VM will require:
 - **Worker VMs**: Minimum 2GB RAM, 20GB disk each
 - **Total**: 6GB RAM and 60GB disk minimum (8GB RAM and 100GB disk recommended)
 
-## Step 1: Initialize Workspace and Context
-
-### Create Workspace (if not already done)
-
-If you haven't already initialized a workspace, follow the [Initialize Workspace](../workspace/init.md) runbook:
-
-```bash
-task workspace:initialize -- talos-vm ../talos-vm
-cd ../talos-vm
-```
-
-### Initialize Windsor Context
-
-Create a new context for your Talos VM cluster:
-
-```bash
-windsor init talos-vm
-```
-
-## Step 2: Set Environment Variables
+## Step 1: Set Environment Variables
 
 ### Get Talos Image Schematic ID
 
@@ -116,7 +95,7 @@ environment:
 - `TALOS_IMAGE_ARCH`: The architecture (typically `metal-amd64` for Intel NUC)
 - `PHYSICAL_INTERFACE`: (Optional) Your physical network interface name (defaults to `eno1` if not set)
 
-## Step 3: Download Talos Linux Image
+## Step 2: Download Talos Linux Image
 
 Download the Talos Linux image that will be used for the VMs:
 
@@ -137,11 +116,11 @@ The final image will be at `contexts/talos-vm/devices/talos/talos-metal-amd64.qc
 - **macOS**: `brew install zstd qemu`
 - **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
 
-## Step 4: Configure Direct Network Attachment
+## Step 3: Configure Direct Network Attachment
 
 To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
 
-### Step 4a: View Current Network Configuration
+### Step 3a: View Current Network Configuration
 
 First, check the current network configuration:
 
@@ -151,7 +130,7 @@ incus admin os system network show
 
 This shows your network interfaces and their current roles.
 
-### Step 4b: Add Instances Role to Physical Interface
+### Step 3b: Add Instances Role to Physical Interface
 
 Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
 
@@ -190,7 +169,7 @@ incus admin os system network show
 
 You should see `instances` in the `state.interfaces.eno1.roles` list.
 
-### Step 4c: Create Physical Network
+### Step 3c: Create Physical Network
 
 After the configuration is applied, create a managed physical network:
 
@@ -209,7 +188,7 @@ This creates a physical network that directly attaches to your host's network in
 - You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
 - After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
 
-## Step 5: Launch Virtual Machines
+## Step 4: Launch Virtual Machines
 
 Launch the three VMs that will form your Talos cluster:
 
@@ -241,7 +220,7 @@ incus list <remote-name>:
 
 You should see all three VMs listed with a "Running" status.
 
-## Step 6: Wait for VMs to Boot
+## Step 5: Wait for VMs to Boot
 
 Wait for the VMs to fully boot and become accessible. You can check their status:
 
@@ -267,7 +246,7 @@ incus config show <remote-name>:<vm-name> | grep -A 10 "devices:"
 The IP addresses assigned by DHCP may differ from the ones you specified in your environment variables (`CONTROL_PLANE_IP`, etc.). For production use, it's recommended to configure static IP addresses either:
 
 - **Via DHCP reservations in your router** (recommended for home networks) - Reserve specific IPs for each VM's MAC address
-- **In Talos configuration** - Set static IPs in the Talos machine configuration (see Step 7)
+- **In Talos configuration** - Set static IPs in the Talos machine configuration (see Step 7: Generate Talos Configuration)
 
 **Important**: If you added the `instances` role to the network interface after creating the VMs, you may need to restart the VMs for them to get IP addresses:
 
@@ -287,7 +266,7 @@ After restarting, wait a minute or two for the VMs to boot and get IP addresses 
 incus list <remote-name>:
 ```
 
-## Step 7: Update IP Addresses in Configuration
+## Step 6: Update IP Addresses in Configuration
 
 After the VMs have booted and Talos is running, you need to update the IP addresses in your `windsor.yaml` file to match the actual DHCP-assigned IPs. The IPs shown in the Talos console may differ from what you initially configured.
 
@@ -336,9 +315,9 @@ After updating the file, confirm the environment IP Addresses using:
 windsor env
 ```
 
-**Note**: If you prefer static IPs, you can configure DHCP reservations in your router to ensure the VMs always get the same IPs, or configure static IPs in the Talos machine configuration (see Step 8: Generate Talos Configuration).
+**Note**: If you prefer static IPs, you can configure DHCP reservations in your router to ensure the VMs always get the same IPs, or configure static IPs in the Talos machine configuration (see Step 7: Generate Talos Configuration).
 
-## Step 8: Generate Talos Configuration
+## Step 7: Generate Talos Configuration
 
 Generate the Talos configuration files for your cluster. For VMs, we'll use the virtual disk device:
 
@@ -438,7 +417,7 @@ If the VMs truly don't have IP addresses, check the following:
    # Then inside the VM, check: ip addr show
    ```
 
-## Step 9: Apply Talos Configuration
+## Step 8: Apply Talos Configuration
 
 Apply the Talos configuration to all three VMs:
 
@@ -453,7 +432,7 @@ This command will:
 
 After the configuration is applied, the VMs will reboot and join the cluster.
 
-## Step 10: Set Talos Endpoints
+## Step 9: Set Talos Endpoints
 
 Configure the Talos client to use the correct endpoints:
 
@@ -463,9 +442,9 @@ task device:set-endpoints -- $CONTROL_PLANE_IP
 
 This sets the control plane IP as the endpoint for Talos API access.
 
-## Step 11: Bootstrap the etcd Cluster
+## Step 10: Bootstrap the etcd Cluster
 
-Wait for the control plane VM to finish booting (usually 1-2 minutes after Step 9: Apply Talos Configuration), then bootstrap the etcd cluster:
+Wait for the control plane VM to finish booting (usually 1-2 minutes after Step 8: Apply Talos Configuration), then bootstrap the etcd cluster:
 
 ```bash
 task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
@@ -473,7 +452,7 @@ task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
 
 **Important**: Run this command ONCE on a SINGLE control plane node. This initializes the etcd cluster that stores Kubernetes cluster state.
 
-## Step 12: Retrieve Kubernetes Access
+## Step 11: Retrieve Kubernetes Access
 
 Download the kubeconfig file to access your Kubernetes cluster:
 
@@ -483,7 +462,7 @@ task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 
 This downloads the kubeconfig to `contexts/talos-vm/.kube/config`.
 
-## Step 13: Verify Cluster Health
+## Step 12: Verify Cluster Health
 
 Check that all nodes are healthy:
 
@@ -493,7 +472,7 @@ task device:cluster-health -- $CONTROL_PLANE_IP
 
 This will show the health status of all nodes in your cluster.
 
-## Step 14: Verify Node Registration
+## Step 13: Verify Node Registration
 
 Confirm that all nodes are registered in Kubernetes:
 
@@ -699,6 +678,7 @@ After successfully deploying your Talos cluster:
 ## Additional Resources
 
 - [Talos Documentation](https://www.talos.dev/)
-- [IncusOS Setup](../incusos/incusos-setup.md) - Setting up IncusOS
+- [IncusOS Setup](incusos-setup.md) - Setting up IncusOS
 - [Bootstrapping Nodes](../bootstrapping/README.md) - Physical node bootstrapping
 - [Initialize Workspace](../workspace/init.md) - Workspace setup
+

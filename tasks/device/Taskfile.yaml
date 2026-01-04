@@ -115,7 +115,7 @@ tasks:
         if [ -z "{{.UBUNTU_ISO_FILE}}" ]; then
           echo "Error: UBUNTU_ISO_FILE variable is not defined"
           echo "UBUNTU_ISO_FILE should be set to the path of the Ubuntu ISO file"
-          echo "Example: UBUNTU_ISO_FILE=~/Downloads/ubuntu-22.04.3-desktop-amd64.iso"
+          echo "Example: UBUNTU_ISO_FILE=~/Downloads/ubuntu-24.04-desktop-amd64.iso"
           exit 1
         fi
         
