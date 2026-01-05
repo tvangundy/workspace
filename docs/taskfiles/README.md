@@ -5,13 +5,28 @@ description: "Task automation for workspace operations"
 
 # Taskfiles
 
-This workspace uses [Taskfile](https://taskfile.dev/) to automate common infrastructure operations. Tasks are organized into namespaces, each focusing on a specific area of infrastructure management.
+[Taskfiles](https://taskfile.dev/) automate common infrastructure operations. Tasks provide a standardized way to perform operations without needing to remember complex command-line syntax or configuration details.
 
-## Overview
+Tasks are organized into namespaces, each focusing on a specific area of infrastructure management. This organization makes it easy to discover and use the right tool for each task.
 
-Tasks provide a standardized way to perform common operations without needing to remember complex command-line syntax or configuration details. Each namespace groups related functionality together.
+For example, to create a development container:
+```bash
+task dev:create -- container ubuntu/24.04
+```
 
-## Available Task Namespaces
+## Namespace Overview
+
+- **`dev:`** - Development environment management for creating and managing development containers and VMs on Incus
+- **`device:`** - Physical device preparation, disk image management, and Talos cluster configuration for bare-metal deployments
+- **`docker:`** - Docker container cleanup and system maintenance
+- **`incus:`** - Incus daemon management and instance operations, including Talos VM deployment
+- **`runner:`** - GitHub Actions runner VM provisioning, configuration, and maintenance
+- **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
+- **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
+- **`vhs:`** - Terminal session recording and GIF generation for documentation
+- **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
+
+## Task Namespaces
 
 ### 🔧 Dev (`dev:`)
 

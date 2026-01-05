@@ -4,7 +4,7 @@ description: "Step-by-step runbooks for building deployments from the ground up"
 ---
 # Runbooks
 
-Welcome to the runbooks section! This folder contains comprehensive, step-by-step guides that walk you through building complete deployments from the ground up. Each runbook is designed to help new users understand and implement infrastructure patterns.
+Comprehensive, step-by-step guides for building complete deployments from the ground up. Each runbook helps you understand and implement infrastructure patterns through clear, actionable instructions.
 
 ## Purpose
 
