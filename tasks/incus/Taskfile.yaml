@@ -203,6 +203,85 @@ tasks:
         echo "Talos VM image ready at: ${IMAGE_QCOW2}"
         echo "You can now launch VMs using this image"
 
+  import-talos-image:
+    desc: "Imports a Talos QCOW2 image into Incus with metadata (usage: task incus:import-talos-image [--alias <alias>])"
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        # Get image alias from CLI args or use default based on TALOS_IMAGE_VERSION
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS_STR}" ]; then
+          IMAGE_ALIAS="${CLI_ARGS_STR}"
+        else
+          if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+            echo "Error: TALOS_IMAGE_VERSION variable is not defined and no alias provided"
+            echo "Usage: task incus:import-talos-image [--alias <alias>]"
+            echo "Example: task incus:import-talos-image -- talos-v1.12.0-metal-amd64"
+            exit 1
+          fi
+          IMAGE_ALIAS="talos-{{.TALOS_IMAGE_VERSION}}-metal-amd64"
+        fi
+        
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        IMAGE_QCOW2="contexts/{{.WINDSOR_CONTEXT}}/devices/talos/talos-metal-amd64.qcow2"
+        
+        # Check if image exists
+        if [ ! -f "${IMAGE_QCOW2}" ]; then
+          echo "Error: Talos VM image not found at ${IMAGE_QCOW2}"
+          echo "Run 'task incus:download-talos-image' first to download and prepare the image"
+          exit 1
+        fi
+        
+        # Check if image is already imported
+        if incus image list "${REMOTE}:" --format json | grep -q "\"aliases\".*\"${IMAGE_ALIAS}\""; then
+          echo "Image with alias '${IMAGE_ALIAS}' already exists on remote '${REMOTE}'"
+          echo "Skipping import. Use a different alias or delete the existing image first."
+          exit 0
+        fi
+        
+        echo "Importing Talos VM image..."
+        echo "Remote: ${REMOTE}"
+        echo "Alias: ${IMAGE_ALIAS}"
+        echo "Image: ${IMAGE_QCOW2}"
+        
+        # Create temporary directory for metadata
+        TEMP_DIR=$(mktemp -d)
+        trap "rm -rf ${TEMP_DIR}" EXIT
+        
+        METADATA_FILE="${TEMP_DIR}/metadata.yaml"
+        METADATA_TAR="${TEMP_DIR}/metadata.tar.gz"
+        
+        # Create metadata.yaml for the image using printf to avoid heredoc issues
+        CREATION_DATE=$(date +%s)
+        printf "architecture: x86_64\n" > "${METADATA_FILE}"
+        printf "creation_date: %s\n" "${CREATION_DATE}" >> "${METADATA_FILE}"
+        printf "properties:\n" >> "${METADATA_FILE}"
+        printf "  description: Talos Linux {{.TALOS_IMAGE_VERSION}} for VMs\n" >> "${METADATA_FILE}"
+        printf "  os: Talos\n" >> "${METADATA_FILE}"
+        printf "  release: {{.TALOS_IMAGE_VERSION}}\n" >> "${METADATA_FILE}"
+        
+        # Create metadata tarball
+        tar -czf "${METADATA_TAR}" -C "${TEMP_DIR}" metadata.yaml
+        
+        # Import image with metadata (metadata tarball first, then disk image)
+        incus image import "${METADATA_TAR}" "${IMAGE_QCOW2}" "${REMOTE}:" --alias "${IMAGE_ALIAS}"
+        
+        echo ""
+        echo "Image imported successfully with alias: ${IMAGE_ALIAS}"
+
   create-physical-network:
     desc: Creates a physical network for direct attachment to the host network
     cmds:
@@ -572,6 +651,7 @@ tasks:
         echo ""
         echo "Talos VM Deployment:"
         echo "    task incus:download-talos-image"
+        echo "    task incus:import-talos-image [--alias <alias>]"
         echo "    task incus:create-physical-network"
         echo "    task incus:launch-talos-vm -- <vm-name> <vm-ip>"
         echo ""

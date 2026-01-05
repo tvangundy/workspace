@@ -1,0 +1,16 @@
+# Terraform state files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# IP address files (dynamically generated)
+.control_plane_ip
+.worker_*_ip
+
+# Talos configuration files (may contain sensitive data)
+talosconfig
+controlplane.yaml
+worker.yaml
+kubeconfig
+

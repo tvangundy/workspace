@@ -48,6 +48,112 @@ tasks:
     cmds:
       - openssl s_client -connect "${CONTROL_PLANE_IP}:50000" -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
 
+  generate-tfvars:
+    desc: "Generates terraform.tfvars from environment variables"
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.CLUSTER_NAME}}" ]; then
+          echo "Error: CLUSTER_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+          echo "Error: TALOS_IMAGE_VERSION variable is not defined"
+          exit 1
+        fi
+        
+        # Set defaults for optional variables
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-}"
+        WORKER_0_IP="${WORKER_0_IP:-}"
+        WORKER_1_IP="${WORKER_1_IP:-}"
+        CONTROL_PLANE_MEMORY="${CONTROL_PLANE_MEMORY:-2GB}"
+        CONTROL_PLANE_CPU="${CONTROL_PLANE_CPU:-2}"
+        WORKER_MEMORY="${WORKER_MEMORY:-2GB}"
+        WORKER_CPU="${WORKER_CPU:-2}"
+        PHYSICAL_NETWORK_NAME="${PHYSICAL_INTERFACE:-eno1}"
+        STORAGE_POOL="${STORAGE_POOL:-default}"
+        COMMON_CONFIG_PATCHES="${COMMON_CONFIG_PATCHES:-}"
+        
+        # Generate talos_image_alias from TALOS_IMAGE_VERSION
+        TALOS_IMAGE_ALIAS="talos-{{.TALOS_IMAGE_VERSION}}-metal-amd64"
+        
+        # Create terraform/cluster directory if it doesn't exist
+        TFVARS_DIR="terraform/cluster"
+        mkdir -p "${TFVARS_DIR}"
+        TFVARS_FILE="${TFVARS_DIR}/terraform.tfvars"
+        
+        # Generate terraform.tfvars using printf to avoid YAML parser issues with heredocs
+        {
+          printf "# Generated from environment variables - do not edit manually\n"
+          printf "# Update environment variables in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml instead\n"
+          printf "\n"
+          printf "# Incus remote configuration\n"
+          printf "incus_remote_name = \"{{.INCUS_REMOTE_NAME}}\"\n"
+          printf "\n"
+          printf "# Cluster configuration\n"
+          printf "cluster_name = \"{{.CLUSTER_NAME}}\"\n"
+          printf "\n"
+          printf "# VM names\n"
+          printf "control_plane_vm_name = \"${CONTROL_PLANE_VM}\"\n"
+          printf "worker_0_vm_name      = \"${WORKER_0_VM}\"\n"
+          printf "worker_1_vm_name      = \"${WORKER_1_VM}\"\n"
+          printf "\n"
+          printf "# IP addresses (expected IPs - actual IPs will be assigned by DHCP)\n"
+          printf "# Leave empty for new installations - Terraform will prompt you to fill them in\n"
+          printf "control_plane_ip = \"${CONTROL_PLANE_IP}\"\n"
+          printf "worker_0_ip      = \"${WORKER_0_IP}\"\n"
+          printf "worker_1_ip      = \"${WORKER_1_IP}\"\n"
+          printf "\n"
+          printf "# VM resources\n"
+          printf "control_plane_memory = \"${CONTROL_PLANE_MEMORY}\"\n"
+          printf "control_plane_cpu    = \"${CONTROL_PLANE_CPU}\"\n"
+          printf "worker_memory        = \"${WORKER_MEMORY}\"\n"
+          printf "worker_cpu           = \"${WORKER_CPU}\"\n"
+          printf "\n"
+          printf "# Talos image alias (generated from TALOS_IMAGE_VERSION)\n"
+          printf "talos_image_alias = \"${TALOS_IMAGE_ALIAS}\"\n"
+          printf "\n"
+          printf "# Talos version\n"
+          printf "talos_version = \"{{.TALOS_IMAGE_VERSION}}\"\n"
+          printf "\n"
+          printf "# Physical network interface name\n"
+          printf "physical_network_name = \"${PHYSICAL_NETWORK_NAME}\"\n"
+          printf "\n"
+          printf "# Storage pool name\n"
+          printf "storage_pool = \"${STORAGE_POOL}\"\n"
+          printf "\n"
+          printf "# Common configuration patches (optional)\n"
+          if [ -n "${COMMON_CONFIG_PATCHES}" ]; then
+            printf "common_config_patches = <<EOF_PATCH\n"
+            printf "%s\n" "${COMMON_CONFIG_PATCHES}"
+            printf "EOF_PATCH\n"
+          else
+            printf "common_config_patches = \"\"\n"
+          fi
+        } > "${TFVARS_FILE}"
+        
+        echo "✅ Generated ${TFVARS_FILE} from environment variables"
+        echo ""
+        echo "To regenerate, run: task talos:generate-tfvars"
+        echo "To modify values, update environment variables in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+
   cleanup:
     desc: Destroy the entire Talos cluster and clean up resources
     cmds:
@@ -142,6 +248,7 @@ tasks:
         echo "    task talos:health-worker-0        # Check worker-0 node health"
         echo "    task talos:health-worker-1        # Check worker-1 node health"
         echo "    task talos:fetch-node-server-certificate  # Fetch server certificate from control plane"
+        echo "    task talos:generate-tfvars        # Generate terraform.tfvars from environment variables"
         echo "    task talos:cleanup                # Destroy the entire cluster and clean up resources"
         echo ""
         echo "Environment variables used:"

@@ -8,7 +8,9 @@ nav:
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
       - Server: runbooks/incusos/setup.md
-      - Talos Cluster: runbooks/incusos/talos-incus-vm.md
+      - Talos Cluster:
+        - Manual: runbooks/incusos/talos-incus-vm.md
+        - Terraform: runbooks/incusos/talos-incus-terraform.md
       - Dev Machine:
         - Remote: runbooks/incusos/dev-vm-remote.md
         - Local: runbooks/incusos/dev-container-local.md
