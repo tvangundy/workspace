@@ -25,13 +25,13 @@ nav:
     - Home Automation: runbooks/home-assistant/README.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
-      - Dev: taskfiles/README.md#dev-dev
-      - Device: taskfiles/README.md#device-device
-      - Docker: taskfiles/README.md#docker-docker
-      - Incus: taskfiles/README.md#incus-incus
-      - Runner: taskfiles/README.md#runner-runner
-      - SOPS: taskfiles/README.md#sops-sops
-      - Talos: taskfiles/README.md#talos-talos
-      - VHS: taskfiles/README.md#vhs-vhs
-      - Workspace: taskfiles/README.md#workspace-workspace      
+      - Dev: taskfiles/dev/README.md
+      - Device: taskfiles/device/README.md
+      - Docker: taskfiles/docker/README.md
+      - Incus: taskfiles/incus/README.md
+      - Runner: taskfiles/runner/README.md
+      - SOPS: taskfiles/sops/README.md
+      - Talos: taskfiles/talos/README.md
+      - VHS: taskfiles/vhs/README.md
+      - Workspace: taskfiles/workspace/README.md      
   - Troubleshooting: troubleshooting.md
