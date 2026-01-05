@@ -13,7 +13,7 @@ nav:
         - Remote: runbooks/incusos/dev-vm-remote.md
         - Local: runbooks/incusos/dev-container-local-macos.md
       - GitHub Runner: runbooks/incusos/github-runner.md
-    - Bare Metal:
+    - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
       - Talos Cluster:
