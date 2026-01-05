@@ -38,7 +38,45 @@ IncusOS requires modern system features and will not function properly on older 
 - At least 50GiB of storage
 - At least one wired network port
 
-## Step 1: Acquire IncusOS Image
+## Step 1: Install Tools Dependencies
+
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
+
+Create an `aqua.yaml` file in your project's root directory with the following content:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+# aqua - Declarative CLI Version Manager
+# https://aquaproj.github.io/
+# checksum:
+#   enabled: true
+#   require_checksum: true
+#   supported_envs:
+#   - all
+registries:
+  - type: standard
+    ref: v4.285.0
+packages:
+- name: hashicorp/terraform@v1.10.3
+- name: siderolabs/talos@v1.9.1
+- name: kubernetes/kubectl@v1.32.0
+- name: docker/cli@v27.4.1
+- name: docker/compose@v2.32.1
+- name: lxc/incus@v6.20.0
+- name: helm/helm@v3.17.3
+- name: fluxcd/flux2@v2.5.1
+- name: derailed/k9s@v0.50.3
+- name: lxc/incus@v6.20.0
+
+```
+
+Install the tools, run in the workspace root folder:
+
+```bash
+aqua install
+```
+
+## Step 2: Acquire IncusOS Image
 
 ### Download from IncusOS Customizer
 
@@ -47,9 +85,9 @@ Visit the [IncusOS Customizer](https://incusos-customizer.linuxcontainers.org/ui
 1. Configure your image settings (storage, network, etc.)
 2. Download the generated image file (typically named like `IncusOS_YYYYMMDDHHMM.img`)
 
-**Note**: After downloading, note the full path to the image file. You'll need this path for the environment variable in Step 2.
+**Note**: After downloading, note the full path to the image file. You'll need this path for the environment variable in Step 3.
 
-## Step 2: Set Environment Variables
+## Step 3: Set Environment Variables
 
 ### Determine the Target Disk for Image Copy
 
@@ -69,7 +107,7 @@ environment:
 **Note**: Replace the placeholder values with your actual configuration:
 
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
-- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 1)
+- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 2)
 - `INCUS_REMOTE_IP_0`: IP for a remote incus server
 
 ### Prepare Image in Workspace
@@ -82,7 +120,7 @@ task device:download-incus-image
 
 This will copy the image file specified in `INCUS_IMAGE_FILE` to `contexts/<context>/devices/incus/incusos.img`.
 
-## Step 3: Prepare the Intel NUC
+## Step 4: Prepare the Intel NUC
 
 ### Update the BIOS
 
@@ -131,7 +169,7 @@ Access the NUC's BIOS settings (typically by pressing F2 during boot):
 **Important**: Secure Boot must be configured in "Custom" mode for IncusOS to install and boot properly.
 
 
-## Step 4: Prepare USB Boot Device
+## Step 5: Prepare USB Boot Device
 
 ### Write IncusOS Image to USB
 
@@ -151,7 +189,7 @@ task device:eject-disk [-- 3]
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
 
-## Step 5: Boot and Install IncusOS
+## Step 6: Boot and Install IncusOS
 
 1. **Insert the boot media**: Insert the USB memory device into a USB port on your Intel NUC
 2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet
@@ -161,26 +199,6 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 6. **Note the IP address**: After installation completes, the NUC will display its IP address on the console, or you can find it via your router's DHCP client list
 
 **Note**: The installation process will automatically install IncusOS to the internal storage device. After installation completes and the system reboots, you can remove the USB boot device.
-
-## Step 6: Install Incus CLI Client
-
-On your development system (macOS or Linux), install the Incus CLI client:
-
-```bash
-# macOS (using Homebrew)
-brew install incus
-
-# Linux (Ubuntu/Debian)
-sudo snap install incus
-
-# Or build from source (see Incus documentation)
-```
-
-Verify the installation:
-
-```bash
-incus version
-```
 
 ## Step 7: Connect to Incus Server
 

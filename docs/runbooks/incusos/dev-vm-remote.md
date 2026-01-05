@@ -54,6 +54,12 @@ packages:
 
 ```
 
+Install the tools, run in the workspace root folder:
+
+```bash
+aqua install
+```
+
 ### Step 2: Configure Environment Variables
 
 Add the following to your `contexts/<context>/windsor.yaml`:

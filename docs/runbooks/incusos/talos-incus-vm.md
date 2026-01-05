@@ -37,7 +37,45 @@ Each VM will require:
 - **Worker VMs**: Minimum 2GB RAM, 20GB disk each
 - **Total**: 6GB RAM and 60GB disk minimum (8GB RAM and 100GB disk recommended)
 
-## Step 1: Set Environment Variables
+## Step 1: Install Tools Dependencies
+
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
+
+Create an `aqua.yaml` file in your project's root directory with the following content:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+# aqua - Declarative CLI Version Manager
+# https://aquaproj.github.io/
+# checksum:
+#   enabled: true
+#   require_checksum: true
+#   supported_envs:
+#   - all
+registries:
+  - type: standard
+    ref: v4.285.0
+packages:
+- name: hashicorp/terraform@v1.10.3
+- name: siderolabs/talos@v1.9.1
+- name: kubernetes/kubectl@v1.32.0
+- name: docker/cli@v27.4.1
+- name: docker/compose@v2.32.1
+- name: lxc/incus@v6.20.0
+- name: helm/helm@v3.17.3
+- name: fluxcd/flux2@v2.5.1
+- name: derailed/k9s@v0.50.3
+- name: lxc/incus@v6.20.0
+
+```
+
+Install the tools, run in the workspace root folder:
+
+```bash
+aqua install
+```
+
+## Step 2: Set Environment Variables
 
 ### Get Talos Image Schematic ID
 
@@ -95,7 +133,7 @@ environment:
 - `TALOS_IMAGE_ARCH`: The architecture (typically `metal-amd64` for Intel NUC)
 - `PHYSICAL_INTERFACE`: (Optional) Your physical network interface name (defaults to `eno1` if not set)
 
-## Step 2: Download Talos Linux Image
+## Step 3: Download Talos Linux Image
 
 Download the Talos Linux image that will be used for the VMs:
 
@@ -116,11 +154,11 @@ The final image will be at `contexts/talos-vm/devices/talos/talos-metal-amd64.qc
 - **macOS**: `brew install zstd qemu`
 - **Linux**: `apt-get install zstd qemu-utils` (or equivalent for your distribution)
 
-## Step 3: Configure Direct Network Attachment
+## Step 4: Configure Direct Network Attachment
 
 To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
 
-### Step 3a: View Current Network Configuration
+### Step 4a: View Current Network Configuration
 
 First, check the current network configuration:
 
@@ -130,7 +168,7 @@ incus admin os system network show
 
 This shows your network interfaces and their current roles.
 
-### Step 3b: Add Instances Role to Physical Interface
+### Step 4b: Add Instances Role to Physical Interface
 
 Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
 
@@ -169,7 +207,7 @@ incus admin os system network show
 
 You should see `instances` in the `state.interfaces.eno1.roles` list.
 
-### Step 3c: Create Physical Network
+### Step 4c: Create Physical Network
 
 After the configuration is applied, create a managed physical network:
 
@@ -188,7 +226,7 @@ This creates a physical network that directly attaches to your host's network in
 - You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
 - After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
 
-## Step 4: Launch Virtual Machines
+## Step 5: Launch Virtual Machines
 
 Launch the three VMs that will form your Talos cluster:
 
@@ -220,7 +258,7 @@ incus list <remote-name>:
 
 You should see all three VMs listed with a "Running" status.
 
-## Step 5: Wait for VMs to Boot
+## Step 6: Wait for VMs to Boot
 
 Wait for the VMs to fully boot and become accessible. You can check their status:
 
@@ -246,7 +284,7 @@ incus config show <remote-name>:<vm-name> | grep -A 10 "devices:"
 The IP addresses assigned by DHCP may differ from the ones you specified in your environment variables (`CONTROL_PLANE_IP`, etc.). For production use, it's recommended to configure static IP addresses either:
 
 - **Via DHCP reservations in your router** (recommended for home networks) - Reserve specific IPs for each VM's MAC address
-- **In Talos configuration** - Set static IPs in the Talos machine configuration (see Step 7: Generate Talos Configuration)
+- **In Talos configuration** - Set static IPs in the Talos machine configuration (see Step 8: Generate Talos Configuration)
 
 **Important**: If you added the `instances` role to the network interface after creating the VMs, you may need to restart the VMs for them to get IP addresses:
 
@@ -266,7 +304,7 @@ After restarting, wait a minute or two for the VMs to boot and get IP addresses 
 incus list <remote-name>:
 ```
 
-## Step 6: Update IP Addresses in Configuration
+## Step 7: Update IP Addresses in Configuration
 
 After the VMs have booted and Talos is running, you need to update the IP addresses in your `windsor.yaml` file to match the actual DHCP-assigned IPs. The IPs shown in the Talos console may differ from what you initially configured.
 
@@ -317,7 +355,7 @@ windsor env
 
 **Note**: If you prefer static IPs, you can configure DHCP reservations in your router to ensure the VMs always get the same IPs, or configure static IPs in the Talos machine configuration (see Step 7: Generate Talos Configuration).
 
-## Step 7: Generate Talos Configuration
+## Step 8: Generate Talos Configuration
 
 Generate the Talos configuration files for your cluster. For VMs, we'll use the virtual disk device:
 
@@ -417,7 +455,7 @@ If the VMs truly don't have IP addresses, check the following:
    # Then inside the VM, check: ip addr show
    ```
 
-## Step 8: Apply Talos Configuration
+## Step 9: Apply Talos Configuration
 
 Apply the Talos configuration to all three VMs:
 
@@ -432,7 +470,7 @@ This command will:
 
 After the configuration is applied, the VMs will reboot and join the cluster.
 
-## Step 9: Set Talos Endpoints
+## Step 10: Set Talos Endpoints
 
 Configure the Talos client to use the correct endpoints:
 
@@ -442,9 +480,9 @@ task device:set-endpoints -- $CONTROL_PLANE_IP
 
 This sets the control plane IP as the endpoint for Talos API access.
 
-## Step 10: Bootstrap the etcd Cluster
+## Step 11: Bootstrap the etcd Cluster
 
-Wait for the control plane VM to finish booting (usually 1-2 minutes after Step 8: Apply Talos Configuration), then bootstrap the etcd cluster:
+Wait for the control plane VM to finish booting (usually 1-2 minutes after Step 9: Apply Talos Configuration), then bootstrap the etcd cluster:
 
 ```bash
 task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
@@ -452,7 +490,7 @@ task device:bootstrap-etc-cluster -- $CONTROL_PLANE_IP
 
 **Important**: Run this command ONCE on a SINGLE control plane node. This initializes the etcd cluster that stores Kubernetes cluster state.
 
-## Step 11: Retrieve Kubernetes Access
+## Step 12: Retrieve Kubernetes Access
 
 Download the kubeconfig file to access your Kubernetes cluster:
 
@@ -462,7 +500,7 @@ task device:retrieve-kubeconfig -- $CONTROL_PLANE_IP
 
 This downloads the kubeconfig to `contexts/talos-vm/.kube/config`.
 
-## Step 12: Verify Cluster Health
+## Step 13: Verify Cluster Health
 
 Check that all nodes are healthy:
 
@@ -472,7 +510,7 @@ task device:cluster-health -- $CONTROL_PLANE_IP
 
 This will show the health status of all nodes in your cluster.
 
-## Step 13: Verify Node Registration
+## Step 14: Verify Node Registration
 
 Confirm that all nodes are registered in Kubernetes:
 

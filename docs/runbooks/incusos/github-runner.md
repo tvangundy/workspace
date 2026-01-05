@@ -35,7 +35,45 @@ Each runner VM will require:
 - **Ubuntu runner VM**: Minimum 2GB RAM, 20GB disk (4GB RAM, 40GB disk recommended)
 - **Network**: The VM needs network connectivity to reach GitHub and your repositories
 
-## Step 1: Set Up Runner in GitHub
+## Step 1: Install Tools Dependencies
+
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
+
+Create an `aqua.yaml` file in your project's root directory with the following content:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+# aqua - Declarative CLI Version Manager
+# https://aquaproj.github.io/
+# checksum:
+#   enabled: true
+#   require_checksum: true
+#   supported_envs:
+#   - all
+registries:
+  - type: standard
+    ref: v4.285.0
+packages:
+- name: hashicorp/terraform@v1.10.3
+- name: siderolabs/talos@v1.9.1
+- name: kubernetes/kubectl@v1.32.0
+- name: docker/cli@v27.4.1
+- name: docker/compose@v2.32.1
+- name: lxc/incus@v6.20.0
+- name: helm/helm@v3.17.3
+- name: fluxcd/flux2@v2.5.1
+- name: derailed/k9s@v0.50.3
+- name: lxc/incus@v6.20.0
+
+```
+
+Install the tools, run in the workspace root folder:
+
+```bash
+aqua install
+```
+
+## Step 2: Set Up Runner in GitHub
 
 Before configuring environment variables, you need to set up the runner in GitHub to obtain the required configuration values:
 
@@ -60,7 +98,7 @@ Before configuring environment variables, you need to set up the runner in GitHu
 
 **Note**: Repository-level runners are only available to that specific repository. Organization-level runners are available to all repositories in the organization. Choose based on your needs.
 
-## Step 2: Set Environment Variables
+## Step 3: Set Environment Variables
 
 Use the information you obtained from GitHub (repository URL and token) to configure the environment variables below.
 
@@ -120,7 +158,7 @@ environment:
    - For x86_64/AMD64 VMs: Use `"x64"` (default)
    - For ARM64 VMs: Use `"arm64"`
 
-## Step 3: Store GitHub Runner Token as a Secret
+## Step 4: Store GitHub Runner Token as a Secret
 
 The `GITHUB_RUNNER_TOKEN` should be stored as an encrypted secret using SOPS rather than in the environment variables. This keeps the sensitive token secure. Follow these steps:
 
@@ -184,17 +222,17 @@ environment:
 
 **Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../secrets/secrets.md) runbook.
 
-## Step 4: Verify the environment variables and secrets are present:
+## Step 5: Verify the environment variables and secrets are present:
 
 ```bash
 windsor env
 ```
 
-## Step 5: Configure Network for VMs
+## Step 6: Configure Network for VMs
 
 Before launching VMs, you need to configure direct network attachment so VMs can get IP addresses from your physical network's DHCP server. Follow the network configuration steps (Step 4) in the [Talos on IncusOS VMs](talos-incus-vm.md) runbook to set up the network.
 
-## Step 6: Launch Ubuntu Runner VM
+## Step 7: Launch Ubuntu Runner VM
 
 Launch an Ubuntu virtual machine that will serve as your Linux GitHub Actions runner:
 
@@ -255,7 +293,7 @@ incus exec $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME -- apt update
 
 **Note**: If you need console access (e.g., for troubleshooting boot issues), you can use `incus console $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME`, but you'll need to configure a password first via `incus exec`.
 
-## Step 7: Initialize Ubuntu Runner VM
+## Step 8: Initialize Ubuntu Runner VM
 
 Initialize the Ubuntu VM for use as a GitHub Actions runner. This will install all required dependencies and set up the runner user:
 
@@ -272,7 +310,7 @@ This task will:
 
 **Note**: The `runner:initialize` task uses the `INCUS_REMOTE_NAME`, `RUNNER_USER`, and `RUNNER_HOME` environment variables from your `windsor.yaml` file.
 
-## Step 8: Install GitHub Actions Runner
+## Step 9: Install GitHub Actions Runner
 
 #### Verify Environment Variables
 
