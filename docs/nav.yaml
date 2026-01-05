@@ -23,4 +23,5 @@ nav:
     - Self-Hosted Runners:
       - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
     - Home Automation: runbooks/home-assistant/README.md
+  - Taskfiles: taskfiles/README.md
   - Troubleshooting: troubleshooting.md
