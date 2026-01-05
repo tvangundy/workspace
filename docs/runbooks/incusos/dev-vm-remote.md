@@ -527,12 +527,14 @@ task dev:delete -- my-dev
 
 - The VM instance and all its data
 - All files in the VM, including:
+
   - Workspace directory contents (`~/workspace-name`)
   - User data and configuration
   - Installed packages and tools
   - Any work or changes not backed up
 
 **Warning**: Deleting the VM is **irreversible** and will permanently destroy all data on the VM. Make sure you have:
+
 - Backed up any important files
 - Pushed any Git commits to remote repositories
 - Saved any work you want to keep

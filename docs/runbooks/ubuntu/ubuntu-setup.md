@@ -110,9 +110,11 @@ Access the NUC's BIOS settings (typically by pressing F2 during boot):
 
 1. Navigate to the **Boot** tab in BIOS settings
 2. In the **Boot Priority** section:
+
    - Select **"Boot USB devices First"** to prioritize USB boot
    - Enable **"USB"** booting if not already enabled
 3. **Secure Boot** (optional):
+
    - Ubuntu supports Secure Boot, but you can disable it if you encounter issues
    - If using Secure Boot, ensure it's set to "Standard" mode (not "Custom")
 
@@ -165,10 +167,12 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 5. **Select USB device**: Choose the USB device from the boot menu
 6. **Ubuntu installer loads**: The Ubuntu installer will load from the USB device
 7. **Follow installation wizard**:
+
    - Select your language and keyboard layout
    - Choose installation type (normal installation or minimal installation)
    - Set up network connection (if not already connected)
    - Configure disk partitioning:
+
      - **Erase disk and install Ubuntu**: For a clean installation (recommended for new setups)
      - **Something else**: For custom partitioning (advanced users)
    - Create a user account and set a password

@@ -42,6 +42,7 @@ task rpi:write-disk
 ### 4. Configure in Omni
 
 1. Create config patch with:
+
    - Install disk: `/dev/sda`
    - Hostname configuration
    - Network settings

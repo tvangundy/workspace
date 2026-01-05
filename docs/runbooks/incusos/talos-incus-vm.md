@@ -523,26 +523,31 @@ This task will:
 ### What Gets Cleaned Up
 
 1. **Virtual Machines** (Required):
+
    - Stops and deletes the control plane VM (`${CONTROL_PLANE_VM}`)
    - Stops and deletes worker-0 VM (`${WORKER_0_VM}`)
    - Stops and deletes worker-1 VM (`${WORKER_1_VM}`)
    - **Warning**: This permanently destroys all data on these VMs, including:
+
      - Kubernetes cluster state (etcd data)
      - All workloads and pods
      - Persistent volumes
      - Any data stored on the VMs
 
 2. **Configuration Files** (Optional - manual cleanup):
+
    - Talos cluster configuration: `contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}/`
    - Talos client config: `contexts/${WINDSOR_CONTEXT}/.talos/talosconfig`
    - Kubernetes kubeconfig: `contexts/${WINDSOR_CONTEXT}/.kube/config`
    - **Note**: These are not automatically deleted. You can keep them for future reference or manually remove them if needed.
 
 3. **Talos Image** (Optional - manual cleanup):
+
    - Downloaded Talos image: `contexts/${WINDSOR_CONTEXT}/devices/talos/talos-metal-amd64.qcow2`
    - **Note**: The image is not automatically deleted. You can keep it to reuse for future clusters, or manually remove it to free up disk space.
 
 4. **Physical Network** (Not cleaned up):
+
    - The physical network created for the cluster is **not** deleted
    - **Reason**: The network can be shared across multiple clusters and VMs
    - **Note**: If you want to remove it, you must do so manually with `incus network delete ${INCUS_REMOTE_NAME}:${PHYSICAL_INTERFACE:-eno1}` (only if no other VMs are using it)

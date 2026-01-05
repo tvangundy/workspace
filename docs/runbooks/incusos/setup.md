@@ -120,9 +120,11 @@ Access the NUC's BIOS settings (typically by pressing F2 during boot):
 
 1. Navigate to the **Boot** tab in BIOS settings
 2. In the **Secure Boot** section:
+
    - Select **"Custom"** Secure Boot Mode
    - Select **"Reset to Setup Mode"** to enable custom mode
 3. In the **Boot Priority** section:
+
    - Select **"Boot USB devices First"** to prioritize USB boot
    - Enable **"USB"** booting if not already enabled
 

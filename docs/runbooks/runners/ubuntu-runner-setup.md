@@ -23,6 +23,7 @@ This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi
 
 3. **Install Ubuntu Server**
    - During installation, select these server snaps:
+
      - `openssh`
      - `docker`
      - `mosquitto`

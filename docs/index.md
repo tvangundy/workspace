@@ -186,6 +186,7 @@ The `--dry` flag is particularly valuable for learning and adoption. It shows ex
 **6. Documentation Through Code**
 
 Taskfiles serve as executable documentation. The task definitions show exactly what operations are performed, making it easier to:
+
 - Understand what each step does
 - Debug issues when something goes wrong
 - Customize behavior by modifying the taskfile

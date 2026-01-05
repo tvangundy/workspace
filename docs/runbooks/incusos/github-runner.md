@@ -40,16 +40,20 @@ Each runner VM will require:
 Before configuring environment variables, you need to set up the runner in GitHub to obtain the required configuration values:
 
 1. **Navigate to GitHub**:
+
    - For a **repository-level runner**: Go to your repository → **Settings** → **Actions** → **Runners** → **New self-hosted runner**
    - For an **organization-level runner**: Go to your organization → **Settings** → **Actions** → **Runners** → **New self-hosted runner**
 
 2. **Select Platform**:
+
    - Select **Linux** and **x64** (or ARM64 if using ARM VMs)
    - The setup page will display:
+
      - The repository/organization URL (e.g., `https://github.com/tvangundy/workspace`)
      - A registration token (a long alphanumeric string)
 
 3. **Copy the Information**:
+
    - Copy the repository URL shown on the page
    - Copy the registration token
    - **Important**: The token expires after a short time (typically 1 hour), so you'll need to use it promptly
@@ -106,11 +110,13 @@ environment:
 ### Additional Configuration Notes
 
 **Runner Version** (Optional):
+
    - The task will automatically use the latest version if `GITHUB_RUNNER_VERSION` is not specified
    - To use a specific version, check the [GitHub Actions Runner releases](https://github.com/actions/runner/releases) page
    - Use the version number without the `v` prefix (e.g., `"2.311.0"`)
 
 **Runner Architecture** (Optional):
+
    - For x86_64/AMD64 VMs: Use `"x64"` (default)
    - For ARM64 VMs: Use `"arm64"`
 
@@ -209,9 +215,11 @@ incus launch images:ubuntu/24.04 $INCUS_REMOTE_NAME:$UBUNTU_GITHUB_RUNNER_0_NAME
 - The network uses the `INCUS_NETWORK_NAME` environment variable from your `windsor.yaml` file
 - The `--vm` flag creates a virtual machine instead of a container
 - **Performance optimizations**:
+
   - `security.secureboot=false`: Disables Secure Boot for better performance (only disable if security allows)
   - `raw.qemu=-cpu host`: Passes through host CPU features for better performance
 - **Recommended resources for optimal performance**:
+
   - **Memory**: 8GB minimum (16GB recommended for Docker-heavy workloads)
   - **CPU**: 4 cores minimum (8 cores recommended for parallel builds)
 - Adjust memory and CPU limits in your `windsor.yaml` file based on your needs and available host resources
