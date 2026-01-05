@@ -111,14 +111,14 @@ environment:
   
   # Talos image configuration
   # Get schematic ID from https://factory.talos.dev
-  TALOS_IMAGE_SCHEMATIC_ID: "<your-schematic-id>"
+  TALOS_IMAGE_SCHEMATIC_ID: "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
   TALOS_IMAGE_VERSION: "v1.12.0"
   TALOS_IMAGE_ARCH: "metal-amd64"
   
   # Physical network interface (optional, defaults to eno1)
   # PHYSICAL_INTERFACE: "eno1"
   
-  # Storage pool (optional, defaults to default)
+  # Storage pool (optional, defaults to local)
   STORAGE_POOL: "local"
   
   # VM resources (optional, defaults shown)
@@ -153,7 +153,7 @@ environment:
 - `TALOS_IMAGE_VERSION`: The Talos version to use (check [Talos releases](https://github.com/siderolabs/talos/releases))
 - `TALOS_IMAGE_ARCH`: The architecture (typically `metal-amd64` for Intel NUC)
 - `PHYSICAL_INTERFACE`: (Optional) Your physical network interface name (defaults to `eno1` if not set)
-- `STORAGE_POOL`: (Optional) Name of the Incus storage pool (defaults to `default`)
+- `STORAGE_POOL`: (Optional) Name of the Incus storage pool (defaults to `local`)
 - `CONTROL_PLANE_MEMORY`, `CONTROL_PLANE_CPU`, `WORKER_MEMORY`, `WORKER_CPU`: (Optional) VM resource allocations (defaults: 2GB memory, 2 CPUs)
 - `COMMON_CONFIG_PATCHES`: (Optional) YAML string with common configuration patches for all nodes
 

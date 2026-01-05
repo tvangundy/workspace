@@ -91,6 +91,6 @@ variable "common_config_patches" {
 variable "storage_pool" {
   description = "Name of the Incus storage pool to use for VMs"
   type        = string
-  default     = "default"
+  default     = "local"
 }
 

@@ -187,8 +187,7 @@ resource "incus_instance" "workers" {
   
   depends_on = [
     local_file.worker_config,
-    incus_instance.control_plane,
-    null_resource.check_ip_addresses
+    incus_instance.control_plane
   ]
 }
 

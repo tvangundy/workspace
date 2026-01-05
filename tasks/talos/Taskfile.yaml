@@ -88,7 +88,7 @@ tasks:
         WORKER_MEMORY="${WORKER_MEMORY:-2GB}"
         WORKER_CPU="${WORKER_CPU:-2}"
         PHYSICAL_NETWORK_NAME="${PHYSICAL_INTERFACE:-eno1}"
-        STORAGE_POOL="${STORAGE_POOL:-default}"
+        STORAGE_POOL="${STORAGE_POOL:-local}"
         COMMON_CONFIG_PATCHES="${COMMON_CONFIG_PATCHES:-}"
         
         # Generate talos_image_alias from TALOS_IMAGE_VERSION
