@@ -16,8 +16,8 @@ Remote development VMs run on an IncusOS server and provide:
 ## Prerequisites
 
 - Incus client installed on your local machine
-- IncusOS server set up and accessible (see [IncusOS Setup](./incusos-setup.md))
-- Incus remote configured (see [IncusOS Setup - Step 7](./incusos-setup.md#step-7-connect-to-incus-server))
+- IncusOS server set up and accessible (see [IncusOS Setup](./setup.md))
+- Incus remote configured (see [IncusOS Setup - Step 7](./setup.md#step-7-connect-to-incus-server))
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
 ## Setup
@@ -193,7 +193,7 @@ Look for your physical interface (e.g., `eno1`, `eth0`) and verify it has `insta
 incus admin os system network edit
 ```
 
-Add `instances` to the `roles` list for your physical interface. See [IncusOS Setup - Network Configuration](./incusos-setup.md#network-configuration) for detailed instructions.
+Add `instances` to the `roles` list for your physical interface. See [IncusOS Setup - Network Configuration](./setup.md#network-configuration) for detailed instructions.
 
 **Note**: After configuring the network, you may need to restart existing VMs for them to get new IP addresses on your local network.
 

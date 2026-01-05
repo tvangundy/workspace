@@ -309,7 +309,7 @@ Your Ubuntu system should be fully operational and ready for use.
 
 ### Wiping the Boot Disk Using Ubuntu Live USB
 
-If you need to completely wipe the NUC's boot disk to start fresh, you can use an Ubuntu Live USB to boot into a recovery environment and wipe the disk. See the [Incus Setup runbook](../incus/incusos-setup.md) for detailed instructions on creating an Ubuntu Live USB and wiping disks.
+If you need to completely wipe the NUC's boot disk to start fresh, you can use an Ubuntu Live USB to boot into a recovery environment and wipe the disk. See the [Incus Setup runbook](../incusos/setup.md) for detailed instructions on creating an Ubuntu Live USB and wiping disks.
 
 ## Next Steps
 

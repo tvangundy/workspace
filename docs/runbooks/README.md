@@ -23,7 +23,7 @@ Step-by-step guide for initializing a new workspace using the workspace initiali
 ### 🔐 [Secrets Management](./secrets/secrets.md)
 Complete guide for managing encrypted secrets using SOPS (Secrets Operations). Learn how to generate, encrypt, decrypt, and manage secrets within your workspace contexts, including integration with Windsor CLI.
 
-### 🐳 [IncusOS Setup](./incusos/incusos-setup.md)
+### 🐳 [IncusOS Setup](./incusos/setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices, including BIOS configuration, Secure Boot setup, boot media preparation, and connecting to the Incus server.
 
 ### ☸️ [Talos on IncusOS VMs](./incusos/talos-incus-vm.md)
@@ -38,9 +38,9 @@ Complete guide for installing and configuring Ubuntu on Intel NUC devices, inclu
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and preparing devices for deployment, including image preparation and initial cluster configuration.
 
-- **[Raspberry Pi Bootstrapping](./bootstrapping/rpi-bootstrapping.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
-- **[Intel NUC Bootstrapping](./bootstrapping/nuc-bootstrapping.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
-- **[Sidero Omni Bootstrapping](./bootstrapping/omni-bootstrapping.md)**: Bootstrapping Talos clusters using Sidero Omni for bare metal provisioning
+- **[Raspberry Pi Bootstrapping](./bootstrapping/rpi.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
+- **[Intel NUC Bootstrapping](./bootstrapping/nuc.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
+- **[Sidero Omni Bootstrapping](./bootstrapping/omni.md)**: Bootstrapping Talos clusters using Sidero Omni for bare metal provisioning
 
 ### 🏠 [Home Assistant](./home-assistant/README.md)
 Complete guide for deploying a home automation platform with container-based deployment, SSL/TLS configuration, persistent storage, and high-availability setup.

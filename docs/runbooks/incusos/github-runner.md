@@ -22,8 +22,8 @@ This approach allows you to run GitHub Actions workflows on self-hosted infrastr
 ## Prerequisites
 
 - Incus client installed on your local machine
-- IncusOS server set up and accessible (see [IncusOS Setup](incusos-setup.md))
-- Incus remote configured (see [IncusOS Setup - Step 7](incusos-setup.md#step-7-connect-to-incus-server))
+- IncusOS server set up and accessible (see [IncusOS Setup](setup.md))
+- Incus remote configured (see [IncusOS Setup - Step 7](setup.md#step-7-connect-to-incus-server))
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 - GitHub repository or organization access (admin permissions to add self-hosted runners)
 - Sufficient resources: At least 4GB RAM and 50GB storage per VM on the IncusOS host
@@ -511,5 +511,5 @@ After successfully setting up your GitHub runners:
 
 - [GitHub Actions Self-Hosted Runners](https://docs.github.com/en/actions/hosting-your-own-runners)
 - [Runner Configuration](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners)
-- [IncusOS Setup](incusos-setup.md) - Setting up IncusOS
+- [IncusOS Setup](setup.md) - Setting up IncusOS
 - [Talos on IncusOS VMs](talos-incus-vm.md) - Example of VM deployment on IncusOS

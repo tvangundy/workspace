@@ -23,8 +23,8 @@ This section covers two primary bootstrapping approaches, each suited to differe
 
 Device-specific bootstrapping guides:
 
-- **[Raspberry Pi Bootstrapping](./rpi-bootstrapping.md)**: Step-by-step guide for bootstrapping Talos on Raspberry Pi (ARM64) devices
-- **[Intel NUC Bootstrapping](./nuc-bootstrapping.md)**: Step-by-step guide for bootstrapping Talos on Intel NUC (x86_64) devices
+- **[Raspberry Pi Bootstrapping](./rpi.md)**: Step-by-step guide for bootstrapping Talos on Raspberry Pi (ARM64) devices
+- **[Intel NUC Bootstrapping](./nuc.md)**: Step-by-step guide for bootstrapping Talos on Intel NUC (x86_64) devices
 
 Talos Linux is a minimal, immutable Linux distribution designed specifically for Kubernetes. The Talos bootstrapping process involves:
 
@@ -35,7 +35,7 @@ Talos Linux is a minimal, immutable Linux distribution designed specifically for
 
 This method provides simplicity and direct control, making it ideal for learning, prototyping, and smaller-scale deployments where you want hands-on control over the bootstrapping process.
 
-### [Omni Bootstrapping](./omni-bootstrapping.md)
+### [Omni Bootstrapping](./omni.md)
 
 **Best for**: Multi-node clusters, production environments, automated provisioning, and large-scale deployments
 

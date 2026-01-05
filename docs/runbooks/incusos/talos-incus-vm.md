@@ -22,8 +22,8 @@ This approach allows you to run a complete Kubernetes cluster on a single physic
 ## Prerequisites
 
 - Incus client installed on your local machine
-- IncusOS server set up and accessible (see [IncusOS Setup](incusos-setup.md))
-- Incus remote configured (see [IncusOS Setup - Step 7](incusos-setup.md#step-7-connect-to-incus-server))
+- IncusOS server set up and accessible (see [IncusOS Setup](setup.md))
+- Incus remote configured (see [IncusOS Setup - Step 7](setup.md#step-7-connect-to-incus-server))
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 - talosctl installed (see the [Installation Guide](../../install.md) for setup instructions)
 - Sufficient resources: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
@@ -678,7 +678,7 @@ After successfully deploying your Talos cluster:
 ## Additional Resources
 
 - [Talos Documentation](https://www.talos.dev/)
-- [IncusOS Setup](incusos-setup.md) - Setting up IncusOS
+- [IncusOS Setup](setup.md) - Setting up IncusOS
 - [Bootstrapping Nodes](../bootstrapping/README.md) - Physical node bootstrapping
 - [Initialize Workspace](../workspace/init.md) - Workspace setup
 
