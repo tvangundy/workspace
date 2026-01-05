@@ -6,7 +6,7 @@ nav:
     - Workspace: runbooks/workspace/init.md
     - Secrets: runbooks/secrets/secrets.md
     - IncusOS:
-      - Introduction: runbooks/incusos/incusos.md
+      - Introduction: runbooks/incusos/README.md
       - Server: runbooks/incusos/setup.md
       - Talos Cluster: runbooks/incusos/talos-incus-vm.md
       - Dev Machine:
