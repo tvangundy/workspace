@@ -12,7 +12,7 @@ This guide covers the setup of Raspberry Pi devices for use in Talos Kubernetes 
 
 ## Setup Steps
 
-### 1. Prepare Boot Media
+### Step 1. Prepare Boot Media
 
 **Using Device Tasks:**
 ```bash
@@ -28,18 +28,18 @@ task rpi:write-disk
 2. Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) or `task rpi:write-disk`
 3. Write image to USB drive (boots from `/dev/sda`)
 
-### 2. Boot Device
+### Step 2. Boot Device
 
 1. Insert the boot USB drive into the top USB port
 2. Power on the Raspberry Pi
 3. Device will boot into Talos and connect to Omni
 
-### 3. Verify in Omni Console
+### Step 3. Verify in Omni Console
 
 - Wait for device to appear in the [Omni console](https://windsor.omni.siderolabs.io/omni/)
 - Device should show in the machines list
 
-### 4. Configure in Omni
+### Step 4. Configure in Omni
 
 1. Create config patch with:
 
@@ -48,7 +48,7 @@ task rpi:write-disk
    - Network settings
 2. Assign config patch to the machine
 
-### 5. Cluster Bootstrap
+### Step 5. Cluster Bootstrap
 
 ```bash
 # Set context

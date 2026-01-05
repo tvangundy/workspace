@@ -11,7 +11,7 @@ This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi
 
 ## Setup Steps
 
-### 1. Install Ubuntu Server
+### Step 1. Install Ubuntu Server
 
 1. **Download Ubuntu Server**
    - Use [Ubuntu 24.04 Server](https://releases.ubuntu.com/noble/)
@@ -32,7 +32,7 @@ This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi
      - `google-cloud-sdk`
      - `prometheus`
 
-### 2. Post-Installation Configuration
+### Step 2. Post-Installation Configuration
 
 ```bash
 # System updates
@@ -62,7 +62,7 @@ su - <username>
 docker ps
 ```
 
-### 3. Install GitHub Actions Runner
+### Step 3. Install GitHub Actions Runner
 
 1. **Get Runner Token**
    - Navigate to GitHub repository/organization
