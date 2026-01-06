@@ -210,8 +210,6 @@ resource "null_resource" "check_ip_addresses" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      set -e
-      
       MISSING_IPS=""
       
       if [ -z "${var.control_plane_ip}" ] || [ "${var.control_plane_ip}" = "" ]; then
@@ -242,16 +240,23 @@ resource "null_resource" "check_ip_addresses" {
         echo "     - Worker 0:      ${var.worker_0_vm_name}"
         echo "     - Worker 1:      ${var.worker_1_vm_name}"
         echo ""
-        echo "  4. Update terraform.tfvars with the IP addresses:"
+        echo "  4. Update your windsor.yaml file (contexts/<context>/windsor.yaml) with the IP addresses:"
         echo ""
-        echo "     control_plane_ip = \"<ip-address>\""
-        echo "     worker_0_ip      = \"<ip-address>\""
-        echo "     worker_1_ip      = \"<ip-address>\""
+        echo "     CONTROL_PLANE_IP: \"<ip-address>\""
+        echo "     WORKER_0_IP:      \"<ip-address>\""
+        echo "     WORKER_1_IP:      \"<ip-address>\""
         echo ""
-        echo "  5. Run 'terraform apply' again to continue with Talos configuration."
+        echo "  5. Regenerate terraform.tfvars from environment variables:"
+        echo ""
+        echo "     task talos:generate-tfvars"
+        echo ""
+        echo "  6. Run 'terraform apply' again to continue with Talos configuration."
         echo ""
         echo "═══════════════════════════════════════════════════════════════════════════════"
-        exit 1
+        echo ""
+        echo "Note: This is expected behavior for new installations. VMs are created successfully."
+        echo "      Update windsor.yaml, regenerate terraform.tfvars, then re-run 'terraform apply'."
+        exit 0
       fi
       
       echo "✓ All IP addresses are configured"
@@ -263,6 +268,7 @@ resource "null_resource" "check_ip_addresses" {
 }
 
 # Apply Talos configuration to control plane (using null_resource with local-exec)
+# Note: This will only run if IP addresses are configured (check_ip_addresses passes)
 resource "null_resource" "apply_controlplane_config" {
   depends_on = [
     null_resource.check_ip_addresses,
@@ -270,6 +276,9 @@ resource "null_resource" "apply_controlplane_config" {
     local_file.controlplane_config,
     local_file.talosconfig
   ]
+  
+  # Only create this resource if IPs are configured
+  count = (var.control_plane_ip != "" && var.worker_0_ip != "" && var.worker_1_ip != "") ? 1 : 0
   
   triggers = {
     config_content = data.talos_machine_configuration.controlplane.machine_configuration
@@ -311,16 +320,17 @@ resource "null_resource" "apply_controlplane_config" {
 }
 
 # Apply Talos configuration to workers (using null_resource with local-exec)
+# Note: This will only run if IP addresses are configured
 resource "null_resource" "apply_worker_configs" {
-  for_each = {
+  for_each = (var.control_plane_ip != "" && var.worker_0_ip != "" && var.worker_1_ip != "") ? {
     for idx, vm in local.worker_vms : vm.name => vm
-  }
+  } : {}
   
   depends_on = [
     incus_instance.workers,
     local_file.worker_config,
     local_file.talosconfig,
-    null_resource.apply_controlplane_config
+    null_resource.apply_controlplane_config[0]
   ]
   
   triggers = {
@@ -372,9 +382,12 @@ resource "null_resource" "apply_worker_configs" {
 }
 
 # Bootstrap etcd cluster
+# Note: This will only run if IP addresses are configured
 resource "null_resource" "bootstrap_cluster" {
+  count = (var.control_plane_ip != "" && var.worker_0_ip != "" && var.worker_1_ip != "") ? 1 : 0
+  
   depends_on = [
-    null_resource.apply_controlplane_config
+    null_resource.apply_controlplane_config[0]
   ]
   
   triggers = {

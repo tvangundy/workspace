@@ -12,7 +12,7 @@ Deploying a Talos cluster on IncusOS VMs using Terraform involves:
 4. **Downloading and importing Talos image**: Getting the Talos Linux image and importing it into Incus
 5. **Creating network bridge**: Setting up network connectivity for VMs
 6. **Initializing and applying Terraform**: Using Terraform to create VMs and configure the cluster
-7. **Viewing IP addresses**: Finding actual DHCP-assigned IPs from Terraform outputs
+7. **Configuring IP addresses**: Getting actual DHCP-assigned IPs, updating windsor.yaml, and regenerating terraform.tfvars
 8. **Retrieving kubeconfig**: Getting Kubernetes access credentials
 9. **Verifying cluster**: Confirming all nodes are healthy and operational
 
@@ -201,14 +201,6 @@ After downloading, import the image into Incus. The image alias will be automati
 task incus:import-talos-image -- talos-${TALOS_IMAGE_VERSION}-metal-amd64
 ```
 
-For example, if `TALOS_IMAGE_VERSION=v1.12.0`:
-
-```bash
-task incus:import-talos-image -- talos-v1.12.0-metal-amd64
-```
-
-**Note**: If you don't provide an alias, the task will use `talos-${TALOS_IMAGE_VERSION}-metal-amd64` as the default alias (requires `TALOS_IMAGE_VERSION` to be set).
-
 Verify the image was imported:
 
 ```bash
@@ -316,10 +308,21 @@ Apply the Terraform configuration:
 terraform apply
 ```
 
-Terraform will:
+**For new installations** (when IP addresses are empty in `windsor.yaml`):
 
+Terraform will:
 1. Create the control plane VM
 2. Create the worker VMs
+3. Generate Talos machine configurations
+4. Display instructions to get the actual DHCP-assigned IP addresses
+
+After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 7** to configure the IP addresses before Terraform can continue with Talos configuration.
+
+**For existing installations** (when IP addresses are already set in `windsor.yaml`):
+
+Terraform will:
+1. Create the control plane VM (if not exists)
+2. Create the worker VMs (if not exists)
 3. Generate Talos machine configurations
 4. Apply configurations to the VMs (using `talosctl apply-config`)
 5. Bootstrap the etcd cluster (using `talosctl bootstrap`)
@@ -328,17 +331,21 @@ This process may take several minutes as VMs boot and configurations are applied
 
 **Note**: The Terraform configuration uses `null_resource` with `local-exec` provisioners to apply Talos configurations and bootstrap the cluster. These provisioners run `talosctl` commands after the VMs are created.
 
-**Important**: Since VMs get IP addresses via DHCP, Terraform will automatically:
+**Important**: Since VMs get IP addresses via DHCP, for new installations you must:
 1. Wait for VMs to boot and get their DHCP-assigned IP addresses
-2. Retrieve the actual IP addresses from inside each VM
-3. Use those actual IPs when applying Talos configurations
-4. Output the actual IP addresses so you can see them (see Step 7)
+2. Get the actual IP addresses from Terraform outputs (see Step 7)
+3. Update `windsor.yaml` with the actual IPs
+4. Regenerate `terraform.tfvars` and run `terraform apply` again
 
-The IP addresses you configure in `terraform.tfvars` are used as placeholders for initial Talos configuration generation, but the actual DHCP-assigned IPs will be used for all operations.
+The IP addresses you configure in `windsor.yaml` are used for Talos configuration generation. For the first deployment, these will be empty, and you'll set them in Step 7 after the VMs receive their DHCP-assigned IPs.
 
-## Step 7: View Actual IP Addresses
+## Step 7: Configure IP Addresses for Talos Deployment
 
-Terraform automatically retrieves the actual DHCP-assigned IP addresses from the VMs after they boot. You can view these IP addresses using Terraform outputs:
+After the VMs are created and have received their DHCP-assigned IP addresses, you need to update your configuration with the actual IPs before Terraform can proceed with Talos configuration.
+
+### Step 7a: Get Actual IP Addresses
+
+Terraform automatically retrieves the actual DHCP-assigned IP addresses from the VMs after they boot. View these IP addresses using Terraform outputs:
 
 ```bash
 cd terraform/cluster
@@ -351,7 +358,7 @@ This will show all outputs, including:
 - `worker_ips`: A map with the actual IP addresses of worker nodes
 - `all_node_ips`: All node IP addresses in one convenient map
 
-To get just the IP addresses:
+To get just the IP addresses for easier copying:
 
 ```bash
 # Control plane IP
@@ -364,27 +371,53 @@ terraform output -json worker_ips
 terraform output -json all_node_ips
 ```
 
-### Optional: Update terraform.tfvars with Actual IPs
+### Step 7b: Update windsor.yaml with Actual IPs
 
-If you want to use the actual IPs in future Terraform applies (for example, if you need to regenerate Talos configurations), you can update `terraform.tfvars` with the actual IPs:
+Update your `windsor.yaml` file with the actual DHCP-assigned IP addresses. Edit `contexts/${WINDSOR_CONTEXT}/windsor.yaml` and update the IP address values:
 
-```bash
-# Get the actual IPs
-CONTROL_PLANE_IP=$(terraform output -raw control_plane_ip)
-WORKER_0_IP=$(terraform output -raw -json worker_ips | jq -r '.worker_0')
-WORKER_1_IP=$(terraform output -raw -json worker_ips | jq -r '.worker_1')
-
-# Update terraform.tfvars (example - adjust for your editor)
-sed -i '' "s/control_plane_ip = .*/control_plane_ip = \"${CONTROL_PLANE_IP}\"/" terraform.tfvars
-sed -i '' "s/worker_0_ip = .*/worker_0_ip = \"${WORKER_0_IP}\"/" terraform.tfvars
-sed -i '' "s/worker_1_ip = .*/worker_1_ip = \"${WORKER_1_IP}\"/" terraform.tfvars
+```yaml
+environment:
+  # ... other configuration ...
+  
+  # VM IP addresses - update with actual DHCP-assigned IPs
+  CONTROL_PLANE_IP: "192.168.2.146"  # Replace with actual control plane IP
+  WORKER_0_IP:      "192.168.2.128"  # Replace with actual worker 0 IP
+  WORKER_1_IP:      "192.168.2.102"  # Replace with actual worker 1 IP
 ```
 
-**Note**: This is optional. Terraform will automatically use the actual IPs even if `terraform.tfvars` has different values, because it retrieves the IPs dynamically from the VMs.
+**Note**: Replace the placeholder IPs with the actual values you obtained from `terraform output`.
+
+### Step 7c: Regenerate terraform.tfvars
+
+After updating `windsor.yaml`, regenerate the `terraform.tfvars` file from your updated environment variables:
+
+```bash
+task talos:generate-tfvars
+```
+
+This will update `terraform/cluster/terraform.tfvars` with the actual IP addresses from your `windsor.yaml` file.
+
+### Step 7d: Continue Terraform Deployment
+
+Now that the IP addresses are configured, run Terraform apply again to continue with Talos configuration:
+
+```bash
+cd terraform/cluster
+terraform apply
+```
+
+Terraform will now proceed with:
+1. Applying Talos configurations to all nodes
+2. Bootstrapping the etcd cluster
+3. Completing the cluster setup
 
 **Alternative: Use DHCP Reservations** (Recommended for Production)
 
-To ensure VMs always get the same IPs, configure DHCP reservations in your router. Reserve specific IPs for each VM's MAC address. This way, the IPs will match your configuration consistently.
+To avoid this step in the future, configure DHCP reservations in your router. Reserve specific IPs for each VM's MAC address. This way, the VMs will always get the same IPs, matching your configuration from the start. You can find the MAC addresses using:
+
+```bash
+incus list ${INCUS_REMOTE_NAME}: --format json | jq '.[] | {name: .name, mac: .state.network.eth0.hwaddr}'
+```
 
 ## Step 8: Retrieve kubeconfig
 
@@ -420,7 +453,7 @@ Check that all nodes are healthy and registered:
 kubectl get nodes -o wide
 
 # Check system pods
-kubectl get pods -A
+kubectl get pods -A -o wide
 
 # Check cluster info
 kubectl cluster-info
