@@ -76,6 +76,18 @@ tasks:
           exit 1
         fi
         
+        if [ -z "${TALOSCONFIG:-}" ]; then
+          echo "Error: TALOSCONFIG environment variable is not defined"
+          echo "Set TALOSCONFIG in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+        
+        if [ -z "${KUBECONFIG_FILE:-}" ]; then
+          echo "Error: KUBECONFIG_FILE environment variable is not defined"
+          echo "Set KUBECONFIG_FILE in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+        
         # Set defaults for optional variables
         CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
         WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
@@ -138,6 +150,10 @@ tasks:
           printf "\n"
           printf "# Storage pool name\n"
           printf "storage_pool = \"${STORAGE_POOL}\"\n"
+          printf "\n"
+          printf "# Configuration file paths (from environment variables)\n"
+          printf "talosconfig_path = \"${TALOSCONFIG}\"\n"
+          printf "kubeconfig_file = \"${KUBECONFIG_FILE}\"\n"
           printf "\n"
           printf "# Common configuration patches (optional)\n"
           if [ -n "${COMMON_CONFIG_PATCHES}" ]; then

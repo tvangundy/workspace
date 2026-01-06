@@ -94,3 +94,13 @@ variable "storage_pool" {
   default     = "local"
 }
 
+variable "talosconfig_path" {
+  description = "Path to the Talos configuration file (from TALOSCONFIG environment variable)"
+  type        = string
+}
+
+variable "kubeconfig_file" {
+  description = "Path to the kubeconfig file (from KUBECONFIG_FILE environment variable)"
+  type        = string
+}
+

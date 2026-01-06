@@ -28,6 +28,7 @@ This approach uses Infrastructure as Code (Terraform) to manage your cluster, ma
 - talosctl installed (see the [Installation Guide](../../install.md) for setup instructions)
 - Sufficient resources: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
 - Network access: The IncusOS host must be on a network with available IP addresses
+- **Environment variables configured**: `TALOSCONFIG` and `KUBECONFIG_FILE` must be set in your `windsor.yaml` (see Step 2)
 
 ## System Requirements
 
@@ -138,10 +139,18 @@ environment:
   #       "net.bridge.bridge-nf-call-iptables": "1"
   #       "net.bridge.bridge-nf-call-ip6tables": "1"
   
-  # Talos configuration paths
+  # Talos configuration paths (REQUIRED - must be set)
+  # These paths are used by Terraform and talosctl commands throughout the deployment
   TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
   KUBECONFIG_FILE: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config
 ```
+
+**Important**: The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables are **required** and must be set. These paths are used by:
+- Terraform to save the Talos configuration file
+- `talosctl` commands to locate the configuration
+- `kubectl` commands to access the Kubernetes cluster
+
+The paths shown above are the standard locations. Do not change them unless you have a specific reason to do so.
 
 **Note**: Replace the placeholder values with your actual configuration:
 
@@ -156,6 +165,8 @@ environment:
 - `STORAGE_POOL`: (Optional) Name of the Incus storage pool (defaults to `local`)
 - `CONTROL_PLANE_MEMORY`, `CONTROL_PLANE_CPU`, `WORKER_MEMORY`, `WORKER_CPU`: (Optional) VM resource allocations (defaults: 2GB memory, 2 CPUs)
 - `COMMON_CONFIG_PATCHES`: (Optional) YAML string with common configuration patches for all nodes
+- `TALOSCONFIG`: **Required** - Path to the Talos configuration file (typically `$WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig`)
+- `KUBECONFIG_FILE`: **Required** - Path to the kubeconfig file (typically `$WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config`)
 
 ## Step 3: Generate Terraform Variables File
 
@@ -297,7 +308,7 @@ The plan should show:
 
 - 3 Incus virtual machines (1 control plane, 2 workers)
 - Talos machine configurations (control plane and worker)
-- Configuration files (talosconfig, controlplane.yaml, worker.yaml)
+- Configuration files (talosconfig will be saved to `TALOSCONFIG` path, controlplane.yaml and worker.yaml in `terraform/cluster/`)
 
 Apply the Terraform configuration:
 
@@ -377,26 +388,27 @@ To ensure VMs always get the same IPs, configure DHCP reservations in your route
 
 ## Step 8: Retrieve kubeconfig
 
-After Terraform completes successfully, retrieve the kubeconfig to access your Kubernetes cluster. The Talos configuration files are saved in the `terraform/cluster` directory.
+After Terraform completes successfully, retrieve the kubeconfig to access your Kubernetes cluster. The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables must be set (they are configured in Step 2).
 
 Retrieve the kubeconfig and save it to the location specified in your `KUBECONFIG_FILE` environment variable:
 
 ```bash
 cd terraform/cluster
 talosctl kubeconfig "${KUBECONFIG_FILE}" \
-  --talosconfig talosconfig \
+  --talosconfig "${TALOSCONFIG}" \
   --nodes $(terraform output -raw control_plane_ip)
 ```
 
 This will:
 1. Download the kubeconfig from the control plane node
-2. Save it to `contexts/${WINDSOR_CONTEXT}/.kube/config` (as defined in your `KUBECONFIG_FILE` environment variable)
+2. Save it to the path specified in `KUBECONFIG_FILE` (typically `contexts/${WINDSOR_CONTEXT}/.kube/config`)
 3. Make it immediately available for `kubectl` commands (since `KUBECONFIG_FILE` is set in your Windsor environment)
 
-**Note**: The `KUBECONFIG_FILE` environment variable is automatically set when you source your Windsor environment (`eval "$(windsor env)"` or through Windsor's automatic environment loading). If you need to verify the path, you can check it with:
+**Note**: Both `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables are automatically set when you source your Windsor environment (`eval "$(windsor env)"` or through Windsor's automatic environment loading). If you need to verify the paths, you can check them with:
 
 ```bash
-echo "${KUBECONFIG_FILE}"
+echo "TALOSCONFIG: ${TALOSCONFIG}"
+echo "KUBECONFIG_FILE: ${KUBECONFIG_FILE}"
 ```
 
 ## Step 9: Verify Cluster Health
@@ -426,7 +438,7 @@ All nodes should show a "Ready" status.
 You can also verify the cluster using Talos commands:
 
 ```bash
-talosctl --talosconfig terraform/cluster/talosconfig \
+talosctl --talosconfig "${TALOSCONFIG}" \
   --nodes $(terraform output -raw control_plane_ip) \
   health
 ```
@@ -452,7 +464,7 @@ This will:
    - Persistent volumes
    - Any data stored on the VMs
 
-3. **Configuration Files**: Terraform-generated configuration files in `terraform/cluster/` (talosconfig, controlplane.yaml, worker.yaml) are not automatically deleted. You can manually remove them if needed.
+3. **Configuration Files**: The Talos configuration file (`talosconfig`) is saved to the path specified in `TALOSCONFIG` (typically `contexts/${WINDSOR_CONTEXT}/.talos/talosconfig`). Terraform-generated machine configuration files in `terraform/cluster/` (controlplane.yaml, worker.yaml) are not automatically deleted. You can manually remove them if needed.
 
 4. **Talos Image**: The Talos image imported into Incus is **not** deleted. You can keep it to reuse for future clusters, or manually remove it:
 

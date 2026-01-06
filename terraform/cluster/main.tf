@@ -95,9 +95,10 @@ data "talos_machine_configuration" "worker" {
 }
 
 # Save Talos configurations to files
+# Note: TALOSCONFIG environment variable must be set (typically in windsor.yaml)
 resource "local_file" "talosconfig" {
   content  = data.talos_client_configuration.cluster.talos_config
-  filename = "${path.module}/talosconfig"
+  filename = var.talosconfig_path
 }
 
 resource "local_file" "controlplane_config" {
@@ -301,7 +302,7 @@ resource "null_resource" "apply_controlplane_config" {
       awk '/^---$/ {exit} {print}' ${path.module}/controlplane.yaml | sed '/grubUseUKICmdline/d' > "$TEMP_CONFIG"
       talosctl apply-config \
         --insecure \
-        --talosconfig ${path.module}/talosconfig \
+        --talosconfig "${var.talosconfig_path}" \
         --nodes ${var.control_plane_ip} \
         --file "$TEMP_CONFIG"
       rm -f "$TEMP_CONFIG"
@@ -362,7 +363,7 @@ resource "null_resource" "apply_worker_configs" {
       awk '/^---$/ {exit} {print}' ${path.module}/worker.yaml | sed '/grubUseUKICmdline/d' > "$TEMP_CONFIG"
       talosctl apply-config \
         --insecure \
-        --talosconfig ${path.module}/talosconfig \
+        --talosconfig "${var.talosconfig_path}" \
         --nodes $WORKER_IP \
         --file "$TEMP_CONFIG"
       rm -f "$TEMP_CONFIG"
@@ -387,7 +388,7 @@ resource "null_resource" "bootstrap_cluster" {
       MAX_RETRIES=30
       RETRY_COUNT=0
       while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if talosctl --talosconfig ${path.module}/talosconfig --nodes ${var.control_plane_ip} version 2>/dev/null; then
+        if talosctl --talosconfig "${var.talosconfig_path}" --nodes ${var.control_plane_ip} version 2>/dev/null; then
           echo "Control plane API is ready"
           break
         fi
@@ -401,7 +402,7 @@ resource "null_resource" "bootstrap_cluster" {
       fi
       echo "Bootstrapping etcd cluster..."
       talosctl bootstrap \
-        --talosconfig ${path.module}/talosconfig \
+        --talosconfig "${var.talosconfig_path}" \
         --nodes ${var.control_plane_ip}
     EOT
   }

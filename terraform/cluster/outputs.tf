@@ -31,8 +31,8 @@ output "all_node_ips" {
 }
 
 output "talosconfig_path" {
-  description = "Path to the generated talosconfig file"
-  value       = "${path.module}/talosconfig"
+  description = "Path to the generated talosconfig file (from TALOSCONFIG environment variable)"
+  value       = var.talosconfig_path
 }
 
 output "cluster_name" {
@@ -42,7 +42,7 @@ output "cluster_name" {
 
 output "kubeconfig_instructions" {
   description = "Instructions for retrieving kubeconfig"
-  value       = "Run: talosctl kubeconfig <output-path> --talosconfig ${path.module}/talosconfig --nodes $(terraform output -raw control_plane_ip)"
+  value       = "Run: talosctl kubeconfig \"${var.kubeconfig_file}\" --talosconfig \"${var.talosconfig_path}\" --nodes $(terraform output -raw control_plane_ip)"
 }
 
 output "ip_address_note" {
