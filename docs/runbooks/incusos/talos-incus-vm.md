@@ -39,22 +39,11 @@ Each VM will require:
 
 ## Step 1: Install Tools Dependencies
 
-To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
-Create an `aqua.yaml` file in your project's root directory with the following content:
+Ensure your `aqua.yaml` includes the following packages required for this runbook. Add any missing packages to your existing `aqua.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
-# aqua - Declarative CLI Version Manager
-# https://aquaproj.github.io/
-# checksum:
-#   enabled: true
-#   require_checksum: true
-#   supported_envs:
-#   - all
-registries:
-  - type: standard
-    ref: v4.285.0
 packages:
 - name: hashicorp/terraform@v1.10.3
 - name: siderolabs/talos@v1.9.1
@@ -65,8 +54,6 @@ packages:
 - name: helm/helm@v3.17.3
 - name: fluxcd/flux2@v2.5.1
 - name: derailed/k9s@v0.50.3
-- name: lxc/incus@v6.20.0
-
 ```
 
 Install the tools, run in the workspace root folder:

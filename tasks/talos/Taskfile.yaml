@@ -49,6 +49,7 @@ tasks:
       - openssl s_client -connect "${CONTROL_PLANE_IP}:50000" -showcerts </dev/null 2>/dev/null | openssl x509 -noout -text
 
   generate-tfvars:
+    silent: true
     desc: "Generates terraform.tfvars from environment variables"
     cmds:
       - |
@@ -171,6 +172,7 @@ tasks:
         echo "To modify values, update environment variables in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
 
   cleanup:
+    silent: true
     desc: Destroy the entire Talos cluster and clean up resources
     cmds:
       - |

@@ -20,26 +20,13 @@ Remote development VMs run on an IncusOS server and provide:
 - Incus remote configured (see [IncusOS Setup - Step 7](./setup.md#step-7-connect-to-incus-server))
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
-## Setup
+## Step 1: Install Tools Dependencies
 
-### Step 1: Install Tools Dependencies
+To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
-To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
-
-Create an `aqua.yaml` file in your project's root directory with the following content:
+Ensure your `aqua.yaml` includes the following packages required for this runbook. Add any missing packages to your existing `aqua.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
-# aqua - Declarative CLI Version Manager
-# https://aquaproj.github.io/
-# checksum:
-#   enabled: true
-#   require_checksum: true
-#   supported_envs:
-#   - all
-registries:
-  - type: standard
-    ref: v4.285.0
 packages:
 - name: hashicorp/terraform@v1.10.3
 - name: siderolabs/talos@v1.9.1
@@ -50,8 +37,6 @@ packages:
 - name: helm/helm@v3.17.3
 - name: fluxcd/flux2@v2.5.1
 - name: derailed/k9s@v0.50.3
-- name: lxc/incus@v6.20.0
-
 ```
 
 Install the tools, run in the workspace root folder:
@@ -60,7 +45,7 @@ Install the tools, run in the workspace root folder:
 aqua install
 ```
 
-### Step 2: Configure Environment Variables
+## Step 2: Configure Environment Variables
 
 Add the following to your `contexts/<context>/windsor.yaml`:
 
@@ -91,7 +76,7 @@ environment:
 
 ```
 
-### Step 3: Configure Talos Machine Settings (If Setting Up a Talos Kubernetes Cluster)
+## Step 3: Configure Talos Machine Settings (If Setting Up a Talos Kubernetes Cluster)
 
 #### Create Terraform Configuration File
 
@@ -148,7 +133,7 @@ EOF
 
 If you're not using Terraform/Windsor CLI and generating Talos configs directly, you'll need to patch the generated YAML files manually or use `talosctl` patch commands.
 
-### Step 4: Verify Remote Connection
+## Step 4: Verify Remote Connection
 
 Before creating a VM, verify you can connect to the remote Incus server:
 
@@ -169,7 +154,7 @@ windsor env | grep INCUS_REMOTE_NAME
 - `incus list nuc:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should match your remote name
 
-### Step 5: Create the Development VM
+## Step 5: Create the Development VM
 
 Create a VM on the remote server:
 
@@ -236,7 +221,7 @@ task dev:exec -- curl --version
 task dev:exec -- whoami
 ```
 
-### Step 6: Access the Development VM
+## Step 6: Access the Development VM
 
 You can access the VM in three ways:
 

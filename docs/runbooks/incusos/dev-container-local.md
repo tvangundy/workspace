@@ -17,26 +17,13 @@ Local development containers run on your macOS machine using Colima and provide:
 - macOS with Homebrew installed
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
-## Setup
+## Step 1: Install Tools Dependencies
 
-### Step 1: Install Tools Dependencies
+To fully leverage the Windsor environment and manage your local development container, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
-To fully leverage the Windsor environment and manage your local development container, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/). For your convenience, we have provided a sample setup file for aqua. Place this file in the root of your project.
-
-Create an `aqua.yaml` file in your project's root directory with the following content:
+Ensure your `aqua.yaml` includes the following packages required for this runbook. Add any missing packages to your existing `aqua.yaml`:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
-# aqua - Declarative CLI Version Manager
-# https://aquaproj.github.io/
-# checksum:
-#   enabled: true
-#   require_checksum: true
-#   supported_envs:
-#   - all
-registries:
-  - type: standard
-    ref: v4.285.0
 packages:
 - name: hashicorp/terraform@v1.10.3
 - name: siderolabs/talos@v1.9.1
@@ -48,7 +35,8 @@ packages:
 - name: fluxcd/flux2@v2.5.1
 - name: derailed/k9s@v0.50.3
 - name: abiosoft/colima@v0.8.1
-- name: lxc/incus@v6.20.0
+- name: lima-vm/lima@v1.0.7
+
 ```
 
 To install the tools specified in `aqua.yaml`, run:
@@ -57,16 +45,7 @@ To install the tools specified in `aqua.yaml`, run:
 aqua install
 ```
 
-**Alternative Installation (Homebrew):**
-
-If you prefer to use Homebrew directly:
-
-```bash
-# Install Colima and Incus client
-brew install colima incus
-```
-
-### Step 2: Start Colima with Incus Runtime
+## Step 2: Start Colima with Incus Runtime
 
 Start Colima with the Incus runtime:
 
@@ -99,7 +78,7 @@ incus list local:
 - `incus remote list` should show `local` remote
 - `incus list local:` should work (may show empty list)
 
-### Step 3: Configure Environment Variables
+## Step 3: Configure Environment Variables
 
 Add the following to your `contexts/<context>/windsor.yaml`:
 
@@ -136,7 +115,7 @@ environment:
 - `DEV_INSTANCE_TYPE: container` - Use containers for local development (faster than VMs)
 - `DOCKER_HOST` - Points to Colima's Docker socket for Docker operations
 
-### Step 4: Configure Talos Machine Settings (If Setting Up a Talos Kubernetes Cluster)
+## Step 4: Configure Talos Machine Settings (If Setting Up a Talos Kubernetes Cluster)
 
 **Note**: This step is only needed if you plan to set up a Talos Kubernetes cluster in your dev container. If you're just creating a regular Ubuntu development container, skip this step and proceed to Step 5.
 
@@ -195,7 +174,7 @@ EOF
 
 If you're not using Terraform/Windsor CLI and generating Talos configs directly, you'll need to patch the generated YAML files manually or use `talosctl` patch commands.
 
-### Step 5: Verify Local Connection
+## Step 5: Verify Local Connection
 
 Before creating a container, verify you can connect to the local Incus server:
 
@@ -216,7 +195,7 @@ windsor env | grep INCUS_REMOTE_NAME
 - `incus list local:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should be set to `local`
 
-### Step 6: Create the Development Container
+## Step 6: Create the Development Container
 
 Create a container on your local Colima instance:
 
@@ -263,7 +242,7 @@ task dev:exec -- curl --version
 task dev:exec -- whoami
 ```
 
-### Step 7: Access the Development Container
+## Step 7: Access the Development Container
 
 You can access the container in several ways:
 

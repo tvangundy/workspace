@@ -15,6 +15,22 @@ The runbooks serve as instructional guides that break down the implementation pr
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
 
+## Workspace Prerequisites
+
+All runbooks assume you're starting with a **working workspace** that has been initialized and set up for running the Windsor CLI. This means:
+
+- The workspace structure has been created with the proper directory layout
+- Windsor CLI has been initialized with a context configuration
+- The workspace is ready to execute Windsor CLI commands and taskfiles
+
+If you're starting fresh or need to set up a new workspace, you'll need to complete these foundational steps first:
+
+- **[Initialize Workspace](./workspace/init.md)**: Step-by-step guide for creating and initializing a new workspace with Windsor CLI. This is typically the first step when starting a new project.
+
+- **[Secrets Management](./secrets/secrets.md)**: Complete guide for managing encrypted secrets using SOPS. You'll likely need this runbook frequently as you work with different deployments that require secure credential management.
+
+For more information about Windsor CLI, including installation and detailed documentation, see the [Windsor CLI documentation](https://windsorcli.github.io/latest/).
+
 ## Available Runbooks
 
 ### 🚀 [Initialize Workspace](./workspace/init.md)
