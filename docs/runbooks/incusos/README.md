@@ -31,9 +31,6 @@ Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraf
 #### 💻 [Remote Development VM](dev-vm-remote.md)
 Create and manage development virtual machines on a remote IncusOS server. Includes workspace initialization with Aqua tool management, VM creation with Ubuntu 24.04, Docker installation, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Ideal for persistent development work with isolated environments and direct SSH access from your local network.
 
-#### 💻 [Local Development Container](dev-container-local.md)
-Set up development containers locally on macOS using Colima with Incus runtime. Covers Colima installation and configuration, environment setup for local containers, workspace initialization with real-time file sharing, Docker integration, and container management. Perfect for development with direct IDE integration and instant file synchronization without network overhead.
-
 #### 🏃 [GitHub Actions Runner](github-runner.md)
 Set up GitHub Actions runners using Ubuntu virtual machines on an IncusOS system. Covers GitHub runner configuration, workspace and environment variable setup, secure token storage with SOPS, network configuration for direct VM attachment, Ubuntu VM creation and initialization, runner software installation and configuration, service setup for auto-start, and ongoing maintenance procedures for updates and cleanup.
 
@@ -42,7 +39,7 @@ Set up GitHub Actions runners using Ubuntu virtual machines on an IncusOS system
 If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.md) runbook to get your IncusOS server up and running. Once your server is configured, you can proceed with any of the deployment runbooks based on your needs:
 
 - **For Kubernetes**: Choose between [Talos Cluster on IncusOS VMs (Manual)](talos-incus-vm.md) or [Talos Cluster on IncusOS VMs (Terraform)](talos-incus-terraform.md)
-- **For Development**: Choose between [Remote Dev VM](dev-vm-remote.md) or [Local Dev Container](dev-container-local.md)
+- **For Development**: Use the [Remote Dev VM](dev-vm-remote.md) guide
 - **For CI/CD**: Use the [GitHub Runner](github-runner.md) guide
 
 ## Common Prerequisites

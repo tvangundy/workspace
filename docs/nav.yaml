@@ -11,9 +11,7 @@ nav:
       - Talos Cluster:
         - Manual: runbooks/incusos/talos-incus-vm.md
         - Terraform: runbooks/incusos/talos-incus-terraform.md
-      - Dev Machine:
-        - Remote: runbooks/incusos/dev-vm-remote.md
-        - Local: runbooks/incusos/dev-container-local.md
+      - Dev Machine: runbooks/incusos/dev-vm-remote.md
       - GitHub Runner: runbooks/incusos/github-runner.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
