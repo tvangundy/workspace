@@ -7,7 +7,7 @@ nav:
     - Secrets: runbooks/secrets/secrets.md
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
-      - Server: runbooks/incusos/setup.md
+      - Server Setup: runbooks/incusos/setup.md
       - Talos Clusters: runbooks/incusos/talos-incus-terraform.md
       - Dev Machines: runbooks/incusos/dev-vm-remote.md
       - GitHub Runners: runbooks/incusos/github-runner.md
