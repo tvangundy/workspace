@@ -8,11 +8,9 @@ nav:
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
       - Server: runbooks/incusos/setup.md
-      - Talos Cluster:
-        - Manual: runbooks/incusos/talos-incus-vm.md
-        - Terraform: runbooks/incusos/talos-incus-terraform.md
-      - Dev Machine: runbooks/incusos/dev-vm-remote.md
-      - GitHub Runner: runbooks/incusos/github-runner.md
+      - Talos Clusters: runbooks/incusos/talos-incus-terraform.md
+      - Dev Machines: runbooks/incusos/dev-vm-remote.md
+      - GitHub Runners: runbooks/incusos/github-runner.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
