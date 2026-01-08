@@ -28,7 +28,7 @@ Deploy a complete Talos Linux Kubernetes cluster using virtual machines on an In
 #### ☸️ [Talos Kubernetes Cluster with Terraform](talos-incus-terraform.md)
 Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraform and the Incus provider. This approach uses Terraform to manage your cluster declaratively, making it easy to version control, reproduce, and manage your infrastructure. Includes workspace setup, environment variable configuration, Terraform variable generation, Talos image download and import, network bridge creation, Terraform initialization and application, IP address management, kubeconfig retrieval, and cluster verification. Also covers cluster destruction and management procedures.
 
-#### 💻 [Remote Development VM](dev-vm-remote.md)
+#### 💻 [Remote Development Machines](dev-machines.md)
 Create and manage development virtual machines on a remote IncusOS server. Includes workspace initialization with Aqua tool management, VM creation with Ubuntu 24.04, Docker installation, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Ideal for persistent development work with isolated environments and direct SSH access from your local network.
 
 #### 🏃 [GitHub Actions Runner](github-runner.md)
@@ -39,7 +39,7 @@ Set up GitHub Actions runners using Ubuntu virtual machines on an IncusOS system
 If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.md) runbook to get your IncusOS server up and running. Once your server is configured, you can proceed with any of the deployment runbooks based on your needs:
 
 - **For Kubernetes**: Choose between [Talos Cluster on IncusOS VMs (Manual)](talos-incus-vm.md) or [Talos Cluster on IncusOS VMs (Terraform)](talos-incus-terraform.md)
-- **For Development**: Use the [Remote Dev VM](dev-vm-remote.md) guide
+- **For Development**: Use the [Remote Dev Machines](dev-machines.md) guide
 - **For CI/CD**: Use the [GitHub Runner](github-runner.md) guide
 
 ## Common Prerequisites

@@ -9,7 +9,7 @@ nav:
       - Introduction: runbooks/incusos/README.md
       - Server Setup: runbooks/incusos/setup.md
       - Talos Clusters: runbooks/incusos/talos-incus-terraform.md
-      - Dev Machines: runbooks/incusos/dev-vm-remote.md
+      - Dev Machines: runbooks/incusos/dev-machines.md
       - GitHub Runners: runbooks/incusos/github-runner.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
@@ -20,7 +20,6 @@ nav:
         - Sidero Omni: runbooks/bootstrapping/omni.md
     - Self-Hosted Runners:
       - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
-    - Home Automation: runbooks/home-assistant/README.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
       - Dev: taskfiles/dev/README.md
