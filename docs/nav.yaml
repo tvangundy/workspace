@@ -8,7 +8,7 @@ nav:
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
       - Server Setup: runbooks/incusos/setup.md
-      - Talos Clusters: runbooks/incusos/talos-incus-terraform.md
+      - Kubernetes Clusters: runbooks/incusos/talos-incus-terraform.md
       - Dev Machines: runbooks/incusos/dev-machines.md
       - GitHub Runners: runbooks/incusos/github-runner.md
     - Bootstrapping:
