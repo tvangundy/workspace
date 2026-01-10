@@ -10,6 +10,17 @@ Talos Linux cluster health checks and management.
 
 The `talos:` namespace provides tools for monitoring and managing Talos Linux Kubernetes clusters. These tasks handle health checks for control plane and worker nodes, certificate inspection, and cluster cleanup.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`health-controlplane`](#health-controlplane) | Check control plane node health |
+| [`health-worker`](#health-worker) | Check all worker nodes health |
+| [`health-worker-0`](#health-worker-0) | Check worker-0 node health |
+| [`health-worker-1`](#health-worker-1) | Check worker-1 node health |
+| [`fetch-node-server-certificate`](#fetch-node-server-certificate) | Fetch and display the server certificate from the control plane node |
+| [`cleanup`](#cleanup) | Destroy the entire Talos cluster and clean up resources |
+
 ## Health Checks
 
 ### `health-controlplane`

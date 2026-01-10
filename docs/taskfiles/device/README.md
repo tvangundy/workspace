@@ -10,6 +10,30 @@ Device management for preparing physical devices, managing disk images, and conf
 
 The `device:` namespace provides tools for managing physical devices, preparing boot media, downloading and writing disk images, and configuring Talos Linux clusters. These tasks are essential for bootstrapping Talos clusters on bare-metal hardware.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`download-image`](#download-image) | Download the Talos image from the Image Factory |
+| [`decompress-image`](#decompress-image) | Decompress the Talos image (placeholder) |
+| [`download-incus-image`](#download-incus-image) | Download or move IncusOS image to the devices folder |
+| [`download-ubuntu-iso`](#download-ubuntu-iso) | Download or move Ubuntu ISO to the devices folder |
+| [`list-disks`](#list-disks) | List available USB disks/SD cards on macOS |
+| [`write-disk`](#write-disk) | Write the Talos image to one or more USB drives in parallel |
+| [`write-ubuntu-iso`](#write-ubuntu-iso) | Write the Ubuntu ISO to one or more USB drives in parallel |
+| [`write-incus-disk`](#write-incus-disk) | Write the IncusOS image to one or more USB drives in parallel |
+| [`unmount-disk`](#unmount-disk) | Unmount one or more USB disks |
+| [`eject-disk`](#eject-disk) | Eject one or more USB disks (automatically unmounts first) |
+| [`format-xfs`](#format-xfs) | Format USB disk as XFS (requires Linux, placeholder) |
+| [`get-disks`](#get-disks) | Get disk information from a Talos node |
+| [`generate-talosconfig`](#generate-talosconfig) | Generate Talos configuration files for a cluster |
+| [`apply-configuration`](#apply-configuration) | Apply Talos configuration to cluster nodes |
+| [`set-endpoints`](#set-endpoints) | Set Talos API endpoints in the talosconfig file |
+| [`bootstrap-etc-cluster`](#bootstrap-etc-cluster) | Bootstrap the etcd cluster (run once on control plane) |
+| [`retrieve-kubeconfig`](#retrieve-kubeconfig) | Retrieve Kubernetes kubeconfig file from the cluster |
+| [`cluster-health`](#cluster-health) | Check cluster health status |
+| [`talos-dashboard`](#talos-dashboard) | Run the Talos dashboard for monitoring cluster nodes |
+
 ## Image Management
 
 ### `download-image`

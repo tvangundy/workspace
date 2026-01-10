@@ -10,6 +10,32 @@ Development environment management for creating and managing development contain
 
 The `dev:` namespace provides comprehensive tools for creating, managing, and interacting with development environments running in Incus containers or virtual machines. These tasks handle instance lifecycle management, workspace synchronization, SSH access, and environment setup.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`create`](#create) | Create a dev container or virtual machine instance with optional workspace synchronization |
+| [`create:validate`](#createvalidate) | Validate input and check prerequisites for instance creation |
+| [`create:instance`](#createinstance) | Create and launch the instance without environment setup |
+| [`create:setup-env`](#createsetup-env) | Setup developer environment in an existing instance |
+| [`start`](#start) | Start a dev instance |
+| [`stop`](#stop) | Stop a dev instance |
+| [`restart`](#restart) | Restart a dev instance |
+| [`list`](#list) | List all dev instances on the configured remote |
+| [`info`](#info) | Get detailed information about a dev instance |
+| [`debug`](#debug) | Debug performance and resource usage of a dev instance |
+| [`delete`](#delete) | Delete a dev instance (permanently removes instance and all data) |
+| [`shell`](#shell) | Open an interactive shell in a dev instance |
+| [`ssh`](#ssh) | SSH into a VM instance (VMs only, not containers) |
+| [`ssh-info`](#ssh-info) | Show SSH connection information for an instance |
+| [`exec`](#exec) | Execute a command in a dev instance |
+| [`init-workspace`](#init-workspace) | Initialize workspace contents in an existing VM |
+| [`copy-workspace`](#copy-workspace) | Copy entire workspace to dev-vm (replaces existing) |
+| [`add-workspace`](#add-workspace) | Add workspace to dev-vm (copies workspace to user's home directory) |
+| [`sync-workspace`](#sync-workspace) | Sync workspace changes to dev-vm using rsync (incremental updates) |
+| [`fix-docker`](#fix-docker) | Fix Docker socket permissions in the container |
+| [`fix-compose`](#fix-compose) | Fix Docker Compose file to add privileged mode to all services |
+
 ## Instance Creation
 
 ### `create`
@@ -356,6 +382,68 @@ task dev:sync-workspace [-- <instance-name>]
 - `<instance-name>` (optional): Instance name (defaults to `DEV_INSTANCE_NAME`)
 
 **Note:** This is more efficient than `copy-workspace` for regular updates as it only transfers changed files.
+
+## Docker Maintenance
+
+### `fix-docker`
+
+Fix Docker socket permissions in the container. This is useful when Docker socket permissions get reset or when you encounter permission denied errors.
+
+**Usage:**
+
+```bash
+task dev:fix-docker [-- <instance-name>]
+```
+
+**Parameters:**
+
+- `<instance-name>` (optional): Instance name (defaults to `DEV_INSTANCE_NAME`)
+
+**What it does:**
+
+1. Checks if instance exists and is running
+2. Sets Docker socket permissions to 666 (world-readable/writable)
+3. Sets Docker socket group ownership to `docker`
+4. Verifies Docker is accessible
+
+**Example:**
+
+```bash
+task dev:fix-docker
+task dev:fix-docker -- my-dev
+```
+
+**Note:** Socket permissions may reset after container restarts. This task should be run whenever you encounter Docker permission errors.
+
+### `fix-compose`
+
+Fix Docker Compose file to add `privileged: true` to all services. Required for Docker-in-Docker scenarios in Incus containers on Colima.
+
+**Usage:**
+
+```bash
+task dev:fix-compose [-- <instance-name>]
+```
+
+**Parameters:**
+
+- `<instance-name>` (optional): Instance name (defaults to `DEV_INSTANCE_NAME`)
+
+**What it does:**
+
+1. Locates the Docker Compose file at `.windsor/docker-compose.yaml` in the workspace
+2. Checks each service for `privileged: true` setting
+3. Adds `privileged: true` to services that don't have it
+4. Reports which services were updated
+
+**Example:**
+
+```bash
+task dev:fix-compose
+task dev:fix-compose -- my-dev
+```
+
+**Note:** This is required because Windsor may regenerate the compose file without privileged mode. Run this after `windsor up` generates the compose file, but before containers are created.
 
 ## Environment Variables
 

@@ -10,6 +10,13 @@ Workspace initialization and management.
 
 The `workspace:` namespace provides tools for initializing and managing workspace repositories. These tasks handle cloning workspace repositories, pulling updates, and cleaning up Docker resources.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`initialize`](#initialize) | Initialize a new workspace by cloning the workspace repository |
+| [`clean`](#clean) | Clean up Docker images and containers (convenience task) |
+
 ## Tasks
 
 ### `initialize`

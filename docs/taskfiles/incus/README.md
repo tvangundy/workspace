@@ -10,6 +10,19 @@ Incus container and VM management, including Talos VM deployment.
 
 The `incus:` namespace provides comprehensive tools for managing the Incus daemon, creating and managing instances, and deploying Talos VMs on IncusOS. These tasks handle daemon lifecycle, instance operations, network configuration, and VM deployment workflows.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`start-daemon`](#start-daemon) | Start the Incus daemon (handles macOS/Colima, snap, systemd, direct binary) |
+| [`stop-daemon`](#stop-daemon) | Stop the Incus daemon |
+| [`create-instance`](#create-instance) | Create an Incus instance (defaults to `UBUNTU_GITHUB_RUNNER_0_NAME`) |
+| [`delete-instance`](#delete-instance) | Delete an Incus instance (defaults to `UBUNTU_GITHUB_RUNNER_0_NAME`) |
+| [`download-talos-image`](#download-talos-image) | Download the Talos cloud image for VMs (downloads, decompresses, converts to QCOW2) |
+| [`create-physical-network`](#create-physical-network) | Create a physical network for direct attachment to the host network |
+| [`launch-talos-vm`](#launch-talos-vm) | Launch a Talos VM on IncusOS |
+| [`web-ui`](#web-ui) | Open the Incus Web UI in your browser |
+
 ## Daemon Management
 
 ### `start-daemon`

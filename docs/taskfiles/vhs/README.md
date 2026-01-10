@@ -10,6 +10,16 @@ Generate GIF animations from terminal session recordings using VHS (Video-to-Har
 
 The `vhs:` namespace provides tools for generating animated GIFs from terminal session recordings. These tasks are used to create documentation animations showing command-line workflows. VHS reads `.tape` files (which contain terminal commands and expected output) and generates GIF animations.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`make-windsor-init-gif`](#make-windsor-init-gif) | Build Windsor init GIF animation |
+| [`make-windsor-up-gif`](#make-windsor-up-gif) | Build Windsor up GIF animation |
+| [`make-port-forwarding-gif`](#make-port-forwarding-gif) | Build port forwarding GIF animation |
+| [`make-windsor-down-gif`](#make-windsor-down-gif) | Build Windsor down GIF animation |
+| [`make-check-ha-pod-gif`](#make-check-ha-pod-gif) | Build check Home Assistant pod GIF animation |
+
 ## GIF Generation Tasks
 
 ### `make-windsor-init-gif`

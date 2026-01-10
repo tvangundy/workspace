@@ -10,6 +10,19 @@ Secrets management using SOPS (Secrets Operations) with AWS KMS.
 
 The `sops:` namespace provides tools for managing encrypted secrets using SOPS with AWS KMS encryption. These tasks handle context setup, Terraform infrastructure deployment, and secret file generation and encryption.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`set-context`](#set-context) | Initialize the SOPS context with AWS S3 backend |
+| [`init`](#init) | Initialize Terraform for SOPS infrastructure |
+| [`plan`](#plan) | Plan deployment to AWS |
+| [`apply`](#apply) | Deploy SOPS resources to AWS (KMS key and state bucket) |
+| [`output`](#output) | Print SOPS Terraform state output |
+| [`destroy`](#destroy) | Destroy the AWS SOPS infrastructure |
+| [`generate-secrets-file`](#generate-secrets-file) | Generate a new secrets file template for the current context |
+| [`encrypt-secrets-file`](#encrypt-secrets-file) | Encrypt the secrets file using SOPS |
+
 ## Context Setup
 
 ### `set-context`

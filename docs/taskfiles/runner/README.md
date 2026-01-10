@@ -10,6 +10,21 @@ GitHub Actions runner VM setup and management.
 
 The `runner:` namespace provides comprehensive tools for setting up and managing GitHub Actions self-hosted runners on Incus VMs. These tasks handle VM initialization, dependency installation, user creation, SSH setup, and runner configuration.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`initialize`](#initialize) | Initialize a new Incus VM for GitHub Actions runner (runs all setup tasks in sequence) |
+| [`install-aqua`](#install-aqua) | Install Aqua package manager on the runner VM |
+| [`install-docker`](#install-docker) | Install Docker on the runner VM |
+| [`create-runner-user`](#create-runner-user) | Create a dedicated runner user for GitHub Actions |
+| [`setup-ssh`](#setup-ssh) | Set up SSH access for the runner user |
+| [`install-windsor-cli`](#install-windsor-cli) | Install Windsor CLI on the runner VM |
+| [`install-packages`](#install-packages) | Install additional packages commonly needed for GitHub Actions runners |
+| [`install-github-runner`](#install-github-runner) | Install and configure GitHub Actions runner |
+| [`clean-work-dir`](#clean-work-dir) | Clean the actions-runner/_work directory on the runner VM |
+| [`shell`](#shell) | Open an interactive shell session in the runner VM |
+
 ## Initialization
 
 ### `initialize`

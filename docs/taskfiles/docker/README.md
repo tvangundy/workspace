@@ -10,6 +10,12 @@ Docker container management and cleanup.
 
 The `docker:` namespace provides utilities for managing Docker containers and cleaning up Docker resources. These tasks help maintain a clean Docker environment by removing unused containers and images.
 
+## Task Reference
+
+| Task | Description |
+|------|-------------|
+| [`clean`](#clean) | Clean up Docker images and containers (kills all running containers and prunes the entire Docker system) |
+
 ## Tasks
 
 ### `clean`
