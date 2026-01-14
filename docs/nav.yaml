@@ -13,13 +13,11 @@ nav:
       - Mailu Email Server: runbooks/incusos/mailu-vm.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
-      - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
+      - Ubuntu Server: runbooks/bootstrapping/ubuntu-setup.md
       - Talos Cluster:
         - Raspberry Pi: runbooks/bootstrapping/rpi.md
         - Intel NUC: runbooks/bootstrapping/nuc.md
         - Sidero Omni: runbooks/bootstrapping/omni.md
-    - Self-Hosted Runners:
-      - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
     - Mailu:
       - Email Server: runbooks/mailu/mailu.md
   - Taskfiles:
