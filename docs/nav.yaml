@@ -24,11 +24,11 @@ nav:
       - Email Server: runbooks/mailu/mailu.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
-            - Device: taskfiles/device/README.md
-            - Docker: taskfiles/docker/README.md
-            - Incus: taskfiles/incus/README.md
-            - Mailu: taskfiles/mailu/README.md
-            - SOPS: taskfiles/sops/README.md
+      - Device: taskfiles/device/README.md
+      - Docker: taskfiles/docker/README.md
+      - Incus: taskfiles/incus/README.md
+      - Mailu: taskfiles/mailu/README.md
+      - SOPS: taskfiles/sops/README.md
       - Talos: taskfiles/talos/README.md
       - VHS: taskfiles/vhs/README.md
       - Workspace: taskfiles/workspace/README.md      
