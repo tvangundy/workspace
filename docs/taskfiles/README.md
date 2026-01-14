@@ -9,60 +9,23 @@ description: "Task automation for workspace operations"
 
 Tasks are organized into namespaces, each focusing on a specific area of infrastructure management. This organization makes it easy to discover and use the right tool for each task.
 
-For example, to create a development container:
+For example, to create a virtual machine:
 ```bash
-task dev:create -- container ubuntu/24.04
+task vm:create
 ```
 
 ## Namespace Overview
 
-- **`dev:`** - Development environment management for creating and managing development containers and VMs on Incus
 - **`device:`** - Physical device preparation, disk image management, and Talos cluster configuration for bare-metal deployments
 - **`docker:`** - Docker container cleanup and system maintenance
 - **`incus:`** - Incus daemon management and instance operations, including Talos VM deployment
-- **`runner:`** - GitHub Actions runner VM provisioning, configuration, and maintenance
 - **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
 - **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
+- **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners
 - **`vhs:`** - Terminal session recording and GIF generation for documentation
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
 
 ## Task Namespaces
-
-### 🔧 Dev (`dev:`)
-
-Development environment management for creating and managing development containers and VMs on Incus.
-
-**Instance Creation:**
-
-- `task dev:create [-- <type> <image> [--name <name>]]` - Create a dev container or VM instance (defaults: `DEV_INSTANCE_TYPE`, `DEV_IMAGE`, `DEV_INSTANCE_NAME`)
-
-**Instance Management:**
-
-- `task dev:start [-- <instance-name>]` - Start a dev instance
-- `task dev:stop [-- <instance-name>]` - Stop a dev instance
-- `task dev:restart [-- <instance-name>]` - Restart a dev instance
-- `task dev:list` - List all dev instances
-- `task dev:info [-- <instance-name>]` - Get detailed information about a dev instance
-- `task dev:debug [-- <instance-name>]` - Debug performance and resource usage
-- `task dev:delete [-- <instance-name>]` - Delete a dev instance
-
-**Access:**
-
-- `task dev:shell [-- <instance-name>]` - Open an interactive shell in the instance
-- `task dev:ssh [-- <instance-name>]` - SSH into a VM instance
-- `task dev:ssh-info [-- <instance-name>]` - Show SSH connection information
-- `task dev:exec -- <instance-name> -- <command>` - Execute a command in the instance
-
-**Workspace Management:**
-
-- `task dev:init-workspace [-- <instance-name>]` - Initialize workspace contents in an existing VM
-- `task dev:copy-workspace [-- <instance-name>]` - Copy entire workspace (replaces existing)
-- `task dev:add-workspace [-- <instance-name>]` - Add workspace to instance (same as during creation)
-- `task dev:sync-workspace [-- <instance-name>]` - Sync workspace changes using rsync (uploads only changed files)
-
-**Help:**
-
-- `task dev:help` - Show all dev environment commands
 
 ### 🖥️ Device (`device:`)
 
@@ -143,38 +106,6 @@ Incus container and VM management, including Talos VM deployment.
 
 - `task incus:help` - Show all Incus-related commands
 
-### 🏃 Runner (`runner:`)
-
-GitHub Actions runner VM setup and management.
-
-**Initialization:**
-
-- `task runner:initialize -- <vm-name>` - Initialize a new Incus VM for GitHub Actions runner
-
-**Setup Tasks:**
-
-- `task runner:install-aqua -- <vm-name>` - Install aqua package manager
-- `task runner:install-docker -- <vm-name>` - Install Docker
-- `task runner:create-runner-user -- <vm-name>` - Create a dedicated runner user
-- `task runner:setup-ssh -- <vm-name>` - Set up SSH access for the runner user
-- `task runner:install-windsor-cli -- <vm-name>` - Install Windsor CLI
-- `task runner:install-packages -- <vm-name>` - Install additional packages commonly needed for runners
-
-**GitHub Actions:**
-
-- `task runner:install-github-runner -- <vm-name>` - Install and configure GitHub Actions runner
-
-**Maintenance:**
-
-- `task runner:clean-work-dir -- <vm-name>` - Clean the actions-runner/_work directory
-- `task runner:shell -- <vm-name>` - Open an interactive shell session in the runner VM
-
-**Help:**
-
-- `task runner:help` - Show all runner tasks
-
-**Note:** Requires `GITHUB_RUNNER_REPO_URL` and `GITHUB_RUNNER_TOKEN` environment variables.
-
 ### 🔐 SOPS (`sops:`)
 
 Secrets management using SOPS (Secrets Operations) with AWS KMS.
@@ -231,6 +162,58 @@ Talos Linux cluster health checks and management.
 - `WORKER_0_VM` - First worker VM name
 - `WORKER_1_VM` - Second worker VM name
 
+### 🖥️ Ubuntu VM (`vm:`)
+
+Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform.
+
+**Instance Creation:**
+- `task vm:create` - Create an Ubuntu VM instance using Terraform (defaults: `VM_INSTANCE_NAME`, `VM_IMAGE`, `VM_MEMORY`, etc.)
+
+**Terraform Operations:**
+- `task vm:generate-tfvars` - Generate terraform.tfvars from environment variables
+- `task vm:terraform:init` - Initialize Terraform
+- `task vm:terraform:plan` - Show Terraform plan
+- `task vm:terraform:apply` - Apply Terraform configuration
+- `task vm:terraform:destroy` - Destroy the VM using Terraform
+
+**Instance Management:**
+- `task vm:start [-- <instance-name>]` - Start an Ubuntu VM instance
+- `task vm:stop [-- <instance-name>]` - Stop an Ubuntu VM instance
+- `task vm:restart [-- <instance-name>]` - Restart an Ubuntu VM instance
+- `task vm:list` - List all Ubuntu VM instances
+- `task vm:info [-- <instance-name>]` - Get detailed information about an Ubuntu VM instance
+- `task vm:debug [-- <instance-name>]` - Debug performance and resource usage
+- `task vm:delete` - Delete an Ubuntu VM using Terraform
+
+**Access:**
+- `task vm:shell [-- <instance-name>]` - Open an interactive shell in the instance
+- `task vm:ssh [-- <instance-name>]` - SSH into an Ubuntu VM instance
+- `task vm:ssh-info [-- <instance-name>]` - Show SSH connection information
+- `task vm:exec -- <instance-name> -- <command>` - Execute a command in the instance
+
+**Workspace Management:**
+- `task vm:init-workspace [-- <instance-name>]` - Initialize workspace contents in an existing VM
+- `task vm:copy-workspace [-- <instance-name>]` - Copy entire workspace (replaces existing)
+- `task vm:add-workspace [-- <instance-name>]` - Add workspace to instance (merges with existing)
+- `task vm:sync-workspace [-- <instance-name>]` - Sync workspace changes using rsync (uploads only changed files)
+
+**GitHub Actions Runner Setup:**
+- `task vm:runner:initialize -- <vm-name>` - Initialize runner VM (installs all dependencies)
+- `task vm:runner:install-aqua -- <vm-name>` - Install aqua package manager
+- `task vm:runner:install-docker -- <vm-name>` - Install Docker
+- `task vm:runner:create-runner-user -- <vm-name>` - Create dedicated runner user
+- `task vm:runner:setup-ssh -- <vm-name>` - Set up SSH access
+- `task vm:runner:install-windsor-cli -- <vm-name>` - Install Windsor CLI
+- `task vm:runner:install-packages -- <vm-name>` - Install additional packages
+- `task vm:runner:install-github-runner -- <vm-name>` - Install and configure GitHub Actions runner
+- `task vm:runner:clean-work-dir -- <vm-name>` - Clean actions-runner/_work directory
+
+**Testing:**
+- `task vm:test -- <remote-name> [--keep] [--no-workspace]` - Test complete setup and validate VM
+
+**Help:**
+- `task vm:help` - Show all vm commands
+
 ### 🎬 VHS (`vhs:`)
 
 Generate GIF animations from terminal session recordings using VHS (Video-to-Hardcopy-Software).
@@ -276,16 +259,17 @@ To see all available tasks:
 
 Many tasks support default values from environment variables. For example:
 
-- `DEV_INSTANCE_TYPE` - Default instance type (container or vm)
-- `DEV_IMAGE` - Default image (e.g., ubuntu/24.04)
-- `DEV_INSTANCE_NAME` - Default instance name
+- `VM_INSTANCE_NAME` - Default VM instance name
+- `VM_IMAGE` - Default image (e.g., ubuntu/24.04)
+- `VM_MEMORY` - Default memory allocation
+- `VM_CPU` - Default CPU cores
 - `INCUS_REMOTE_NAME` - Incus remote name
 
 **Task Arguments:**
 Tasks accept arguments using the `--` separator:
 ```bash
-task dev:create -- container ubuntu/24.04 --name my-dev
-task runner:shell -- github-runner-ubuntu
+task vm:create --name my-vm
+task vm:runner:initialize -- github-runner-ubuntu
 task device:apply-configuration -- 192.168.1.100 192.168.1.101 192.168.1.102
 ```
 
@@ -293,13 +277,12 @@ task device:apply-configuration -- 192.168.1.100 192.168.1.101 192.168.1.102
 
 All task definitions are located in the `tasks/` directory, organized by namespace:
 
-- `tasks/dev/Taskfile.yaml`
 - `tasks/device/Taskfile.yaml`
 - `tasks/docker/Taskfile.yaml`
 - `tasks/incus/Taskfile.yaml`
-- `tasks/runner/Taskfile.yaml`
 - `tasks/sops/Taskfile.yaml`
 - `tasks/talos/Taskfile.yaml`
+- `tasks/vm/Taskfile.yaml` (includes VM management, development environments, and GitHub Actions runner setup)
 - `tasks/vhs/Taskfile.yaml`
 - `tasks/workspace/Taskfile.yaml`
 

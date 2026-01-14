@@ -1,0 +1,1348 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  create:
+    silent: true
+    desc: Create a three-node Talos Kubernetes cluster using Terraform
+    cmds:
+      - task: create:validate
+      - task: generate-tfvars
+      - task: terraform:init
+      - task: terraform:apply
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        # Wait a moment for VMs to be fully ready
+        sleep 2
+        
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "✅ Talos cluster '{{.CLUSTER_NAME}}' created successfully"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Cluster Information"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Remote: ${REMOTE_NAME}"
+        echo "Cluster Name: {{.CLUSTER_NAME}}"
+        echo ""
+        echo "Control Plane: ${CONTROL_PLANE_VM}"
+        echo "Worker 0: ${WORKER_0_VM}"
+        echo "Worker 1: ${WORKER_1_VM}"
+        
+        # Get IP addresses
+        set +e  # Temporarily disable exit on error for info gathering
+        CONTROL_PLANE_IP=""
+        WORKER_0_IP=""
+        WORKER_1_IP=""
+        
+        if [ "${REMOTE_NAME}" != "local" ]; then
+          # Get control plane IP
+          CONTROL_PLANE_IP=$(incus list "${REMOTE_NAME}:${CONTROL_PLANE_VM}" --format json 2>/dev/null | \
+            grep -o '"4":{[^}]*"addresses":[^}]*}' | \
+            grep -o '"address":"[^"]*"' | head -1 | cut -d'"' -f4 2>/dev/null || echo "")
+          
+          # Get worker 0 IP
+          WORKER_0_IP=$(incus list "${REMOTE_NAME}:${WORKER_0_VM}" --format json 2>/dev/null | \
+            grep -o '"4":{[^}]*"addresses":[^}]*}' | \
+            grep -o '"address":"[^"]*"' | head -1 | cut -d'"' -f4 2>/dev/null || echo "")
+          
+          # Get worker 1 IP
+          WORKER_1_IP=$(incus list "${REMOTE_NAME}:${WORKER_1_VM}" --format json 2>/dev/null | \
+            grep -o '"4":{[^}]*"addresses":[^}]*}' | \
+            grep -o '"address":"[^"]*"' | head -1 | cut -d'"' -f4 2>/dev/null || echo "")
+        fi
+        set -e  # Re-enable exit on error
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Node IP Addresses"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        if [ -n "${CONTROL_PLANE_IP}" ]; then
+          echo "Control Plane: ${CONTROL_PLANE_IP}"
+        else
+          echo "Control Plane: (not available yet - may need a moment to get DHCP lease)"
+        fi
+        if [ -n "${WORKER_0_IP}" ]; then
+          echo "Worker 0:      ${WORKER_0_IP}"
+        else
+          echo "Worker 0:      (not available yet - may need a moment to get DHCP lease)"
+        fi
+        if [ -n "${WORKER_1_IP}" ]; then
+          echo "Worker 1:      ${WORKER_1_IP}"
+        else
+          echo "Worker 1:      (not available yet - may need a moment to get DHCP lease)"
+        fi
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Next Steps"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "1. Wait for VMs to boot and get DHCP-assigned IP addresses"
+        echo "2. Get actual IP addresses: cd terraform/cluster && terraform output"
+        echo "3. Update windsor.yaml with actual IPs (CONTROL_PLANE_IP, WORKER_0_IP, WORKER_1_IP)"
+        echo "4. Regenerate terraform.tfvars: task tc:generate-tfvars"
+        echo "5. Continue deployment: task tc:terraform:apply"
+        echo ""
+        echo "Or use: task tc:info to view cluster information"
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+
+  create:validate:
+    silent: true
+    desc: Validate input and check prerequisites for cluster creation
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          echo "Add to contexts/<context>/windsor.yaml:"
+          echo "  environment:"
+          echo "    INCUS_REMOTE_NAME: <your-remote-name>"
+          exit 1
+        fi
+        
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        if [ -z "{{.CLUSTER_NAME}}" ]; then
+          echo "Error: CLUSTER_NAME variable is not defined"
+          echo "Add to contexts/<context>/windsor.yaml:"
+          echo "  environment:"
+          echo "    CLUSTER_NAME: <your-cluster-name>"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+          echo "Error: TALOS_IMAGE_VERSION variable is not defined"
+          echo "Add to contexts/<context>/windsor.yaml:"
+          echo "  environment:"
+          echo "    TALOS_IMAGE_VERSION: v1.12.0"
+          exit 1
+        fi
+        
+        if [ -z "${TALOSCONFIG:-}" ]; then
+          echo "Error: TALOSCONFIG environment variable is not defined"
+          echo "Set TALOSCONFIG in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+        
+        if [ -z "${KUBECONFIG_FILE:-}" ]; then
+          echo "Error: KUBECONFIG_FILE environment variable is not defined"
+          echo "Set KUBECONFIG_FILE in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+
+  generate-tfvars:
+    silent: true
+    desc: Generate terraform.tfvars from environment variables
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
+          echo "Error: WINDSOR_CONTEXT variable is not defined"
+          echo "Set the context using: windsor context set <context>"
+          exit 1
+        fi
+        
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.CLUSTER_NAME}}" ]; then
+          echo "Error: CLUSTER_NAME variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "{{.TALOS_IMAGE_VERSION}}" ]; then
+          echo "Error: TALOS_IMAGE_VERSION variable is not defined"
+          exit 1
+        fi
+        
+        if [ -z "${TALOSCONFIG:-}" ]; then
+          echo "Error: TALOSCONFIG environment variable is not defined"
+          echo "Set TALOSCONFIG in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+        
+        if [ -z "${KUBECONFIG_FILE:-}" ]; then
+          echo "Error: KUBECONFIG_FILE environment variable is not defined"
+          echo "Set KUBECONFIG_FILE in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+          exit 1
+        fi
+        
+        # Set defaults for optional variables
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        CONTROL_PLANE_IP="${CONTROL_PLANE_IP:-}"
+        WORKER_0_IP="${WORKER_0_IP:-}"
+        WORKER_1_IP="${WORKER_1_IP:-}"
+        CONTROL_PLANE_MEMORY="${CONTROL_PLANE_MEMORY:-2GB}"
+        CONTROL_PLANE_CPU="${CONTROL_PLANE_CPU:-2}"
+        WORKER_MEMORY="${WORKER_MEMORY:-2GB}"
+        WORKER_CPU="${WORKER_CPU:-2}"
+        PHYSICAL_NETWORK_NAME="${PHYSICAL_INTERFACE:-eno1}"
+        STORAGE_POOL="${STORAGE_POOL:-local}"
+        COMMON_CONFIG_PATCHES="${COMMON_CONFIG_PATCHES:-}"
+        
+        # Generate talos_image_alias from TALOS_IMAGE_VERSION
+        TALOS_IMAGE_ALIAS="talos-{{.TALOS_IMAGE_VERSION}}-metal-amd64"
+        
+        # Create terraform/cluster directory if it doesn't exist
+        TFVARS_DIR="terraform/cluster"
+        mkdir -p "${TFVARS_DIR}"
+        TFVARS_FILE="${TFVARS_DIR}/terraform.tfvars"
+        
+        # Generate terraform.tfvars using printf to avoid YAML parser issues with heredocs
+        {
+          printf "# Generated from environment variables - do not edit manually\n"
+          printf "# Update environment variables in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml instead\n"
+          printf "\n"
+          printf "# Incus remote configuration\n"
+          printf "incus_remote_name = \"{{.INCUS_REMOTE_NAME}}\"\n"
+          printf "\n"
+          printf "# Cluster configuration\n"
+          printf "cluster_name = \"{{.CLUSTER_NAME}}\"\n"
+          printf "\n"
+          printf "# VM names\n"
+          printf "control_plane_vm_name = \"${CONTROL_PLANE_VM}\"\n"
+          printf "worker_0_vm_name      = \"${WORKER_0_VM}\"\n"
+          printf "worker_1_vm_name      = \"${WORKER_1_VM}\"\n"
+          printf "\n"
+          printf "# IP addresses (expected IPs - actual IPs will be assigned by DHCP)\n"
+          printf "# Leave empty for new installations - Terraform will prompt you to fill them in\n"
+          printf "control_plane_ip = \"${CONTROL_PLANE_IP}\"\n"
+          printf "worker_0_ip      = \"${WORKER_0_IP}\"\n"
+          printf "worker_1_ip      = \"${WORKER_1_IP}\"\n"
+          printf "\n"
+          printf "# VM resources\n"
+          printf "control_plane_memory = \"${CONTROL_PLANE_MEMORY}\"\n"
+          printf "control_plane_cpu    = \"${CONTROL_PLANE_CPU}\"\n"
+          printf "worker_memory        = \"${WORKER_MEMORY}\"\n"
+          printf "worker_cpu           = \"${WORKER_CPU}\"\n"
+          printf "\n"
+          printf "# Talos image alias (generated from TALOS_IMAGE_VERSION)\n"
+          printf "talos_image_alias = \"${TALOS_IMAGE_ALIAS}\"\n"
+          printf "\n"
+          printf "# Talos version\n"
+          printf "talos_version = \"{{.TALOS_IMAGE_VERSION}}\"\n"
+          printf "\n"
+          printf "# Physical network interface name\n"
+          printf "physical_network_name = \"${PHYSICAL_NETWORK_NAME}\"\n"
+          printf "\n"
+          printf "# Storage pool name\n"
+          printf "storage_pool = \"${STORAGE_POOL}\"\n"
+          printf "\n"
+          printf "# Configuration file paths (from environment variables)\n"
+          printf "talosconfig_path = \"${TALOSCONFIG}\"\n"
+          printf "kubeconfig_file = \"${KUBECONFIG_FILE}\"\n"
+          printf "\n"
+          printf "# Common configuration patches (optional)\n"
+          if [ -n "${COMMON_CONFIG_PATCHES}" ]; then
+            printf "common_config_patches = <<EOF_PATCH\n"
+            printf "%s\n" "${COMMON_CONFIG_PATCHES}"
+            printf "EOF_PATCH\n"
+          else
+            printf "common_config_patches = \"\"\n"
+          fi
+        } > "${TFVARS_FILE}"
+        
+        echo "✅ Generated ${TFVARS_FILE} from environment variables"
+        echo ""
+        echo "To regenerate, run: task tc:generate-tfvars"
+        echo "To modify values, update environment variables in contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml"
+
+  terraform:init:
+    silent: true
+    desc: Initialize Terraform for the Talos cluster
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.WINDSOR_PROJECT_ROOT}}" ]; then
+          echo "Error: WINDSOR_PROJECT_ROOT variable is not defined"
+          echo "Run this from within a Windsor workspace"
+          exit 1
+        fi
+        
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/cluster"
+        
+        if [ ! -d "${TERRAFORM_DIR}" ]; then
+          echo "Error: Terraform directory not found: ${TERRAFORM_DIR}"
+          exit 1
+        fi
+        
+        echo "Initializing Terraform..."
+        cd "${TERRAFORM_DIR}"
+        terraform init -upgrade
+
+  terraform:plan:
+    silent: true
+    desc: Show Terraform plan for the Talos cluster
+    cmds:
+      - task: terraform:init
+      - |
+        set -euo pipefail
+        
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/cluster"
+        cd "${TERRAFORM_DIR}"
+        terraform plan
+
+  terraform:apply:
+    silent: true
+    desc: Apply Terraform configuration to create Talos cluster
+    cmds:
+      - |
+        set -euo pipefail
+        
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/cluster"
+        cd "${TERRAFORM_DIR}"
+        terraform apply -auto-approve
+
+  terraform:destroy:
+    silent: true
+    desc: Destroy the Talos cluster using Terraform
+    cmds:
+      - |
+        set -euo pipefail
+        
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/cluster"
+        
+        if [ ! -d "${TERRAFORM_DIR}" ]; then
+          echo "Error: Terraform directory not found: ${TERRAFORM_DIR}"
+          exit 1
+        fi
+        
+        # Confirm deletion
+        echo "⚠️  This will destroy the Talos cluster and all its data"
+        echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+        sleep 5
+        
+        cd "${TERRAFORM_DIR}"
+        terraform destroy -auto-approve
+        echo "✅ Talos cluster destroyed"
+
+  list:
+    silent: true
+    desc: List all cluster VMs
+    cmds:
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        echo "Cluster VMs on ${REMOTE_NAME}:"
+        echo ""
+        incus list "${REMOTE_NAME}:" --format table | grep -E "NAME|${CONTROL_PLANE_VM}|${WORKER_0_VM}|${WORKER_1_VM}" || \
+          incus list "${REMOTE_NAME}:" --format csv | grep -E "${CONTROL_PLANE_VM}|${WORKER_0_VM}|${WORKER_1_VM}"
+
+  info:
+    silent: true
+    desc: Get detailed information about the cluster
+    cmds:
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Cluster Information"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Remote: ${REMOTE_NAME}"
+        echo "Cluster Name: {{.CLUSTER_NAME}}"
+        echo ""
+        
+        # Get IP addresses from Terraform outputs if available
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/cluster"
+        if [ -d "${TERRAFORM_DIR}" ]; then
+          cd "${TERRAFORM_DIR}"
+          if terraform output -raw control_plane_ip >/dev/null 2>&1; then
+            echo "Control Plane IP: $(terraform output -raw control_plane_ip 2>/dev/null || echo 'not available')"
+            echo "Worker 0 IP:      $(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_0"] // "not available"' || echo 'not available')"
+            echo "Worker 1 IP:      $(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_1"] // "not available"' || echo 'not available')"
+          fi
+        fi
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "VM Status"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+          echo ""
+          echo "${VM}:"
+          incus info "${REMOTE_NAME}:${VM}" 2>/dev/null | grep -E "Name:|Status:|Architecture:|Created:|Last Used:" || echo "  VM not found or not accessible"
+        done
+
+  console:
+    silent: true
+    desc: "Access VM console (usage: task tc:console -- <vm-name>)"
+    cmds:
+      - |
+        set -euo pipefail
+        
+        if [ -z "{{.CLI_ARGS}}" ]; then
+          echo "Error: VM name is required"
+          echo "Usage: task tc:console -- <vm-name>"
+          echo ""
+          echo "Available VMs:"
+          echo "  - {{.CONTROL_PLANE_VM:-talos-cp}}"
+          echo "  - {{.WORKER_0_VM:-talos-worker-0}}"
+          echo "  - {{.WORKER_1_VM:-talos-worker-1}}"
+          exit 1
+        fi
+        
+        VM_NAME="{{.CLI_ARGS}}"
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        
+        echo "Accessing console for ${REMOTE_NAME}:${VM_NAME}"
+        echo "Press Ctrl+A then Q to exit"
+        echo ""
+        incus console "${REMOTE_NAME}:${VM_NAME}"
+
+  start:
+    silent: true
+    desc: Start all cluster VMs
+    cmds:
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        echo "Starting cluster VMs..."
+        incus start "${REMOTE_NAME}:${CONTROL_PLANE_VM}" || echo "  ${CONTROL_PLANE_VM} already running or not found"
+        incus start "${REMOTE_NAME}:${WORKER_0_VM}" || echo "  ${WORKER_0_VM} already running or not found"
+        incus start "${REMOTE_NAME}:${WORKER_1_VM}" || echo "  ${WORKER_1_VM} already running or not found"
+        echo "✅ Cluster VMs started"
+
+  stop:
+    silent: true
+    desc: Stop all cluster VMs
+    cmds:
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        echo "Stopping cluster VMs..."
+        incus stop "${REMOTE_NAME}:${CONTROL_PLANE_VM}" || echo "  ${CONTROL_PLANE_VM} already stopped or not found"
+        incus stop "${REMOTE_NAME}:${WORKER_0_VM}" || echo "  ${WORKER_0_VM} already stopped or not found"
+        incus stop "${REMOTE_NAME}:${WORKER_1_VM}" || echo "  ${WORKER_1_VM} already stopped or not found"
+        echo "✅ Cluster VMs stopped"
+
+  restart:
+    silent: true
+    desc: Restart all cluster VMs
+    cmds:
+      - task: stop
+      - task: start
+
+  destroy:
+    silent: true
+    desc: Destroy the Talos cluster using Terraform
+    cmds:
+      - task: terraform:destroy
+
+  health-controlplane:
+    desc: Health check the control plane node
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${CONTROL_PLANE_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
+
+  health-worker:
+    desc: Health check the worker nodes
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        # Check both workers
+        echo "Checking ${WORKER_0_VM} (${WORKER_0_IP})..."
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${WORKER_0_IP}"
+        echo ""
+        echo "Checking ${WORKER_1_VM} (${WORKER_1_IP})..."
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${WORKER_1_IP}"
+
+  health-worker-0:
+    desc: Health check worker-0
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${WORKER_0_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
+
+  health-worker-1:
+    desc: Health check worker-1
+    cmds:
+      - |
+        set -euo pipefail
+        ENDPOINTS="${CONTROL_PLANE_IP}"
+        NODES="${WORKER_1_IP}"
+        talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
+
+  test:
+    desc: Test Talos cluster setup by running through all runbook steps and validating the cluster. Use --keep to leave cluster running after test.
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Parse CLI args: <incus-remote-name> [--keep]
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: INCUS_REMOTE_NAME is required"
+          echo "Usage: task tc:test -- <incus-remote-name> [--keep]"
+          echo ""
+          echo "Options:"
+          echo "  --keep, --no-cleanup    Keep cluster running after test (default: delete cluster)"
+          echo ""
+          echo "Examples:"
+          echo "  task tc:test -- nuc"
+          echo "  task tc:test -- nuc --keep  # Keep cluster after test"
+          exit 1
+        fi
+        
+        # Initialize flags
+        SKIP_CLEANUP=false
+        
+        # Parse arguments
+        eval set -- ${CLI_ARGS_STR}
+        TEST_REMOTE_NAME="${1}"
+        shift || true
+        
+        # Check for flags
+        while [ $# -gt 0 ]; do
+          case "${1}" in
+            --keep|--no-cleanup)
+              SKIP_CLEANUP=true
+              shift
+              ;;
+            *)
+              echo "⚠️  Warning: Unknown argument '${1}', ignoring"
+              shift
+              ;;
+          esac
+        done
+        
+        # Get cluster configuration from environment or use defaults
+        CLUSTER_NAME="{{.CLUSTER_NAME}}"
+        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        TALOS_IMAGE_VERSION="{{.TALOS_IMAGE_VERSION}}"
+        TALOS_IMAGE_VERSION="${TALOS_IMAGE_VERSION:-v1.12.0}"
+        TALOS_IMAGE_ARCH="{{.TALOS_IMAGE_ARCH}}"
+        TALOS_IMAGE_ARCH="${TALOS_IMAGE_ARCH:-metal-amd64}"
+        PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE:-eno1}"
+        STORAGE_POOL="${STORAGE_POOL:-local}"
+        CONTROL_PLANE_MEMORY="${CONTROL_PLANE_MEMORY:-2GB}"
+        CONTROL_PLANE_CPU="${CONTROL_PLANE_CPU:-2}"
+        WORKER_MEMORY="${WORKER_MEMORY:-2GB}"
+        WORKER_CPU="${WORKER_CPU:-2}"
+        
+        # Get project root
+        PROJECT_ROOT="{{.WINDSOR_PROJECT_ROOT}}"
+        if [ -z "${PROJECT_ROOT}" ]; then
+          PROJECT_ROOT="$(pwd)"
+        fi
+        
+        # Test results tracking
+        TESTS_PASSED=0
+        TESTS_FAILED=0
+        FAILED_TESTS=()
+        
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "Talos Cluster Setup Test"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        echo "Remote: ${TEST_REMOTE_NAME}"
+        echo "Cluster Name: ${CLUSTER_NAME}"
+        echo "Control Plane: ${CONTROL_PLANE_VM}"
+        echo "Worker 0: ${WORKER_0_VM}"
+        echo "Worker 1: ${WORKER_1_VM}"
+        echo ""
+        
+        # Step 0: Initialize Windsor context "test"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 0: Initialize Windsor Context"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        # Create contexts directory if it doesn't exist
+        CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
+        TEST_CONTEXT_DIR="${CONTEXTS_DIR}/test"
+        TEST_WINDSOR_YAML="${TEST_CONTEXT_DIR}/windsor.yaml"
+        
+        mkdir -p "${TEST_CONTEXT_DIR}"
+        
+        # Create .talos and .kube directories for config files
+        mkdir -p "${TEST_CONTEXT_DIR}/.talos"
+        mkdir -p "${TEST_CONTEXT_DIR}/.kube"
+        
+        # Set default TALOSCONFIG and KUBECONFIG_FILE paths
+        TALOSCONFIG_PATH="${PROJECT_ROOT}/contexts/test/.talos/talosconfig"
+        KUBECONFIG_FILE_PATH="${PROJECT_ROOT}/contexts/test/.kube/config"
+        
+        # Create or update windsor.yaml with environment variables (matching Step 2 of tc.md)
+        {
+          echo "id: test-TC"
+          echo "provider: generic"
+          echo "environment:"
+          echo "  # Incus remote configuration"
+          echo "  INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
+          echo ""
+          echo "  # Cluster configuration"
+          echo "  CLUSTER_NAME: ${CLUSTER_NAME}"
+          echo ""
+          echo "  # VM IP addresses (leave empty for new installations)"
+          echo "  CONTROL_PLANE_IP: \"\""
+          echo "  WORKER_0_IP: \"\""
+          echo "  WORKER_1_IP: \"\""
+          echo ""
+          echo "  # VM names"
+          echo "  CONTROL_PLANE_VM: ${CONTROL_PLANE_VM}"
+          echo "  WORKER_0_VM: ${WORKER_0_VM}"
+          echo "  WORKER_1_VM: ${WORKER_1_VM}"
+          echo ""
+          echo "  # Talos image configuration"
+          echo "  TALOS_IMAGE_VERSION: ${TALOS_IMAGE_VERSION}"
+          echo "  TALOS_IMAGE_ARCH: ${TALOS_IMAGE_ARCH}"
+          echo ""
+          echo "  # Physical network interface"
+          echo "  PHYSICAL_INTERFACE: ${PHYSICAL_INTERFACE}"
+          echo ""
+          echo "  # Storage pool"
+          echo "  STORAGE_POOL: ${STORAGE_POOL}"
+          echo ""
+          echo "  # VM resources"
+          echo "  CONTROL_PLANE_MEMORY: ${CONTROL_PLANE_MEMORY}"
+          echo "  CONTROL_PLANE_CPU: ${CONTROL_PLANE_CPU}"
+          echo "  WORKER_MEMORY: ${WORKER_MEMORY}"
+          echo "  WORKER_CPU: ${WORKER_CPU}"
+          echo ""
+          echo "  # Talos configuration paths (REQUIRED)"
+          echo "  TALOSCONFIG: ${TALOSCONFIG_PATH}"
+          echo "  KUBECONFIG_FILE: ${KUBECONFIG_FILE_PATH}"
+        } > "${TEST_WINDSOR_YAML}"
+        
+        echo "✅ Created/updated ${TEST_WINDSOR_YAML}"
+        
+        # Set Windsor context to "test"
+        if command -v windsor > /dev/null 2>&1; then
+          if windsor context set test > /dev/null 2>&1; then
+            echo "✅ Set Windsor context to 'test'"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            # Try to initialize the context if setting fails
+            if windsor init --context test --backend local --config-dir "${TEST_CONTEXT_DIR}" > /dev/null 2>&1; then
+              echo "✅ Initialized and set Windsor context to 'test'"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+            else
+              echo "⚠️  Warning: Could not set Windsor context, but continuing with environment variables"
+              TESTS_FAILED=$((TESTS_FAILED + 1))
+            fi
+          fi
+        else
+          echo "⚠️  Warning: 'windsor' command not found, but continuing with environment variables"
+          TESTS_FAILED=$((TESTS_FAILED + 1))
+        fi
+        
+        # Report environment variable values
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Environment Variables Configuration"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
+        echo "CLUSTER_NAME: ${CLUSTER_NAME}"
+        echo "CONTROL_PLANE_VM: ${CONTROL_PLANE_VM}"
+        echo "WORKER_0_VM: ${WORKER_0_VM}"
+        echo "WORKER_1_VM: ${WORKER_1_VM}"
+        echo "TALOS_IMAGE_VERSION: ${TALOS_IMAGE_VERSION}"
+        echo "TALOS_IMAGE_ARCH: ${TALOS_IMAGE_ARCH}"
+        echo "PHYSICAL_INTERFACE: ${PHYSICAL_INTERFACE}"
+        echo "STORAGE_POOL: ${STORAGE_POOL}"
+        echo "TALOSCONFIG: ${TALOSCONFIG_PATH}"
+        echo "KUBECONFIG_FILE: ${KUBECONFIG_FILE_PATH}"
+        echo ""
+        
+        # Load Windsor environment to ensure variables are available
+        if command -v windsor > /dev/null 2>&1; then
+          eval "$(windsor env)" 2>/dev/null || true
+        fi
+        
+        # Export environment variables for use in subsequent tasks
+        export INCUS_REMOTE_NAME="${TEST_REMOTE_NAME}"
+        export CLUSTER_NAME="${CLUSTER_NAME}"
+        export CONTROL_PLANE_VM="${CONTROL_PLANE_VM}"
+        export WORKER_0_VM="${WORKER_0_VM}"
+        export WORKER_1_VM="${WORKER_1_VM}"
+        export TALOS_IMAGE_VERSION="${TALOS_IMAGE_VERSION}"
+        export TALOS_IMAGE_ARCH="${TALOS_IMAGE_ARCH}"
+        export PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE}"
+        export STORAGE_POOL="${STORAGE_POOL}"
+        export TALOSCONFIG="${TALOSCONFIG_PATH}"
+        export KUBECONFIG_FILE="${KUBECONFIG_FILE_PATH}"
+        export CONTROL_PLANE_IP=""
+        export WORKER_0_IP=""
+        export WORKER_1_IP=""
+        
+        # Test function
+        test_step() {
+          local test_name="$1"
+          local test_command="$2"
+          local expected_output="$3"
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Test: ${test_name}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if eval "${test_command}" > /tmp/test_output.log 2>&1; then
+            if [ -n "${expected_output}" ]; then
+              if grep -q "${expected_output}" /tmp/test_output.log 2>/dev/null; then
+                echo "✅ PASS: ${test_name}"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+                return 0
+              else
+                echo "❌ FAIL: ${test_name} - Expected output '${expected_output}' not found"
+                echo ""
+                echo "Command output:"
+                cat /tmp/test_output.log
+                echo ""
+                echo "To debug:"
+                echo "  - Run command manually: ${test_command}"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+                FAILED_TESTS+=("${test_name}")
+                return 1
+              fi
+            else
+              echo "✅ PASS: ${test_name}"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+              return 0
+            fi
+          else
+            echo "❌ FAIL: ${test_name}"
+            echo ""
+            echo "Command output:"
+            cat /tmp/test_output.log
+            echo ""
+            echo "To debug:"
+            echo "  - Run command manually: ${test_command}"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("${test_name}")
+            return 1
+          fi
+        }
+        
+        # Step 1: Verify Remote Connection
+        test_step "Remote connection exists" \
+          "incus remote list --format csv | grep -q '^${TEST_REMOTE_NAME},' || incus remote list | grep -q '${TEST_REMOTE_NAME}'" \
+          ""
+        
+        test_step "Can connect to remote" \
+          "incus list ${TEST_REMOTE_NAME}: --format csv > /dev/null" \
+          ""
+        
+        # Step 2: Generate Terraform Variables
+        test_step "Generate terraform.tfvars" \
+          "task tc:generate-tfvars" \
+          "Generated"
+        
+        test_step "terraform.tfvars file exists" \
+          "test -f terraform/cluster/terraform.tfvars" \
+          ""
+        
+        # Step 3: Ensure Talos image is available
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 3: Ensure Talos Image is Available"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        TALOS_IMAGE_ALIAS="talos-${TALOS_IMAGE_VERSION}-${TALOS_IMAGE_ARCH}"
+        
+        # Check if Talos image exists on remote
+        set +e  # Temporarily disable exit on error for image checks
+        IMAGE_EXISTS=false
+        
+        if incus image alias list "${TEST_REMOTE_NAME}:" --format csv 2>/dev/null | grep -q "^${TALOS_IMAGE_ALIAS},"; then
+          IMAGE_EXISTS=true
+          echo "✅ Talos image '${TALOS_IMAGE_ALIAS}' already exists on remote '${TEST_REMOTE_NAME}'"
+          TESTS_PASSED=$((TESTS_PASSED + 1))
+        fi
+        set -e  # Re-enable exit on error
+        
+        if [ "${IMAGE_EXISTS}" = "false" ]; then
+          echo "⚠️  Talos image '${TALOS_IMAGE_ALIAS}' not found on remote '${TEST_REMOTE_NAME}'"
+          echo "   The test will attempt to download and import the image..."
+          echo "   Note: This requires 'zstd' and 'qemu-img' to be installed"
+          echo ""
+          echo "   To download and import manually:"
+          echo "     task incus:download-talos-image"
+          echo "     task incus:import-talos-image -- ${TALOS_IMAGE_ALIAS}"
+          echo ""
+          echo "   For now, continuing test (image import will be tested during cluster creation)"
+        fi
+        
+        # Step 4: Initialize Terraform
+        test_step "Terraform initialization" \
+          "task tc:terraform:init" \
+          ""
+        
+        # Step 5: Check if cluster VMs already exist (cleanup if needed)
+        EXISTING_VMS=0
+        for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+          if incus list "${TEST_REMOTE_NAME}:${VM}" --format csv -c n 2>/dev/null | grep -q "^${VM}$"; then
+            EXISTING_VMS=$((EXISTING_VMS + 1))
+          fi
+        done
+        
+        if [ ${EXISTING_VMS} -gt 0 ]; then
+          echo ""
+          echo "⚠️  Warning: ${EXISTING_VMS} cluster VM(s) already exist. Cleaning up..."
+          task tc:terraform:destroy > /dev/null 2>&1 || true
+          sleep 5
+        fi
+        
+        # Step 6: Create cluster VMs
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Creating cluster VMs (this may take several minutes)..."
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        # Generate tfvars, init, and apply
+        task tc:generate-tfvars > /dev/null 2>&1
+        task tc:terraform:init > /dev/null 2>&1
+        
+        if task tc:terraform:apply > /tmp/terraform_apply.log 2>&1; then
+          echo "✅ Cluster VMs created successfully"
+          TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+          echo "❌ FAIL: Cluster VM creation failed"
+          cat /tmp/terraform_apply.log | tail -50
+          TESTS_FAILED=$((TESTS_FAILED + 1))
+          FAILED_TESTS+=("Cluster VM creation")
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+          echo "Test Summary: ${TESTS_PASSED} passed, ${TESTS_FAILED} failed"
+          echo "═══════════════════════════════════════════════════════════════"
+          exit 1
+        fi
+        
+        # Step 7: Wait for VMs to boot and get IP addresses
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 7: Wait for VMs to Boot and Get IP Addresses"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        echo "Waiting for VMs to boot and receive DHCP-assigned IP addresses..."
+        MAX_WAIT=300  # 5 minutes
+        ELAPSED=0
+        ALL_VMS_READY=false
+        
+        while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+          READY_COUNT=0
+          for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+            if incus list "${TEST_REMOTE_NAME}:${VM}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+              READY_COUNT=$((READY_COUNT + 1))
+            fi
+          done
+          
+          if [ ${READY_COUNT} -eq 3 ]; then
+            ALL_VMS_READY=true
+            echo "✅ All VMs are running"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+            break
+          fi
+          
+          sleep 10
+          ELAPSED=$((ELAPSED + 10))
+          echo "  Waiting... (${ELAPSED}s/${MAX_WAIT}s) - ${READY_COUNT}/3 VMs running"
+        done
+        
+        if [ "${ALL_VMS_READY}" = "false" ]; then
+          echo "❌ FAIL: Not all VMs are running after ${MAX_WAIT} seconds"
+          TESTS_FAILED=$((TESTS_FAILED + 1))
+          FAILED_TESTS+=("VM boot")
+        fi
+        
+        # Step 8: Get actual IP addresses from Terraform outputs
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 8: Get Actual IP Addresses"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        TERRAFORM_DIR="${PROJECT_ROOT}/terraform/cluster"
+        
+        if [ ! -d "${TERRAFORM_DIR}" ]; then
+          echo "❌ FAIL: Terraform directory not found: ${TERRAFORM_DIR}"
+          TESTS_FAILED=$((TESTS_FAILED + 1))
+          FAILED_TESTS+=("IP address retrieval")
+        else
+          cd "${TERRAFORM_DIR}"
+          
+          # Try to get IP addresses from Terraform outputs (quick check, no waiting)
+          echo "Checking for IP addresses in Terraform outputs..."
+          CONTROL_PLANE_IP=""
+          WORKER_0_IP=""
+          WORKER_1_IP=""
+          
+          set +e  # Temporarily disable exit on error for IP extraction
+          
+          # Try to get IP addresses from Terraform outputs
+          CONTROL_PLANE_IP=$(terraform output -raw control_plane_ip 2>/dev/null || echo "")
+          
+          if command -v jq > /dev/null 2>&1; then
+            WORKER_0_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_0"] // empty' 2>/dev/null || echo "")
+            WORKER_1_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_1"] // empty' 2>/dev/null || echo "")
+          else
+            # Fallback if jq is not available
+            WORKER_IPS_RAW=$(terraform output -json worker_ips 2>/dev/null || echo "")
+            WORKER_0_IP=$(echo "${WORKER_IPS_RAW}" | grep -o '"worker_0"[^}]*"[^"]*"' | grep -o '"[0-9.]*"' | head -1 | tr -d '"' || echo "")
+            WORKER_1_IP=$(echo "${WORKER_IPS_RAW}" | grep -o '"worker_1"[^}]*"[^"]*"' | grep -o '"[0-9.]*"' | head -1 | tr -d '"' || echo "")
+          fi
+          
+          set -e  # Re-enable exit on error
+          
+          # Prompt for manual input if IPs are not available from Terraform
+          if [ -z "${CONTROL_PLANE_IP}" ] || [ -z "${WORKER_0_IP}" ] || [ -z "${WORKER_1_IP}" ]; then
+            echo ""
+            echo "⚠️  Could not automatically detect all IP addresses"
+            echo "   IPs are visible in the Talos console but not accessible via incus exec"
+            echo ""
+            echo "   Please enter the IP addresses you see in the Talos console:"
+            echo ""
+            
+            if [ -z "${CONTROL_PLANE_IP}" ]; then
+              read -p "   Control Plane IP (${CONTROL_PLANE_VM}): " CONTROL_PLANE_IP
+            else
+              echo "   Control Plane IP: ${CONTROL_PLANE_IP} (auto-detected)"
+            fi
+            
+            if [ -z "${WORKER_0_IP}" ]; then
+              read -p "   Worker 0 IP (${WORKER_0_VM}): " WORKER_0_IP
+            else
+              echo "   Worker 0 IP: ${WORKER_0_IP} (auto-detected)"
+            fi
+            
+            if [ -z "${WORKER_1_IP}" ]; then
+              read -p "   Worker 1 IP (${WORKER_1_VM}): " WORKER_1_IP
+            else
+              echo "   Worker 1 IP: ${WORKER_1_IP} (auto-detected)"
+            fi
+            
+            echo ""
+          fi
+          
+          # Verify we have all IPs
+          if [ -n "${CONTROL_PLANE_IP}" ] && [ -n "${WORKER_0_IP}" ] && [ -n "${WORKER_1_IP}" ]; then
+            echo "✅ All IP addresses retrieved"
+            echo "  Control Plane: ${CONTROL_PLANE_IP}"
+            echo "  Worker 0:      ${WORKER_0_IP}"
+            echo "  Worker 1:      ${WORKER_1_IP}"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+            
+            # Update environment variables
+            export CONTROL_PLANE_IP="${CONTROL_PLANE_IP}"
+            export WORKER_0_IP="${WORKER_0_IP}"
+            export WORKER_1_IP="${WORKER_1_IP}"
+            
+            # Update windsor.yaml with actual IPs (handle both macOS and Linux sed)
+            # Pattern matches both empty strings and existing IPs to ensure update
+            if [[ "$(uname)" == "Darwin" ]]; then
+              # macOS uses BSD sed
+              sed -i '' "s/CONTROL_PLANE_IP: \".*\"/CONTROL_PLANE_IP: \"${CONTROL_PLANE_IP}\"/" "${TEST_WINDSOR_YAML}"
+              sed -i '' "s/WORKER_0_IP: \".*\"/WORKER_0_IP: \"${WORKER_0_IP}\"/" "${TEST_WINDSOR_YAML}"
+              sed -i '' "s/WORKER_1_IP: \".*\"/WORKER_1_IP: \"${WORKER_1_IP}\"/" "${TEST_WINDSOR_YAML}"
+            else
+              # Linux uses GNU sed
+              sed -i "s/CONTROL_PLANE_IP: \".*\"/CONTROL_PLANE_IP: \"${CONTROL_PLANE_IP}\"/" "${TEST_WINDSOR_YAML}"
+              sed -i "s/WORKER_0_IP: \".*\"/WORKER_0_IP: \"${WORKER_0_IP}\"/" "${TEST_WINDSOR_YAML}"
+              sed -i "s/WORKER_1_IP: \".*\"/WORKER_1_IP: \"${WORKER_1_IP}\"/" "${TEST_WINDSOR_YAML}"
+            fi
+            
+            echo "✅ Updated windsor.yaml with actual IP addresses"
+          else
+            echo "❌ FAIL: Could not retrieve all IP addresses"
+            echo "  Control Plane: ${CONTROL_PLANE_IP:-not available}"
+            echo "  Worker 0:      ${WORKER_0_IP:-not available}"
+            echo "  Worker 1:      ${WORKER_1_IP:-not available}"
+            echo ""
+            echo "  Debugging steps:"
+            echo "    1. Check if VMs are running: incus list ${TEST_REMOTE_NAME}:"
+            echo "    2. Check Terraform outputs: cd ${TERRAFORM_DIR} && terraform output"
+            echo "    3. Check VM IPs directly: incus list ${TEST_REMOTE_NAME}:${CONTROL_PLANE_VM} --format json"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("IP address retrieval")
+          fi
+          
+          # Return to project root
+          cd "${PROJECT_ROOT}"
+        fi
+        
+        # Step 9: Regenerate terraform.tfvars with actual IPs and continue deployment
+        if [ -n "${CONTROL_PLANE_IP}" ] && [ -n "${WORKER_0_IP}" ] && [ -n "${WORKER_1_IP}" ]; then
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Step 9: Continue Terraform Deployment with IP Addresses"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Reload Windsor environment to get updated IPs
+          if command -v windsor > /dev/null 2>&1; then
+            eval "$(windsor env)" 2>/dev/null || true
+          fi
+          
+          # Regenerate terraform.tfvars
+          test_step "Regenerate terraform.tfvars with IPs" \
+            "task tc:generate-tfvars" \
+            "Generated"
+          
+          # Continue Terraform apply to configure Talos
+          echo ""
+          echo "  Applying Talos configurations (this may take several minutes)..."
+          if task tc:terraform:apply > /tmp/terraform_apply2.log 2>&1; then
+            echo "✅ Talos configurations applied successfully"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "❌ FAIL: Talos configuration application failed"
+            cat /tmp/terraform_apply2.log | tail -50
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("Talos configuration")
+          fi
+        fi
+        
+        # Step 10: Retrieve kubeconfig
+        if [ -n "${CONTROL_PLANE_IP}" ] && [ -f "${TALOSCONFIG_PATH}" ]; then
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Step 10: Retrieve kubeconfig"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Wait a bit for cluster to be ready
+          sleep 30
+          
+          if talosctl kubeconfig "${KUBECONFIG_FILE_PATH}" \
+            --talosconfig "${TALOSCONFIG_PATH}" \
+            --nodes "${CONTROL_PLANE_IP}" > /tmp/kubeconfig_retrieve.log 2>&1; then
+            echo "✅ kubeconfig retrieved successfully"
+            
+            # Verify and fix kubeconfig to point to control plane
+            if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
+              # Check all server URLs in the kubeconfig
+              ALL_SERVERS=$(grep -E "^\s*server:" "${KUBECONFIG_FILE_PATH}" | awk '{print $2}' | sed 's|https://||' | cut -d':' -f1 || echo "")
+              NEEDS_UPDATE=false
+              
+              # Check if any server URL doesn't match control plane IP
+              for server in ${ALL_SERVERS}; do
+                if [ -n "${server}" ] && [ "${server}" != "${CONTROL_PLANE_IP}" ]; then
+                  NEEDS_UPDATE=true
+                  echo "⚠️  Found server URL pointing to ${server} instead of control plane (${CONTROL_PLANE_IP})"
+                fi
+              done
+              
+              if [ "${NEEDS_UPDATE}" = "true" ]; then
+                echo "   Updating all kubeconfig server URLs to use control plane IP..."
+                # Update ALL server URLs to use control plane IP
+                if [[ "$(uname)" == "Darwin" ]]; then
+                  sed -i '' "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+                else
+                  sed -i "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+                fi
+                echo "✅ Updated all kubeconfig server URLs to ${CONTROL_PLANE_IP}:6443"
+              fi
+              
+              # Set the first context as current-context if not already set correctly
+              FIRST_CONTEXT=$(grep -A 3 "^contexts:" "${KUBECONFIG_FILE_PATH}" | grep -E "^\s+- context:" -A 2 | grep -E "^\s+name:" | head -1 | awk '{print $2}' || echo "")
+              CURRENT_CONTEXT=$(grep -E "^current-context:" "${KUBECONFIG_FILE_PATH}" | awk '{print $2}' || echo "")
+              
+              if [ -n "${FIRST_CONTEXT}" ] && [ "${CURRENT_CONTEXT}" != "${FIRST_CONTEXT}" ]; then
+                echo "   Setting current context to ${FIRST_CONTEXT}..."
+                if [[ "$(uname)" == "Darwin" ]]; then
+                  sed -i '' "s|^current-context:.*|current-context: ${FIRST_CONTEXT}|" "${KUBECONFIG_FILE_PATH}"
+                else
+                  sed -i "s|^current-context:.*|current-context: ${FIRST_CONTEXT}|" "${KUBECONFIG_FILE_PATH}"
+                fi
+                echo "✅ Set current context to ${FIRST_CONTEXT}"
+              fi
+              
+              # Verify the fix worked
+              export KUBECONFIG="${KUBECONFIG_FILE_PATH}"
+              VERIFIED_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed 's|https://||' | cut -d':' -f1 || echo "")
+              if [ -n "${VERIFIED_SERVER}" ] && [ "${VERIFIED_SERVER}" = "${CONTROL_PLANE_IP}" ]; then
+                echo "✅ Verified kubeconfig is correctly configured"
+              fi
+            fi
+            
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "⚠️  WARNING: kubeconfig retrieval failed (cluster may still be bootstrapping)"
+            cat /tmp/kubeconfig_retrieve.log | tail -20
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("kubeconfig retrieval")
+          fi
+        fi
+        
+        # Step 11: Verify cluster health
+        if [ -n "${CONTROL_PLANE_IP}" ] && [ -f "${TALOSCONFIG_PATH}" ]; then
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Step 11: Verify Cluster Health"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Test control plane health
+          set +e  # Temporarily disable exit on error
+          if talosctl --talosconfig "${TALOSCONFIG_PATH}" health \
+            --endpoints "${CONTROL_PLANE_IP}" \
+            --nodes "${CONTROL_PLANE_IP}" > /tmp/health_cp.log 2>&1; then
+            echo "✅ Control plane node is healthy"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "⚠️  WARNING: Control plane health check failed (cluster may still be initializing)"
+            cat /tmp/health_cp.log | tail -10
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("Control plane health")
+          fi
+          set -e  # Re-enable exit on error
+          
+          # Test kubectl access if kubeconfig exists
+          if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
+            export KUBECONFIG="${KUBECONFIG_FILE_PATH}"
+            
+            # Verify kubeconfig is valid and points to correct server
+            KUBECONFIG_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed 's|https://||' | cut -d':' -f1 || echo "")
+            if [ -z "${KUBECONFIG_SERVER}" ]; then
+              echo "⚠️  WARNING: Could not read kubeconfig server URL"
+            elif [ "${KUBECONFIG_SERVER}" != "${CONTROL_PLANE_IP}" ]; then
+              echo "⚠️  WARNING: kubeconfig server (${KUBECONFIG_SERVER}) doesn't match control plane IP (${CONTROL_PLANE_IP})"
+              echo "   Attempting to fix..."
+              if [[ "$(uname)" == "Darwin" ]]; then
+                sed -i '' "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+              else
+                sed -i "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+              fi
+              echo "   Fixed kubeconfig server URL"
+            fi
+            
+            set +e  # Temporarily disable exit on error
+            if kubectl get nodes > /tmp/kubectl_nodes.log 2>&1; then
+              echo "✅ kubectl can access cluster"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+              
+              echo ""
+              echo "  Node Status:"
+              kubectl get nodes -o wide | head -10
+              
+              # Count nodes
+              NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | xargs)
+              echo ""
+              echo "  Total nodes: ${NODE_COUNT}"
+              
+              if [ "${NODE_COUNT}" -ge 3 ]; then
+                echo "✅ All 3 nodes are registered"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+              else
+                echo "⚠️  WARNING: Expected 3 nodes, found ${NODE_COUNT}"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+                FAILED_TESTS+=("Node registration")
+              fi
+            else
+              echo "⚠️  WARNING: kubectl access failed"
+              echo ""
+              echo "  Error details:"
+              cat /tmp/kubectl_nodes.log | tail -10
+              echo ""
+              echo "  Debugging steps:"
+              echo "    1. Check kubeconfig server: kubectl config view --minify | grep server"
+              echo "    2. Verify control plane is accessible: ping ${CONTROL_PLANE_IP}"
+              echo "    3. Check if API server is running: curl -k https://${CONTROL_PLANE_IP}:6443/healthz"
+              echo "    4. Regenerate kubeconfig: talosctl kubeconfig ${KUBECONFIG_FILE_PATH} --talosconfig ${TALOSCONFIG_PATH} --nodes ${CONTROL_PLANE_IP}"
+              TESTS_FAILED=$((TESTS_FAILED + 1))
+              FAILED_TESTS+=("kubectl access")
+            fi
+            set -e  # Re-enable exit on error
+          fi
+        fi
+        
+        # Final Summary
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "Test Summary"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "Tests Passed: ${TESTS_PASSED}"
+        echo "Tests Failed: ${TESTS_FAILED}"
+        echo ""
+        
+        if [ ${TESTS_FAILED} -gt 0 ]; then
+          echo "Failed Tests:"
+          for failed_test in "${FAILED_TESTS[@]}"; do
+            echo "  - ${failed_test}"
+          done
+          echo ""
+        fi
+        
+        # Display Cluster Information (if all tests passed)
+        if [ ${TESTS_FAILED} -eq 0 ]; then
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+          echo "Cluster Information"
+          echo "═══════════════════════════════════════════════════════════════"
+          echo ""
+          echo "Remote: ${TEST_REMOTE_NAME}"
+          echo "Cluster Name: ${CLUSTER_NAME}"
+          echo ""
+          echo "Control Plane: ${CONTROL_PLANE_VM} (${CONTROL_PLANE_IP})"
+          echo "Worker 0:      ${WORKER_0_VM} (${WORKER_0_IP})"
+          echo "Worker 1:      ${WORKER_1_VM} (${WORKER_1_IP})"
+          echo ""
+          echo "TALOSCONFIG: ${TALOSCONFIG_PATH}"
+          echo "KUBECONFIG: ${KUBECONFIG_FILE_PATH}"
+          echo ""
+          echo "To use kubectl after the test, run:"
+          echo "  export KUBECONFIG=${KUBECONFIG_FILE_PATH}"
+          echo "  kubectl get nodes"
+          echo ""
+          echo "Or set it in your shell profile:"
+          echo "  echo 'export KUBECONFIG=${KUBECONFIG_FILE_PATH}' >> ~/.zshrc"
+          echo ""
+          echo "═══════════════════════════════════════════════════════════════"
+        fi
+        
+        # Cleanup: Delete the test cluster (unless --keep flag was set)
+        if [ "${SKIP_CLEANUP}" = "true" ]; then
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Skipping cleanup (--keep flag set)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Cluster '${CLUSTER_NAME}' on remote '${TEST_REMOTE_NAME}' has been left running."
+          echo "To delete it later, run:"
+          echo "  windsor context set test"
+          echo "  task tc:destroy"
+          echo ""
+          echo "Cluster IP addresses:"
+          echo "  Control Plane: ${CONTROL_PLANE_IP:-unknown}"
+          echo "  Worker 0:      ${WORKER_0_IP:-unknown}"
+          echo "  Worker 1:      ${WORKER_1_IP:-unknown}"
+        else
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Cleaning up test cluster..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Cleanup: Environment variables are still set from Step 0
+          if task tc:terraform:destroy > /tmp/cleanup.log 2>&1; then
+            echo "✅ Test cluster deleted successfully"
+          else
+            echo "⚠️  Warning: Failed to delete test cluster. Manual cleanup may be required."
+            echo "   Run: windsor context set test && task tc:destroy"
+            cat /tmp/cleanup.log | tail -10
+          fi
+        fi
+        
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+        
+        if [ ${TESTS_FAILED} -eq 0 ]; then
+          echo "✅ ALL TESTS PASSED"
+          echo "═══════════════════════════════════════════════════════════════"
+          exit 0
+        else
+          echo "❌ SOME TESTS FAILED"
+          echo "═══════════════════════════════════════════════════════════════"
+          exit 1
+        fi
+
+  help:
+    desc: Talos cluster related commands
+    cmds:
+      - |
+        echo "Talos Cluster Management"
+        echo ""
+        echo "    task tc:create              # Create the cluster using Terraform"
+        echo "    task tc:destroy             # Destroy the cluster using Terraform"
+        echo "    task tc:list                # List all cluster VMs"
+        echo "    task tc:info                # Get detailed cluster information"
+        echo "    task tc:start               # Start all cluster VMs"
+        echo "    task tc:stop                # Stop all cluster VMs"
+        echo "    task tc:restart             # Restart all cluster VMs"
+        echo "    task tc:console -- <vm>     # Access VM console"
+        echo ""
+        echo "Testing"
+        echo ""
+        echo "    task tc:test -- <remote> [--keep]"
+        echo "        # Test cluster setup by running through all runbook steps"
+        echo "        # Validates VM creation, IP assignment, Talos configuration,"
+        echo "        # cluster bootstrapping, kubeconfig retrieval, and health checks"
+        echo "        # Use --keep to leave cluster running after test completes"
+        echo "        # Example: task tc:test -- nuc"
+        echo "        # Example: task tc:test -- nuc --keep"
+        echo ""
+        echo "Terraform Operations"
+        echo ""
+        echo "    task tc:generate-tfvars     # Generate terraform.tfvars from environment variables"
+        echo "    task tc:terraform:init      # Initialize Terraform"
+        echo "    task tc:terraform:plan      # Show Terraform plan"
+        echo "    task tc:terraform:apply    # Apply Terraform configuration"
+        echo "    task tc:terraform:destroy  # Destroy using Terraform"
+        echo ""
+        echo "Health Checks"
+        echo ""
+        echo "    task tc:health-controlplane # Check control plane node health"
+        echo "    task tc:health-worker       # Check all worker nodes health"
+        echo "    task tc:health-worker-0     # Check worker-0 node health"
+        echo "    task tc:health-worker-1     # Check worker-1 node health"
+        echo ""
+        echo "Environment variables used:"
+        CLUSTER_NAME_VAL="{{.CLUSTER_NAME}}"
+        echo "  CLUSTER_NAME: ${CLUSTER_NAME_VAL:-<not set>}"
+        echo "  CONTROL_PLANE_IP: ${CONTROL_PLANE_IP:-<not set>}"
+        echo "  WORKER_0_IP: ${WORKER_0_IP:-<not set>}"
+        echo "  WORKER_1_IP: ${WORKER_1_IP:-<not set>}"
+        echo "  TALOSCONFIG: ${TALOSCONFIG:-<not set>}"
+    silent: true
+

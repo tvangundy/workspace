@@ -1,0 +1,325 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  MAILU_DIR:
+    sh: echo "${WINDSOR_PROJECT_ROOT:-.}/contexts/${WINDSOR_CONTEXT:-mailu}"
+  COMPOSE_FILE:
+    sh: echo "${WINDSOR_PROJECT_ROOT:-.}/contexts/${WINDSOR_CONTEXT:-mailu}/docker-compose.yml"
+  MAILU_ENV:
+    sh: echo "${WINDSOR_PROJECT_ROOT:-.}/contexts/${WINDSOR_CONTEXT:-mailu}/mailu.env"
+
+tasks:
+  default:
+    desc: Show Mailu taskfile help
+    cmds:
+      - task --list
+
+  setup:
+    desc: Generate Mailu configuration files using the setup utility
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        
+        echo "Setting up Mailu configuration..."
+        echo "Mailu directory: ${MAILU_DIR}"
+        echo ""
+        echo "Please visit https://setup.mailu.io/ to generate your configuration files:"
+        echo "  1. Fill in your configuration (hostname, domain, database, etc.)"
+        echo "  2. Download docker-compose.yml"
+        echo "  3. Download mailu.env"
+        echo "  4. Save both files to: ${MAILU_DIR}/"
+        echo ""
+        echo "After downloading the files, run: task mailu:start"
+        
+        # Create directory if it doesn't exist
+        mkdir -p "${MAILU_DIR}"
+        
+        echo ""
+        echo "Created directory: ${MAILU_DIR}"
+        echo "Ready for configuration files."
+    silent: true
+
+  start:
+    desc: Start Mailu services
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          echo "Please run 'task mailu:setup' first or download the configuration files."
+          exit 1
+        fi
+        
+        echo "Starting Mailu services..."
+        cd "${MAILU_DIR}"
+        docker compose up -d
+        
+        echo ""
+        echo "Mailu services started."
+        echo "Check status with: task mailu:status"
+        echo "View logs with: task mailu:logs"
+    silent: true
+
+  stop:
+    desc: Stop Mailu services
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        echo "Stopping Mailu services..."
+        cd "${MAILU_DIR}"
+        docker compose stop
+        
+        echo "Mailu services stopped."
+    silent: true
+
+  restart:
+    desc: Restart Mailu services
+    cmds:
+      - task: stop
+      - task: start
+
+  status:
+    desc: Check Mailu service status
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        cd "${MAILU_DIR}"
+        docker compose ps
+    silent: true
+
+  logs:
+    desc: View Mailu logs (use --follow to follow logs)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        cd "${MAILU_DIR}"
+        
+        # Check if --follow flag is in CLI_ARGS
+        if echo "{{.CLI_ARGS}}" | grep -q "follow\|-f"; then
+          docker compose logs -f
+        else
+          docker compose logs --tail=100
+        fi
+    silent: true
+
+  create-admin:
+    desc: Create Mailu admin account
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        # Parse CLI_ARGS for username, domain, password
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Usage: task mailu:create-admin -- <username> <domain> <password>"
+          echo ""
+          echo "Example: task mailu:create-admin -- admin example.com 'SecurePassword123!'"
+          exit 1
+        fi
+        
+        eval set -- ${CLI_ARGS_STR}
+        USERNAME="${1}"
+        DOMAIN="${2}"
+        PASSWORD="${3}"
+        
+        if [ -z "${USERNAME}" ] || [ -z "${DOMAIN}" ] || [ -z "${PASSWORD}" ]; then
+          echo "Error: username, domain, and password are required"
+          echo "Usage: task mailu:create-admin -- <username> <domain> <password>"
+          exit 1
+        fi
+        
+        echo "Creating admin account..."
+        echo "Username: ${USERNAME}"
+        echo "Domain: ${DOMAIN}"
+        echo ""
+        
+        cd "${MAILU_DIR}"
+        docker compose exec -T admin flask mailu admin "${USERNAME}" "${DOMAIN}" "${PASSWORD}"
+        
+        echo ""
+        echo "Admin account created successfully."
+    silent: true
+
+  update:
+    desc: Update Mailu to latest version
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        echo "Updating Mailu..."
+        echo ""
+        
+        cd "${MAILU_DIR}"
+        
+        # Pull latest images
+        echo "Pulling latest images..."
+        docker compose pull
+        
+        # Restart services with new images
+        echo "Restarting services..."
+        docker compose up -d
+        
+        echo ""
+        echo "Mailu updated successfully."
+        echo "Check status with: task mailu:status"
+    silent: true
+
+  backup:
+    desc: Backup Mailu data and configuration
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        BACKUP_DIR="${MAILU_DIR}/backups"
+        BACKUP_DATE=$(date +%Y%m%d-%H%M%S)
+        BACKUP_FILE="${BACKUP_DIR}/mailu-backup-${BACKUP_DATE}.tar.gz"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        echo "Backing up Mailu data and configuration..."
+        echo "Backup file: ${BACKUP_FILE}"
+        echo ""
+        
+        mkdir -p "${BACKUP_DIR}"
+        cd "${MAILU_DIR}"
+        
+        # Backup mail data
+        echo "Backing up mail data..."
+        docker compose exec -T admin tar czf - /data/mail 2>/dev/null > "${BACKUP_FILE}" || true
+        
+        # Backup configuration files
+        echo "Backing up configuration files..."
+        tar czf "${BACKUP_DIR}/mailu-config-${BACKUP_DATE}.tar.gz" \
+          docker-compose.yml \
+          mailu.env \
+          2>/dev/null || true
+        
+        echo ""
+        echo "Backup completed:"
+        echo "  Mail data: ${BACKUP_FILE}"
+        echo "  Configuration: ${BACKUP_DIR}/mailu-config-${BACKUP_DATE}.tar.gz"
+    silent: true
+
+  down:
+    desc: Stop and remove Mailu services (keeps data)
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        echo "Warning: This will stop and remove Mailu containers (data is preserved in volumes)."
+        echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+        sleep 5
+        
+        echo "Stopping and removing Mailu services..."
+        cd "${MAILU_DIR}"
+        docker compose down
+        
+        echo "Mailu services stopped and removed (data preserved)."
+    silent: true
+
+  shell:
+    desc: Open shell in Mailu admin container
+    cmds:
+      - |
+        set -euo pipefail
+        
+        MAILU_DIR="{{.MAILU_DIR}}"
+        COMPOSE_FILE="{{.COMPOSE_FILE}}"
+        
+        if [ ! -f "${COMPOSE_FILE}" ]; then
+          echo "Error: docker-compose.yml not found at ${COMPOSE_FILE}"
+          exit 1
+        fi
+        
+        cd "${MAILU_DIR}"
+        docker compose exec admin bash
+    silent: true
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Mailu
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  help:
+    desc: Mailu related commands
+    cmds:
+      - |
+        echo "Mailu"
+        echo ""
+        echo "    task mailu:setup"
+        echo "    task mailu:start"
+        echo "    task mailu:stop"
+        echo "    task mailu:restart"
+        echo "    task mailu:status"
+        echo "    task mailu:logs [-- follow]"
+        echo "    task mailu:create-admin -- <username> <domain> <password>"
+        echo "    task mailu:update"
+        echo "    task mailu:backup"
+        echo "    task mailu:down"
+        echo "    task mailu:shell"
+    silent: true
+

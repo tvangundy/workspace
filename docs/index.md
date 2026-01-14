@@ -72,8 +72,8 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 - **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
 - **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
 - **[IncusOS Setup](./runbooks/incusos/setup.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
-- **[GitHub Runners on IncusOS VMs](./runbooks/incusos/github-runner.md)**: Set up GitHub Actions runners using Ubuntu and Windows VMs on IncusOS
-- **[Talos on IncusOS VMs Using Terraform](./runbooks/incusos/talos-incus-terraform.md)**: Deploy a Talos Kubernetes cluster using VMs on IncusOS with Terraform Infrastructure as Code
+- **[Ubuntu Virtual Machines on IncusOS](./runbooks/incusos/vm.md)**: Create and manage Ubuntu VMs for development, CI/CD runners, or any workload
+- **[Talos Kubernetes Cluster](./runbooks/incusos/tc.md)**: Deploy a Talos Kubernetes cluster using VMs on IncusOS with Terraform Infrastructure as Code
 - **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
 - **[Home Assistant](./runbooks/home-assistant/README.md)**: Complete guide for deploying a home automation platform
 - **[Ubuntu Setup](./runbooks/ubuntu/ubuntu-setup.md)**: Complete guide for installing and configuring Ubuntu on Intel NUC devices

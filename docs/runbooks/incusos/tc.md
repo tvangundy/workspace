@@ -1,42 +1,26 @@
-# Talos Cluster on IncusOS VMs using Terraform
+# Talos Kubernetes Cluster on IncusOS
 
-This guide walks you through deploying a Talos Linux Kubernetes cluster using Terraform with the Incus provider. You'll create 3 VMs: 1 control plane node and 2 worker nodes, then configure them to form a complete Kubernetes cluster using Infrastructure as Code.
+This runbook guides you through deploying a three-node Talos Linux Kubernetes cluster on a remote IncusOS server using Terraform. You'll create 3 VMs (1 control plane node and 2 worker nodes) and configure them to form a complete Kubernetes cluster using Infrastructure as Code.
 
 ## Overview
 
-Deploying a Talos cluster on IncusOS VMs using Terraform involves:
+Talos clusters on IncusOS provide:
 
-1. **Installing tools**: Setting up Terraform, Talos providers, and required dependencies
-2. **Setting environment variables**: Configuring your cluster settings in `windsor.yaml`
-3. **Generating Terraform variables**: Creating `terraform.tfvars` from environment variables
-4. **Downloading and importing Talos image**: Getting the Talos Linux image and importing it into Incus
-5. **Creating network bridge**: Setting up network connectivity for VMs
-6. **Initializing and applying Terraform**: Using Terraform to create VMs and configure the cluster
-7. **Configuring IP addresses**: Getting actual DHCP-assigned IPs, updating windsor.yaml, and regenerating terraform.tfvars
-8. **Retrieving kubeconfig**: Getting Kubernetes access credentials
-9. **Verifying cluster**: Confirming all nodes are healthy and operational
-
-This approach uses Infrastructure as Code (Terraform) to manage your cluster, making it easy to version control, reproduce, and manage your infrastructure declaratively.
+- Complete Kubernetes cluster with control plane and worker nodes
+- Infrastructure as Code using Terraform for declarative management
+- Talos Linux - a secure, minimal, immutable Linux distribution designed for Kubernetes
+- Direct network access for cluster nodes
+- Persistent storage and configurations
+- Easy cluster lifecycle management (create, update, destroy)
 
 ## Prerequisites
 
+- IncusOS server installed and running (see [IncusOS Setup](setup.md))
+- Incus CLI client installed on your local machine
+- Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
-- Incus client installed on your local machine
-- IncusOS server set up and accessible (see [IncusOS Setup](setup.md))
-- Incus remote configured (see [IncusOS Setup - Step 7](setup.md#step-7-connect-to-incus-server))
-- Terraform installed (see the [Installation Guide](../../install.md) for setup instructions)
-- talosctl installed (see the [Installation Guide](../../install.md) for setup instructions)
 - Sufficient resources: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
 - Network access: The IncusOS host must be on a network with available IP addresses
-- **Environment variables configured**: `TALOSCONFIG` and `KUBECONFIG_FILE` must be set in your `windsor.yaml` (see Step 2)
-
-## System Requirements
-
-Each VM will require:
-
-- **Control plane VM**: Minimum 2GB RAM, 20GB disk
-- **Worker VMs**: Minimum 2GB RAM, 20GB disk each
-- **Total**: 6GB RAM and 60GB disk minimum (8GB RAM and 100GB disk recommended)
 
 ## Step 1: Install Tools Dependencies
 
@@ -64,7 +48,7 @@ Install the tools, run in the workspace root folder:
 aqua install
 ```
 
-## Step 2: Set Environment Variables
+## Step 2: Configure Environment Variables
 
 ### Get Talos Image Schematic ID
 
@@ -82,7 +66,6 @@ Before setting the environment variables, you need to get a schematic ID from th
 environment:
   # Incus remote configuration
   INCUS_REMOTE_NAME: "nuc"
-  INCUS_REMOTE_IP_0: "192.168.2.101"
   
   # Cluster configuration
   CLUSTER_NAME: "talos-vm-cluster"
@@ -141,12 +124,10 @@ environment:
 The paths shown above are the standard locations. Do not change them unless you have a specific reason to do so.
 
 **Note**: Replace the placeholder values with your actual configuration:
-
 - `INCUS_REMOTE_NAME`: The name of your Incus remote (from `incus remote list`)
-- `INCUS_REMOTE_IP_0`: The IP address of your IncusOS host
 - `CONTROL_PLANE_IP`, `WORKER_0_IP`, `WORKER_1_IP`: Expected IP addresses on your network for the VMs (leave empty for new installations - Terraform will prompt you to fill them in after VMs are created)
 - `CLUSTER_NAME`: A name for your Kubernetes cluster
-- `TALOS_IMAGE_SCHEMATIC_ID`: The schematic ID you obtained from the Talos Image Factory (replace `<your-schematic-id>` with the actual ID)
+- `TALOS_IMAGE_SCHEMATIC_ID`: The schematic ID you obtained from the Talos Image Factory (replace with the actual ID)
 - `TALOS_IMAGE_VERSION`: The Talos version to use (check [Talos releases](https://github.com/siderolabs/talos/releases))
 - `TALOS_IMAGE_ARCH`: The architecture (typically `metal-amd64` for Intel NUC)
 - `PHYSICAL_INTERFACE`: (Optional) Your physical network interface name (defaults to `eno1` if not set)
@@ -156,19 +137,40 @@ The paths shown above are the standard locations. Do not change them unless you 
 - `TALOSCONFIG`: **Required** - Path to the Talos configuration file (typically `$WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig`)
 - `KUBECONFIG_FILE`: **Required** - Path to the kubeconfig file (typically `$WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config`)
 
-## Step 3: Generate Terraform Variables File
+## Step 3: Verify Remote Connection
+
+Before creating the cluster, verify you can connect to your IncusOS server:
+
+```bash
+# List configured remotes
+incus remote list
+
+# Verify you can connect to your remote
+incus list <remote-name>:
+
+# Verify environment variables are set
+windsor env | grep INCUS_REMOTE_NAME
+```
+
+**Expected output:**
+
+- Your remote should appear in `incus remote list` with the name you configured
+- `incus list <remote-name>:` should show existing instances (may be empty)
+- `INCUS_REMOTE_NAME` should be set to your remote name
+
+## Step 4: Generate Terraform Variables File
 
 Generate the `terraform.tfvars` file from your environment variables:
 
 ```bash
-task talos:generate-tfvars
+task tc:generate-tfvars
 ```
 
 This will create `terraform/cluster/terraform.tfvars` based on the environment variables you set in Step 2. The file is automatically generated, so you don't need to edit it manually. If you need to change any values, update the environment variables in your `windsor.yaml` file and regenerate the file.
 
 **Note**: The generated file includes a comment at the top indicating it's auto-generated. Do not edit this file manually - always update environment variables and regenerate.
 
-## Step 4: Download and Import Talos Linux Image
+## Step 5: Download and Import Talos Linux Image
 
 Download the Talos Linux image that will be used for the VMs. You can use the existing task to download the image:
 
@@ -197,11 +199,11 @@ incus image list ${INCUS_REMOTE_NAME}:
 
 You should see your Talos image listed with the alias you specified.
 
-## Step 5: Configure Direct Network Attachment
+## Step 6: Configure Direct Network Attachment
 
 To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
 
-### Step 5a: View Current Network Configuration
+### Step 6a: View Current Network Configuration
 
 First, check the current network configuration:
 
@@ -211,7 +213,7 @@ incus admin os system network show
 
 This shows your network interfaces and their current roles.
 
-### Step 5b: Add Instances Role to Physical Interface
+### Step 6b: Add Instances Role to Physical Interface
 
 Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
 
@@ -250,7 +252,7 @@ incus admin os system network show
 
 You should see `instances` in the `state.interfaces.eno1.roles` list.
 
-### Step 5c: Create Physical Network
+### Step 6c: Create Physical Network
 
 After the configuration is applied, create a managed physical network:
 
@@ -267,13 +269,12 @@ This creates a physical network that directly attaches to your host's network in
 - You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
 - After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
 
-## Step 6: Initialize and Apply Terraform
+## Step 7: Initialize and Apply Terraform
 
-Navigate to the Terraform directory and initialize Terraform:
+Initialize Terraform:
 
 ```bash
-cd terraform/cluster
-terraform init
+task tc:terraform:init
 ```
 
 This will download the required providers (Incus and Talos).
@@ -281,7 +282,7 @@ This will download the required providers (Incus and Talos).
 Review the Terraform plan to see what will be created:
 
 ```bash
-terraform plan
+task tc:terraform:plan
 ```
 
 The plan should show:
@@ -293,8 +294,23 @@ The plan should show:
 Apply the Terraform configuration:
 
 ```bash
-terraform apply
+task tc:terraform:apply
 ```
+
+Or use the combined create task which handles everything:
+
+```bash
+task tc:create
+```
+
+This will:
+
+1. Generate `terraform.tfvars` from environment variables
+2. Initialize Terraform
+3. Apply the Terraform configuration to create the VMs
+4. Generate Talos machine configurations
+5. Apply configurations to the VMs (using `talosctl apply-config`)
+6. Bootstrap the etcd cluster (using `talosctl bootstrap`)
 
 **For new installations** (when IP addresses are empty in `windsor.yaml`):
 
@@ -304,7 +320,7 @@ Terraform will:
 3. Generate Talos machine configurations
 4. Display instructions to get the actual DHCP-assigned IP addresses
 
-After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 7** to configure the IP addresses before Terraform can continue with Talos configuration.
+After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 8** to configure the IP addresses before Terraform can continue with Talos configuration.
 
 **For existing installations** (when IP addresses are already set in `windsor.yaml`):
 
@@ -321,17 +337,17 @@ This process may take several minutes as VMs boot and configurations are applied
 
 **Important**: Since VMs get IP addresses via DHCP, for new installations you must:
 1. Wait for VMs to boot and get their DHCP-assigned IP addresses
-2. Get the actual IP addresses from Terraform outputs (see Step 7)
+2. Get the actual IP addresses from Terraform outputs (see Step 8)
 3. Update `windsor.yaml` with the actual IPs
 4. Regenerate `terraform.tfvars` and run `terraform apply` again
 
-The IP addresses you configure in `windsor.yaml` are used for Talos configuration generation. For the first deployment, these will be empty, and you'll set them in Step 7 after the VMs receive their DHCP-assigned IPs.
+The IP addresses you configure in `windsor.yaml` are used for Talos configuration generation. For the first deployment, these will be empty, and you'll set them in Step 8 after the VMs receive their DHCP-assigned IPs.
 
-## Step 7: Configure IP Addresses for Talos Deployment
+## Step 8: Configure IP Addresses for Talos Deployment
 
 After the VMs are created and have received their DHCP-assigned IP addresses, you need to update your configuration with the actual IPs before Terraform can proceed with Talos configuration.
 
-### Step 7a: Get Actual IP Addresses
+### Step 8a: Get Actual IP Addresses
 
 Terraform automatically retrieves the actual DHCP-assigned IP addresses from the VMs after they boot. View these IP addresses using Terraform outputs:
 
@@ -359,7 +375,7 @@ terraform output -json worker_ips
 terraform output -json all_node_ips
 ```
 
-### Step 7b: Update windsor.yaml with Actual IPs
+### Step 8b: Update windsor.yaml with Actual IPs
 
 Update your `windsor.yaml` file with the actual DHCP-assigned IP addresses. Edit `contexts/${WINDSOR_CONTEXT}/windsor.yaml` and update the IP address values:
 
@@ -375,23 +391,28 @@ environment:
 
 **Note**: Replace the placeholder IPs with the actual values you obtained from `terraform output`.
 
-### Step 7c: Regenerate terraform.tfvars
+### Step 8c: Regenerate terraform.tfvars
 
 After updating `windsor.yaml`, regenerate the `terraform.tfvars` file from your updated environment variables:
 
 ```bash
-task talos:generate-tfvars
+task tc:generate-tfvars
 ```
 
 This will update `terraform/cluster/terraform.tfvars` with the actual IP addresses from your `windsor.yaml` file.
 
-### Step 7d: Continue Terraform Deployment
+### Step 8d: Continue Terraform Deployment
 
 Now that the IP addresses are configured, run Terraform apply again to continue with Talos configuration:
 
 ```bash
-cd terraform/cluster
-terraform apply
+task tc:terraform:apply
+```
+
+Or use the create task:
+
+```bash
+task tc:create
 ```
 
 Terraform will now proceed with:
@@ -407,7 +428,7 @@ To avoid this step in the future, configure DHCP reservations in your router. Re
 incus list ${INCUS_REMOTE_NAME}: --format json | jq '.[] | {name: .name, mac: .state.network.eth0.hwaddr}'
 ```
 
-## Step 8: Retrieve kubeconfig
+## Step 9: Retrieve kubeconfig
 
 After Terraform completes successfully, retrieve the kubeconfig to access your Kubernetes cluster. The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables must be set (they are configured in Step 2).
 
@@ -432,7 +453,7 @@ echo "TALOSCONFIG: ${TALOSCONFIG}"
 echo "KUBECONFIG_FILE: ${KUBECONFIG_FILE}"
 ```
 
-## Step 9: Verify Cluster Health
+## Step 10: Verify Cluster Health
 
 Check that all nodes are healthy and registered:
 
@@ -459,20 +480,52 @@ All nodes should show a "Ready" status.
 You can also verify the cluster using Talos commands:
 
 ```bash
-talosctl --talosconfig "${TALOSCONFIG}" \
-  --nodes $(terraform output -raw control_plane_ip) \
-  health
+task tc:health-controlplane
+task tc:health-worker
 ```
 
 Your Talos cluster should now be fully operational and ready for workloads.
+
+## Managing the Cluster
+
+### View Cluster Status
+
+```bash
+# List all cluster VMs
+task tc:list
+
+# Get detailed information about cluster nodes
+task tc:info
+
+# Check cluster health
+task tc:health-controlplane
+task tc:health-worker
+```
+
+### Stop/Start Cluster VMs
+
+You can stop and start VMs manually:
+
+```bash
+task tc:stop
+task tc:start
+task tc:restart
+```
+
+**Note**: Terraform will detect if VMs are stopped and may attempt to start them on the next `terraform apply`.
+
+### Access VM Console
+
+```bash
+task tc:console -- <vm-name>
+```
 
 ## Destroying the Cluster
 
 To completely destroy the Talos cluster and remove all resources, use Terraform:
 
 ```bash
-cd terraform/cluster
-terraform destroy
+task tc:destroy
 ```
 
 This will:
@@ -500,7 +553,7 @@ This will:
 After destruction, verify that all cluster VMs have been removed:
 
 ```bash
-incus list ${INCUS_REMOTE_NAME}:
+task tc:list
 ```
 
 The cluster VMs should no longer appear in the list.
@@ -510,71 +563,21 @@ The cluster VMs should no longer appear in the list.
 - **Data Loss**: Destroying the cluster will permanently delete all Kubernetes data, workloads, and persistent volumes. Ensure you have backups if needed.
 - **Network**: The physical network can be reused for other clusters, so it's not deleted automatically.
 - **Images**: The Talos image can be reused, so it's not deleted automatically.
-- **Recreation**: To recreate the cluster, simply run `terraform apply` again.
-
-## Managing the Cluster
-
-### View VM Status
-
-```bash
-incus list <remote-name>:
-```
-
-Or use Terraform to see what's deployed:
-
-```bash
-cd terraform/cluster
-terraform state list
-terraform show
-```
-
-### Update Cluster Configuration
-
-To update the cluster configuration:
-
-1. Update environment variables in `contexts/${WINDSOR_CONTEXT}/windsor.yaml`
-2. Regenerate `terraform.tfvars`: `task talos:generate-tfvars`
-3. Run `terraform plan` to preview changes
-4. Run `terraform apply` to apply changes
-
-**Note**: Some changes (like IP addresses) may require manual intervention or may not be supported by Terraform.
-
-### Stop/Start VMs
-
-You can stop and start VMs manually:
-
-```bash
-incus stop <remote-name>:<vm-name>
-incus start <remote-name>:<vm-name>
-```
-
-Or restart all cluster VMs:
-
-```bash
-incus restart <remote-name>:talos-cp <remote-name>:talos-worker-0 <remote-name>:talos-worker-1
-```
-
-**Note**: Terraform will detect if VMs are stopped and may attempt to start them on the next `terraform apply`.
-
-### Access VM Console
-
-```bash
-incus console <remote-name>:<vm-name>
-```
+- **Recreation**: To recreate the cluster, simply run `task tc:create` again.
 
 ## Troubleshooting
 
 ### Terraform Apply Fails
 
 - **VMs not booting**: Verify the Talos image was imported correctly and the alias matches your `TALOS_IMAGE_VERSION` (should be `talos-${TALOS_IMAGE_VERSION}-metal-amd64`)
-- **Network issues**: Ensure the physical network is configured correctly (Step 5)
+- **Network issues**: Ensure the physical network is configured correctly (Step 6)
 - **IP address conflicts**: Verify the IP addresses in your environment variables are available and not in use
 - **Provider errors**: Check that the Incus provider can connect to your remote: `incus list ${INCUS_REMOTE_NAME}:`
 
 ### VMs Not Getting IP Addresses
 
 - Verify the physical network exists: `incus network list ${INCUS_REMOTE_NAME}:`
-- Check if the `instances` role was added to the network interface (Step 4b)
+- Check if the `instances` role was added to the network interface (Step 6b)
 - Wait longer for DHCP assignment (sometimes VMs need 3-5 minutes)
 - Check your router's DHCP server is running
 
@@ -590,7 +593,7 @@ incus console <remote-name>:<vm-name>
 - Ensure control plane VM is fully booted and accessible
 - Verify etcd is not already bootstrapped (only bootstrap once)
 - Check Talos API is accessible: `talosctl --nodes <control-plane-ip> version`
-- Review control plane logs: `incus console <remote-name>:talos-cp`
+- Review control plane logs: `task tc:console -- talos-cp`
 
 ### Nodes Not Joining Cluster
 
@@ -603,7 +606,7 @@ incus console <remote-name>:<vm-name>
 
 If VMs fail to start due to resource constraints:
 
-- Reduce VM memory allocation by setting `CONTROL_PLANE_MEMORY` and `WORKER_MEMORY` environment variables (minimum 2GB per VM), then regenerate: `task talos:generate-tfvars`
+- Reduce VM memory allocation by setting `CONTROL_PLANE_MEMORY` and `WORKER_MEMORY` environment variables (minimum 2GB per VM), then regenerate: `task tc:generate-tfvars`
 - Check available disk space on IncusOS host
 - Verify CPU resources are available
 - Consider reducing the number of VMs or upgrading hardware
@@ -623,8 +626,8 @@ After successfully deploying your Talos cluster:
 
 - [Talos Documentation](https://www.talos.dev/)
 - [IncusOS Setup](setup.md) - Setting up IncusOS
-- [Talos Cluster on IncusOS VMs (Manual)](talos-incus-vm.md) - Alternative manual deployment approach
 - [Bootstrapping Nodes](../bootstrapping/README.md) - Physical node bootstrapping
 - [Initialize Workspace](../workspace/init.md) - Workspace setup
 - [Terraform Incus Provider Documentation](https://registry.terraform.io/providers/lxc/incus/latest/docs)
 - [Terraform Talos Provider Documentation](https://registry.terraform.io/providers/siderolabs/talos/latest/docs)
+

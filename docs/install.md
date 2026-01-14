@@ -108,8 +108,7 @@ Now that your workspace is set up, you're ready to start working with the docume
 - **Explore Runbooks**: Browse the available [runbooks](./runbooks/README.md) for step-by-step guides on deploying infrastructure
 - **Learn About Taskfiles**: Review the [Taskfiles documentation](./taskfiles/README.md) to understand how to execute common operations
 - **Choose a Runbook**: Start with a runbook that matches your needs:
-  - **Development**: [Remote Development Machines](./runbooks/incusos/dev-machines.md)
-  - **Kubernetes**: [Talos Cluster on IncusOS (Manual)](./runbooks/incusos/talos-incus-vm.md), [Talos Cluster on IncusOS (Terraform)](./runbooks/incusos/talos-incus-terraform.md), or [Bootstrapping Nodes](./runbooks/bootstrapping/README.md)
-  - **CI/CD**: [GitHub Runner Setup](./runbooks/incusos/github-runner.md)
+  - **Development or CI/CD**: [Ubuntu Virtual Machines](./runbooks/incusos/vm.md) (covers both development VMs and GitHub Actions runner VMs)
+  - **Kubernetes**: [Talos Kubernetes Cluster](./runbooks/incusos/tc.md) or [Bootstrapping Nodes](./runbooks/bootstrapping/README.md)
 
 Each runbook includes detailed prerequisites, step-by-step instructions, and verification steps to guide you through the deployment process.

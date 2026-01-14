@@ -11,12 +11,9 @@ backend_override.tf
 .aws/
 .azure/
 terraform/**/backend_override.tf
-contexts/**/.terraform/
-contexts/**/.tfstate/
-contexts/**/.kube/
-contexts/**/.talos/
-contexts/**/.omni/
-contexts/**/.aws/
-contexts/**/.azure/
+contexts
 secrets.yaml
-
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars

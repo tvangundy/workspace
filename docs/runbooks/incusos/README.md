@@ -22,25 +22,22 @@ IncusOS is a minimal, purpose-built operating system that provides a streamlined
 #### 🚀 [IncusOS Server Setup](setup.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices. Covers BIOS configuration, Secure Boot setup, boot media preparation using the IncusOS customizer, installation process, and connecting to the Incus server via CLI. This is the foundational setup required before using any other IncusOS runbooks.
 
-#### ☸️ [Talos Kubernetes Cluster](talos-incus-vm.md)
-Deploy a complete Talos Linux Kubernetes cluster using virtual machines on an IncusOS system. Includes workspace setup, Talos image download and configuration, network bridge creation, launching 3 VMs (1 control plane, 2 workers), Talos configuration with kernel modules and sysctls, cluster bootstrapping, kubeconfig retrieval, and cluster verification. Also covers cluster cleanup and destruction procedures.
-
-#### ☸️ [Talos Kubernetes Cluster with Terraform](talos-incus-terraform.md)
+#### ☸️ [Talos Kubernetes Cluster](tc.md)
 Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraform and the Incus provider. This approach uses Terraform to manage your cluster declaratively, making it easy to version control, reproduce, and manage your infrastructure. Includes workspace setup, environment variable configuration, Terraform variable generation, Talos image download and import, network bridge creation, Terraform initialization and application, IP address management, kubeconfig retrieval, and cluster verification. Also covers cluster destruction and management procedures.
 
-#### 💻 [Remote Development Machines](dev-machines.md)
-Create and manage development virtual machines on a remote IncusOS server. Includes workspace initialization with Aqua tool management, VM creation with Ubuntu 24.04, Docker installation, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Ideal for persistent development work with isolated environments and direct SSH access from your local network.
+#### 🐧 [Ubuntu Virtual Machines](vm.md)
+Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbook covers creating generic VMs, development VMs, and GitHub Actions runner VMs. All are just named instances of Ubuntu VMs created using the `vm:` task namespace. Includes workspace initialization, Terraform-based VM creation, developer tools installation, Docker setup, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Provides isolated, persistent Ubuntu environments with direct SSH access from your local network, suitable for development work, CI/CD runners, or any other workload.
 
-#### 🏃 [GitHub Actions Runner](github-runner.md)
-Set up GitHub Actions runners using Ubuntu virtual machines on an IncusOS system. Covers GitHub runner configuration, workspace and environment variable setup, secure token storage with SOPS, network configuration for direct VM attachment, Ubuntu VM creation and initialization, runner software installation and configuration, service setup for auto-start, and ongoing maintenance procedures for updates and cleanup.
+#### 📧 [Mailu Email Server on VM](mailu-vm.md)
+Deploy a Mailu email server on an Ubuntu virtual machine on an IncusOS system. Ties together IncusOS setup, VM creation, Docker installation, and Mailu deployment into a complete workflow. Includes Ubuntu VM creation with direct network access, Docker and Docker Compose installation, Mailu deployment configuration, DNS setup, and ongoing VM and Mailu management.
 
 ## Getting Started
 
 If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.md) runbook to get your IncusOS server up and running. Once your server is configured, you can proceed with any of the deployment runbooks based on your needs:
 
-- **For Kubernetes**: Choose between [Talos Cluster on IncusOS VMs (Manual)](talos-incus-vm.md) or [Talos Cluster on IncusOS VMs (Terraform)](talos-incus-terraform.md)
-- **For Development**: Use the [Remote Dev Machines](dev-machines.md) guide
-- **For CI/CD**: Use the [GitHub Runner](github-runner.md) guide
+- **For Kubernetes**: Use the [Talos Kubernetes Cluster](tc.md) guide
+- **For Development or CI/CD**: Use the [Ubuntu Virtual Machines](vm.md) guide (covers both development VMs and GitHub Actions runner VMs)
+- **For Email Services**: Use the [Mailu Email Server on VM](mailu-vm.md) guide
 
 ## Common Prerequisites
 

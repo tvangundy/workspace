@@ -1,0 +1,13 @@
+# Example terraform.tfvars file for Ubuntu VM
+# This file is auto-generated from environment variables - do not edit manually
+# Update environment variables in contexts/<context>/windsor.yaml and regenerate
+
+incus_remote_name      = "your-remote-name"
+vm_name                = "vm"
+vm_image               = "ubuntu/24.04"
+vm_memory              = "8GB"
+vm_cpu                 = "4"
+vm_autostart           = false
+physical_network_name  = "enp5s0"
+storage_pool           = "local"
+

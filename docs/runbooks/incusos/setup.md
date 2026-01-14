@@ -269,7 +269,7 @@ Replace `<nuc-ip-address>` with your NUC's IP address (e.g., `https://192.168.2.
 
 You'll be presented with the Incus UI setup page, which guides you through the certificate setup process:
 
-![Incus UI Setup](incusos-ui-setup.png)
+![Incus UI Setup](ui-setup.png)
 
 #### Step 1: Generate Certificate
 

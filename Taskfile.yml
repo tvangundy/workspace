@@ -9,9 +9,9 @@ includes:
   docker: tasks/docker
   vhs: tasks/vhs
   talos: tasks/talos
+  tc: tasks/tc
   incus: tasks/incus
-  runner: tasks/runner
-  dev: tasks/dev
+  vm: tasks/vm
 
 tasks:
   help:
@@ -46,12 +46,13 @@ tasks:
         echo ""
         echo "Available namespaces"
         echo ""
-        echo "workspace, device, sops, docker, vhs, talos, incus, runner, dev"
+        echo "workspace, device, sops, docker, vhs, talos, tc, incus, vm"
         echo ""
         echo "To run a task:"
         echo "    task <namespace>:<task>"
         echo ""
         echo "Example:"
+        echo "    task workspace:initialize -- <workspace-name> <workspace-global-path>"        
         echo "    task sops:decrypt -- <file>"
         echo "    task device:list-disks"
         echo "    task docker:clean"

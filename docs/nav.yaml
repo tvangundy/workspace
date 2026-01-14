@@ -8,9 +8,9 @@ nav:
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
       - Server Setup: runbooks/incusos/setup.md
-      - Kubernetes Clusters: runbooks/incusos/talos-incus-terraform.md
-      - Dev Machines: runbooks/incusos/dev-machines.md
-      - GitHub Runners: runbooks/incusos/github-runner.md
+      - Kubernetes Clusters: runbooks/incusos/tc.md
+      - Ubuntu Virtual Machines: runbooks/incusos/vm.md
+      - Mailu Email Server: runbooks/incusos/mailu-vm.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Ubuntu Server: runbooks/ubuntu/ubuntu-setup.md
@@ -20,14 +20,15 @@ nav:
         - Sidero Omni: runbooks/bootstrapping/omni.md
     - Self-Hosted Runners:
       - Ubuntu: runbooks/runners/ubuntu-runner-setup.md
+    - Mailu:
+      - Email Server: runbooks/mailu/mailu.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
-      - Dev: taskfiles/dev/README.md
-      - Device: taskfiles/device/README.md
-      - Docker: taskfiles/docker/README.md
-      - Incus: taskfiles/incus/README.md
-      - Runner: taskfiles/runner/README.md
-      - SOPS: taskfiles/sops/README.md
+            - Device: taskfiles/device/README.md
+            - Docker: taskfiles/docker/README.md
+            - Incus: taskfiles/incus/README.md
+            - Mailu: taskfiles/mailu/README.md
+            - SOPS: taskfiles/sops/README.md
       - Talos: taskfiles/talos/README.md
       - VHS: taskfiles/vhs/README.md
       - Workspace: taskfiles/workspace/README.md      
