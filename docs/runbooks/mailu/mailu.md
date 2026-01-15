@@ -187,10 +187,11 @@ environment:
   # Generate random strings if sops values are not available:
   #   openssl rand -hex 32    # For MAILU_SECRET_KEY
   #   openssl rand -base64 24 # For MAILU_INITIAL_ADMIN_PW
-  # Or use sops if configured
-  # Default values shown below - replace with sops syntax if using sops:
-  #   MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY }}
-  #   MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW }}
+  # Or use sops if configured.
+  # If using sops, replace the values below with:
+  #   MAILU_SECRET_KEY: sops.MAILU_SECRET_KEY
+  #   MAILU_INITIAL_ADMIN_PW: sops.MAILU_INITIAL_ADMIN_PW
+  # Default values shown below:
   MAILU_SECRET_KEY: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
   MAILU_SUBNET: "192.168.203.0/24"
   MAILU_DB_FLAVOR: "sqlite"
