@@ -93,22 +93,12 @@ environment:
   # Storage pool (optional, defaults to local)
   STORAGE_POOL: "local"
   
-  # VM resources (optional, defaults shown)
+  # VM resources (optional, defaults: 2GB memory, 2 CPUs per VM)
+  # Uncomment and adjust if you need different resource allocations
   # CONTROL_PLANE_MEMORY: "2GB"
   # CONTROL_PLANE_CPU: "2"
   # WORKER_MEMORY: "2GB"
   # WORKER_CPU: "2"
-  
-  # Common configuration patches (optional)
-  # Example for br_netfilter kernel module:
-  # COMMON_CONFIG_PATCHES: |
-  #   "machine":
-  #     "kernel":
-  #       "modules":
-  #       - "name": "br_netfilter"
-  #     "sysctls":
-  #       "net.bridge.bridge-nf-call-iptables": "1"
-  #       "net.bridge.bridge-nf-call-ip6tables": "1"
   
   # Talos configuration paths (REQUIRED - must be set)
   # These paths are used by Terraform and talosctl commands throughout the deployment
