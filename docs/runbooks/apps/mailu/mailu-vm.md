@@ -4,7 +4,7 @@ description: "Complete guide for deploying Mailu email server on an Ubuntu VM on
 ---
 # Mailu Email Server on IncusOS VM
 
-This runbook guides you through deploying a [Mailu](https://mailu.io/) email server on an Ubuntu virtual machine running on an IncusOS system. This runbook leverages the standard Ubuntu VM creation process (see [Ubuntu Virtual Machines](../incusos/vm.md)) and adds Mailu-specific configuration and deployment.
+This runbook guides you through deploying a [Mailu](https://mailu.io/) email server on an Ubuntu virtual machine running on an IncusOS system. This runbook leverages the standard Ubuntu VM creation process (see [Ubuntu Virtual Machines](../../incusos/vm.md)) and adds Mailu-specific configuration and deployment.
 
 ## Overview
 
@@ -20,10 +20,10 @@ This approach uses the standard VM creation workflow, making it consistent with 
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Server](../incusos/server.md))
+- IncusOS server installed and running (see [IncusOS Server](../../incusos/server.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
-- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
+- Workspace initialized and context set (see [Initialize Workspace](../../workspace/init.md))
 - Domain name with DNS access
 - Network access for the VM to reach the internet (for Let's Encrypt certificates)
 - Email ports open (25, 587, 465, 993, 143, 80, 443)
@@ -118,7 +118,7 @@ environment:
   # ... other environment variables will be added in Step 4 ...
 ```
 
-**Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../secrets/secrets.md) runbook.
+**Note**: For more details on managing secrets with SOPS, see the [Managing Secrets with SOPS](../../secrets/secrets.md) runbook.
 
 ## Step 3: Configure Environment Variables
 
@@ -675,10 +675,10 @@ You now have a Mailu email server running in an isolated VM on your IncusOS infr
 
 ## Related Runbooks
 
-- [IncusOS Server](../incusos/server.md): Initial IncusOS server installation
+- [IncusOS Server](../../incusos/server.md): Initial IncusOS server installation
 - [Mailu Email Server](mailu.md): Complete Mailu deployment and management guide
-- [Talos Kubernetes Cluster](../incusos/tc.md): Another example of Terraform-based VM deployment
-- [Ubuntu Virtual Machines](../incusos/vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)
+- [Talos Kubernetes Cluster](../../incusos/tc.md): Another example of Terraform-based VM deployment
+- [Ubuntu Virtual Machines](../../incusos/vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)
 
 ## Additional Resources
 

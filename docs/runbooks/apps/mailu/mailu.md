@@ -217,7 +217,7 @@ environment:
 - `MAILU_INITIAL_ADMIN_PW`: Password for initial admin account
 - `MAILU_INITIAL_ADMIN_MODE`: When to create admin (`ifmissing`, `always`, or `never`)
 
-**Note**: For production deployments, use `mysql` or `postgresql` instead of `sqlite`. For secrets, use SOPS to encrypt sensitive values. See the [Secrets Management](../secrets/secrets.md) runbook for details.
+**Note**: For production deployments, use `mysql` or `postgresql` instead of `sqlite`. For secrets, use SOPS to encrypt sensitive values. See the [Secrets Management](../../secrets/secrets.md) runbook for details.
 
 ## Step 5: Generate Configuration Files
 

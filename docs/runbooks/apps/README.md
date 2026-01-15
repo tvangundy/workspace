@@ -44,8 +44,8 @@ Step-by-step guides for setting up GitHub Actions runners on various platforms:
 
 Most application runbooks require:
 
-- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
-- **Secrets management**: Configure encrypted secrets using [SOPS](../secrets/secrets.md) for sensitive configuration
+- **Workspace initialized**: Follow the [Initialize Workspace](../../workspace/init.md) runbook if you haven't already
+- **Secrets management**: Configure encrypted secrets using [SOPS](../../secrets/secrets.md) for sensitive configuration
 - **Windsor CLI**: Installed and configured on your local machine
 - **Network access**: Proper network configuration for the application to function
 

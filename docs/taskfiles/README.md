@@ -21,6 +21,7 @@ task vm:create
 - **`incus:`** - Incus daemon management and instance operations, including Talos VM deployment
 - **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
 - **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
+- **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
 - **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners
 - **`vhs:`** - Terminal session recording and GIF generation for documentation
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
@@ -162,6 +163,41 @@ Talos Linux cluster health checks and management.
 - `WORKER_0_VM` - First worker VM name
 - `WORKER_1_VM` - Second worker VM name
 
+### ☸️ Talos Cluster (`tc:`)
+
+Talos Kubernetes cluster management for creating and managing three-node Talos Linux clusters on Incus using Terraform.
+
+**Cluster Creation:**
+- `task tc:create` - Create a three-node Talos Kubernetes cluster using Terraform
+
+**Terraform Operations:**
+- `task tc:generate-tfvars` - Generate terraform.tfvars from environment variables
+- `task tc:terraform:init` - Initialize Terraform
+- `task tc:terraform:plan` - Show Terraform plan
+- `task tc:terraform:apply` - Apply Terraform configuration
+- `task tc:terraform:destroy` - Destroy the cluster using Terraform
+
+**Cluster Management:**
+- `task tc:list` - List all cluster VMs
+- `task tc:info` - Get detailed information about the cluster
+- `task tc:console -- <vm-name>` - Access VM console
+- `task tc:start` - Start all cluster VMs
+- `task tc:stop` - Stop all cluster VMs
+- `task tc:restart` - Restart all cluster VMs
+- `task tc:destroy` - Destroy the Talos cluster using Terraform
+
+**Health Checks:**
+- `task tc:health-controlplane` - Health check the control plane node
+- `task tc:health-worker` - Health check all worker nodes
+- `task tc:health-worker-0` - Health check worker-0
+- `task tc:health-worker-1` - Health check worker-1
+
+**Testing:**
+- `task tc:test -- <remote-name> [--keep]` - Test complete cluster setup and validate cluster
+
+**Help:**
+- `task tc:help` - Show all tc commands
+
 ### 🖥️ Ubuntu VM (`vm:`)
 
 Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform.
@@ -282,6 +318,7 @@ All task definitions are located in the `tasks/` directory, organized by namespa
 - `tasks/incus/Taskfile.yaml`
 - `tasks/sops/Taskfile.yaml`
 - `tasks/talos/Taskfile.yaml`
+- `tasks/tc/Taskfile.yaml` (Talos Kubernetes cluster management)
 - `tasks/vm/Taskfile.yaml` (includes VM management, development environments, and GitHub Actions runner setup)
 - `tasks/vhs/Taskfile.yaml`
 - `tasks/workspace/Taskfile.yaml`

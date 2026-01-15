@@ -34,6 +34,8 @@ nav:
       - Mailu: taskfiles/mailu/README.md
       - SOPS: taskfiles/sops/README.md
       - Talos: taskfiles/talos/README.md
+      - TC: taskfiles/tc/README.md
       - VHS: taskfiles/vhs/README.md
+      - VM: taskfiles/vm/README.md
       - Workspace: taskfiles/workspace/README.md      
   - Troubleshooting: troubleshooting.md
