@@ -149,8 +149,13 @@ environment:
   # Mailu configuration (optional - can be set later)
   MAILU_DOMAIN: "example.com"
   MAILU_HOSTNAME: "mail.example.com"
-  MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY }}
-  MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW }}
+  # Generate random strings if sops values are not available:
+  # Run these commands to generate secure random values:
+  #   openssl rand -hex 32    # For MAILU_SECRET_KEY
+  #   openssl rand -base64 24 # For MAILU_INITIAL_ADMIN_PW
+  # Then replace the values below, or use sops if configured:
+  MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY || "$(openssl rand -hex 32)" }}
+  MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW || "$(openssl rand -base64 24)" }}
 ```
 
 **Important Notes:**
