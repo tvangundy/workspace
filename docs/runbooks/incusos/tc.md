@@ -107,6 +107,7 @@ environment:
 ```
 
 **Important**: The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables are **required** and must be set. These paths are used by:
+
 - Terraform to save the Talos configuration file
 - `talosctl` commands to locate the configuration
 - `kubectl` commands to access the Kubernetes cluster
@@ -114,6 +115,7 @@ environment:
 The paths shown above are the standard locations. Do not change them unless you have a specific reason to do so.
 
 **Note**: Replace the placeholder values with your actual configuration:
+
 - `INCUS_REMOTE_NAME`: The name of your Incus remote (from `incus remote list`)
 - `CONTROL_PLANE_IP`, `WORKER_0_IP`, `WORKER_1_IP`: Expected IP addresses on your network for the VMs (leave empty for new installations - Terraform will prompt you to fill them in after VMs are created)
 - `CLUSTER_NAME`: A name for your Kubernetes cluster
