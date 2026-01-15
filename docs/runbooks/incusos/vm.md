@@ -640,10 +640,13 @@ To create a VM for use as a GitHub Actions runner, you'll need to:
      RUNNER_USER: "runner"
      RUNNER_HOME: "/home/runner"
      
-     # GitHub Actions runner configuration
-     GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
-     GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN }}  # Store as SOPS secret
-     GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest
+    # GitHub Actions runner configuration
+    GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
+    # Generate a random token-like string if sops is not available:
+    #   openssl rand -hex 32  # For GITHUB_RUNNER_TOKEN
+    # Or use sops if configured: ${{ sops.GITHUB_RUNNER_TOKEN }}
+    GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN || "$(openssl rand -hex 32)" }}
+    GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest
      GITHUB_RUNNER_ARCH: "x64"  # Optional: defaults to "x64"
    ```
 3. **Store the GitHub runner token** as a SOPS secret (see [Managing Secrets with SOPS](../secrets/secrets.md))

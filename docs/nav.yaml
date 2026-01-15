@@ -9,7 +9,7 @@ nav:
       - Introduction: runbooks/incusos/README.md
       - Server Setup: runbooks/incusos/setup.md
       - Kubernetes Clusters: runbooks/incusos/tc.md
-      - Ubuntu Virtual Machines: runbooks/incusos/vm.md
+      - Virtual Machines: runbooks/incusos/vm.md
       - Mailu Email Server: runbooks/incusos/mailu-vm.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md

@@ -184,7 +184,11 @@ environment:
   # Mailu configuration
   MAILU_DOMAIN: "example.com"
   MAILU_HOSTNAME: "mail.example.com"
-  MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY }}
+  # Generate random strings if sops values are not available:
+  #   openssl rand -hex 32    # For MAILU_SECRET_KEY
+  #   openssl rand -base64 24 # For MAILU_INITIAL_ADMIN_PW
+  # Or use sops if configured
+  MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY || "$(openssl rand -hex 32)" }}
   MAILU_SUBNET: "192.168.203.0/24"
   MAILU_DB_FLAVOR: "sqlite"
   MAILU_TLS_FLAVOR: "letsencrypt"
@@ -192,7 +196,7 @@ environment:
   # Admin account (optional - can be set in mailu.env)
   MAILU_INITIAL_ADMIN_ACCOUNT: "admin"
   MAILU_INITIAL_ADMIN_DOMAIN: "example.com"
-  MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW }}
+  MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW || "$(openssl rand -base64 24)" }}
   MAILU_INITIAL_ADMIN_MODE: "ifmissing"
 ```
 
