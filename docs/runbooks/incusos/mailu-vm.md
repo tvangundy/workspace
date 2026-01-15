@@ -124,7 +124,7 @@ environment:
 
 Configure the environment variables for your Mailu VM deployment. Add these lines to `contexts/<context>/windsor.yaml`:
 
-```yaml
+```text
 secrets:
   sops:
     enabled: true

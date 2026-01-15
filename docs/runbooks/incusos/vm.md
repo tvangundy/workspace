@@ -634,7 +634,7 @@ To create a VM for use as a GitHub Actions runner, you'll need to:
 
 1. **Create the VM** using the `vm:` namespace (follow the steps above in this runbook)
 2. **Configure GitHub runner settings** in your `windsor.yaml`:
-   ```yaml
+   ```text
    environment:
      # Runner user configuration
      RUNNER_USER: "runner"

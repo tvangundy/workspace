@@ -179,7 +179,7 @@ _dmarc.example.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com
 
 Configure the environment variables for your Mailu deployment. Add these lines to `./contexts/mailu/windsor.yaml`:
 
-```yaml
+```text
 environment:
   # Mailu configuration
   MAILU_DOMAIN: "example.com"
