@@ -645,7 +645,9 @@ To create a VM for use as a GitHub Actions runner, you'll need to:
     # Generate a random token-like string if sops is not available:
     #   openssl rand -hex 32  # For GITHUB_RUNNER_TOKEN
     # Or use sops if configured: ${{ sops.GITHUB_RUNNER_TOKEN }}
-    GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN || "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162" }}
+    # Default value shown below - replace with sops syntax if using sops:
+    #   GITHUB_RUNNER_TOKEN: ${{ sops.GITHUB_RUNNER_TOKEN }}
+    GITHUB_RUNNER_TOKEN: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
     GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest
      GITHUB_RUNNER_ARCH: "x64"  # Optional: defaults to "x64"
    ```

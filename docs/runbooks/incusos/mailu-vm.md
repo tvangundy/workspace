@@ -154,8 +154,11 @@ environment:
   #   openssl rand -hex 32    # For MAILU_SECRET_KEY
   #   openssl rand -base64 24 # For MAILU_INITIAL_ADMIN_PW
   # Then replace the values below, or use sops if configured:
-  MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY || "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162" }}
-  MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW || "TUbV2j3Z/Frm+MoxkszQsOKCj44jj08M" }}
+  # Default values shown below - replace with sops syntax if using sops:
+  #   MAILU_SECRET_KEY: ${{ sops.MAILU_SECRET_KEY }}
+  #   MAILU_INITIAL_ADMIN_PW: ${{ sops.MAILU_INITIAL_ADMIN_PW }}
+  MAILU_SECRET_KEY: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
+  MAILU_INITIAL_ADMIN_PW: "TUbV2j3Z/Frm+MoxkszQsOKCj44jj08M"
 ```
 
 **Important Notes:**
