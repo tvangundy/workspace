@@ -19,7 +19,7 @@ IncusOS is a minimal, purpose-built operating system that provides a streamlined
 
 ## Available Runbooks
 
-#### 🚀 [IncusOS Server Setup](setup.md)
+#### 🚀 [IncusOS Server](server.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices. Covers BIOS configuration, Secure Boot setup, boot media preparation using the IncusOS customizer, installation process, and connecting to the Incus server via CLI. This is the foundational setup required before using any other IncusOS runbooks.
 
 #### ☸️ [Talos Kubernetes Cluster](tc.md)
@@ -30,7 +30,7 @@ Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbo
 
 ## Getting Started
 
-If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.md) runbook to get your IncusOS server up and running. Once your server is configured, you can proceed with any of the deployment runbooks based on your needs:
+If you're new to IncusOS, we recommend starting with the [IncusOS Server](server.md) runbook to get your IncusOS server up and running. Once your server is configured, you can proceed with any of the deployment runbooks based on your needs:
 
 - **For Kubernetes**: Use the [Talos Kubernetes Cluster](tc.md) guide
 - **For Development or CI/CD**: Use the [Ubuntu Virtual Machines](vm.md) guide (covers both development VMs and GitHub Actions runner VMs)
@@ -40,7 +40,7 @@ If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.m
 
 Most IncusOS runbooks require:
 
-- **IncusOS system**: An IncusOS host with Incus installed and running (see [IncusOS Setup](setup.md))
+- **IncusOS system**: An IncusOS host with Incus installed and running (see [IncusOS Server](server.md))
 - **Incus CLI client**: Installed and configured on your local machine
 - **Incus remote configured**: Connected to your IncusOS server
 - **Network access**: The IncusOS host must be on a network with available IP addresses

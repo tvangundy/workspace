@@ -20,7 +20,7 @@ This approach uses the standard VM creation workflow, making it consistent with 
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Setup](../incusos/setup.md))
+- IncusOS server installed and running (see [IncusOS Server](../incusos/server.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
@@ -675,7 +675,7 @@ You now have a Mailu email server running in an isolated VM on your IncusOS infr
 
 ## Related Runbooks
 
-- [IncusOS Setup](../incusos/setup.md): Initial IncusOS server installation
+- [IncusOS Server](../incusos/server.md): Initial IncusOS server installation
 - [Mailu Email Server](mailu.md): Complete Mailu deployment and management guide
 - [Talos Kubernetes Cluster](../incusos/tc.md): Another example of Terraform-based VM deployment
 - [Ubuntu Virtual Machines](../incusos/vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)

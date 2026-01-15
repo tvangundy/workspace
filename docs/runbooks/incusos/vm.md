@@ -25,7 +25,7 @@ All of these are just named instances of Ubuntu VMs created using the `vm:` task
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Setup](setup.md))
+- IncusOS server installed and running (see [IncusOS Server](server.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))

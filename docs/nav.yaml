@@ -7,7 +7,7 @@ nav:
     - Secrets: runbooks/secrets/secrets.md
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
-      - Server Setup: runbooks/incusos/setup.md
+      - Server: runbooks/incusos/server.md
       - Kubernetes Clusters: runbooks/incusos/tc.md
       - Virtual Machines: runbooks/incusos/vm.md
     - Bootstrapping:

@@ -15,7 +15,7 @@ Talos clusters on IncusOS provide:
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Setup](setup.md))
+- IncusOS server installed and running (see [IncusOS Server](server.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
@@ -625,7 +625,7 @@ After successfully deploying your Talos cluster:
 ## Additional Resources
 
 - [Talos Documentation](https://www.talos.dev/)
-- [IncusOS Setup](setup.md) - Setting up IncusOS
+- [IncusOS Server](server.md) - Setting up IncusOS
 - [Bootstrapping Nodes](../bootstrapping/README.md) - Physical node bootstrapping
 - [Initialize Workspace](../workspace/init.md) - Workspace setup
 - [Terraform Incus Provider Documentation](https://registry.terraform.io/providers/lxc/incus/latest/docs)

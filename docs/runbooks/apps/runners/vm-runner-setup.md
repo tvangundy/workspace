@@ -19,7 +19,7 @@ This approach uses the standard VM creation workflow, making it consistent with 
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Setup](../../incusos/setup.md))
+- IncusOS server installed and running (see [IncusOS Server](../../incusos/server.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../../workspace/init.md))
@@ -464,7 +464,7 @@ You now have a GitHub Actions runner running in an isolated VM on your IncusOS i
 
 ## Related Runbooks
 
-- [IncusOS Setup](../../incusos/setup.md): Initial IncusOS server installation
+- [IncusOS Server](../../incusos/server.md): Initial IncusOS server installation
 - [Ubuntu Virtual Machines](../../incusos/vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)
 - [Bare Metal Runner Setup](bare-metal-runner-setup.md): Setting up GitHub Actions runners on bare metal Ubuntu servers
 

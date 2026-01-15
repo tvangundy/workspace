@@ -39,7 +39,7 @@ Step-by-step guide for initializing a new workspace using the workspace initiali
 ### 🔐 [Secrets Management](./secrets/secrets.md)
 Complete guide for managing encrypted secrets using SOPS (Secrets Operations). Learn how to generate, encrypt, decrypt, and manage secrets within your workspace contexts, including integration with Windsor CLI.
 
-### 🐳 [IncusOS Setup](./incusos/setup.md)
+### 🐳 [IncusOS Server](./incusos/server.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices. Covers BIOS configuration, Secure Boot setup, boot media preparation using the IncusOS customizer, installation process, and connecting to the Incus server via CLI. This is the foundational setup required before using any other IncusOS runbooks.
 
 ### ☸️ [Talos Kubernetes Cluster](./incusos/tc.md)
