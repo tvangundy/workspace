@@ -48,7 +48,7 @@ Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraf
 ### 🐧 [Ubuntu Virtual Machines](./incusos/vm.md)
 Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbook covers creating generic VMs, development VMs, and GitHub Actions runner VMs. All are just named instances of Ubuntu VMs created using the `vm:` task namespace. Includes workspace initialization, Terraform-based VM creation, developer tools installation, Docker setup, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Provides isolated, persistent Ubuntu environments with direct SSH access from your local network, suitable for development work, CI/CD runners, or any other workload.
 
-### 📧 [Mailu Email Server](./mailu/mailu.md)
+### 📧 [Mailu Email Server](./apps/mailu/mailu.md)
 Deploy and manage a Mailu email server using Docker Compose. Covers Docker and Docker Compose installation, DNS configuration (MX records, SPF, DKIM, DMARC), Mailu setup and configuration, service management, admin account creation, security configuration, and ongoing maintenance. Provides a self-hosted email server with webmail, IMAP, SMTP, and administration features.
 
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)

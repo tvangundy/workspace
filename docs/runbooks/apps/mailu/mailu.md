@@ -192,7 +192,7 @@ environment:
   #   MAILU_SECRET_KEY: sops.MAILU_SECRET_KEY
   #   MAILU_INITIAL_ADMIN_PW: sops.MAILU_INITIAL_ADMIN_PW
   # Default values shown below:
-  MAILU_SECRET_KEY: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
+  MAILU_SECRET_KEY: "<secret-key>"
   MAILU_SUBNET: "192.168.203.0/24"
   MAILU_DB_FLAVOR: "sqlite"
   MAILU_TLS_FLAVOR: "letsencrypt"
@@ -200,7 +200,7 @@ environment:
   # Admin account (optional - can be set in mailu.env)
   MAILU_INITIAL_ADMIN_ACCOUNT: "admin"
   MAILU_INITIAL_ADMIN_DOMAIN: "example.com"
-  MAILU_INITIAL_ADMIN_PW: "TUbV2j3Z/Frm+MoxkszQsOKCj44jj08M"
+  MAILU_INITIAL_ADMIN_PW: "<admin-password>"
   MAILU_INITIAL_ADMIN_MODE: "ifmissing"
 ```
 

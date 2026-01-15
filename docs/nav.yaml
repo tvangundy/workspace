@@ -10,7 +10,6 @@ nav:
       - Server Setup: runbooks/incusos/setup.md
       - Kubernetes Clusters: runbooks/incusos/tc.md
       - Virtual Machines: runbooks/incusos/vm.md
-      - Mailu Email Server: runbooks/incusos/mailu-vm.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
       - Ubuntu Server: runbooks/bootstrapping/ubuntu-setup.md
@@ -18,8 +17,11 @@ nav:
         - Raspberry Pi: runbooks/bootstrapping/rpi.md
         - Intel NUC: runbooks/bootstrapping/nuc.md
         - Sidero Omni: runbooks/bootstrapping/omni.md
-    - Mailu:
-      - Email Server: runbooks/mailu/mailu.md
+    - Apps:
+      - Home Assistant: runbooks/apps/home-assistant/README.md
+      - Mailu:
+        - Email Server: runbooks/apps/mailu/mailu.md
+        - Email Server on VM: runbooks/apps/mailu/mailu-vm.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
       - Device: taskfiles/device/README.md

@@ -647,7 +647,7 @@ To create a VM for use as a GitHub Actions runner, you'll need to:
     # Or use sops if configured - replace the value below with:
     #   GITHUB_RUNNER_TOKEN: sops.GITHUB_RUNNER_TOKEN
     # Default value shown below:
-    GITHUB_RUNNER_TOKEN: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
+    GITHUB_RUNNER_TOKEN: "<runner-token>"
     GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest
      GITHUB_RUNNER_ARCH: "x64"  # Optional: defaults to "x64"
    ```

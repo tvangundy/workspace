@@ -28,7 +28,7 @@ Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraf
 #### 🐧 [Ubuntu Virtual Machines](vm.md)
 Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbook covers creating generic VMs, development VMs, and GitHub Actions runner VMs. All are just named instances of Ubuntu VMs created using the `vm:` task namespace. Includes workspace initialization, Terraform-based VM creation, developer tools installation, Docker setup, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Provides isolated, persistent Ubuntu environments with direct SSH access from your local network, suitable for development work, CI/CD runners, or any other workload.
 
-#### 📧 [Mailu Email Server on VM](mailu-vm.md)
+#### 📧 [Mailu Email Server on VM](../apps/mailu/mailu-vm.md)
 Deploy a Mailu email server on an Ubuntu virtual machine on an IncusOS system. Ties together IncusOS setup, VM creation, Docker installation, and Mailu deployment into a complete workflow. Includes Ubuntu VM creation with direct network access, Docker and Docker Compose installation, Mailu deployment configuration, DNS setup, and ongoing VM and Mailu management.
 
 ## Getting Started
@@ -37,7 +37,7 @@ If you're new to IncusOS, we recommend starting with the [IncusOS Setup](setup.m
 
 - **For Kubernetes**: Use the [Talos Kubernetes Cluster](tc.md) guide
 - **For Development or CI/CD**: Use the [Ubuntu Virtual Machines](vm.md) guide (covers both development VMs and GitHub Actions runner VMs)
-- **For Email Services**: Use the [Mailu Email Server on VM](mailu-vm.md) guide
+- **For Email Services**: Use the [Mailu Email Server on VM](../apps/mailu/mailu-vm.md) guide
 
 ## Common Prerequisites
 

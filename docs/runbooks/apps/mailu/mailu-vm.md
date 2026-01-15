@@ -4,7 +4,7 @@ description: "Complete guide for deploying Mailu email server on an Ubuntu VM on
 ---
 # Mailu Email Server on IncusOS VM
 
-This runbook guides you through deploying a [Mailu](https://mailu.io/) email server on an Ubuntu virtual machine running on an IncusOS system. This runbook leverages the standard Ubuntu VM creation process (see [Ubuntu Virtual Machines](vm.md)) and adds Mailu-specific configuration and deployment.
+This runbook guides you through deploying a [Mailu](https://mailu.io/) email server on an Ubuntu virtual machine running on an IncusOS system. This runbook leverages the standard Ubuntu VM creation process (see [Ubuntu Virtual Machines](../incusos/vm.md)) and adds Mailu-specific configuration and deployment.
 
 ## Overview
 
@@ -20,7 +20,7 @@ This approach uses the standard VM creation workflow, making it consistent with 
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Setup](setup.md))
+- IncusOS server installed and running (see [IncusOS Setup](../incusos/setup.md))
 - Incus CLI client installed on your local machine
 - Remote connection to your IncusOS server configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
@@ -158,8 +158,8 @@ environment:
   #   MAILU_SECRET_KEY: sops.MAILU_SECRET_KEY
   #   MAILU_INITIAL_ADMIN_PW: sops.MAILU_INITIAL_ADMIN_PW
   # Default values shown below:
-  MAILU_SECRET_KEY: "1b57fc851a92796b0743c4fa778d62b8310f47b275498cd5747685a6f2d81162"
-  MAILU_INITIAL_ADMIN_PW: "TUbV2j3Z/Frm+MoxkszQsOKCj44jj08M"
+  MAILU_SECRET_KEY: "<secret-key>"
+  MAILU_INITIAL_ADMIN_PW: "<admin-password>"
 ```
 
 **Important Notes:**
@@ -367,7 +367,7 @@ task vm:exec -- mailu -- docker compose version
 
 ## Step 9: Deploy Mailu
 
-Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](../mailu/mailu.md) runbook to deploy Mailu on the VM.
+Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](mailu.md) runbook to deploy Mailu on the VM.
 
 **Important Notes for Deploying Mailu on the VM:**
 
@@ -398,7 +398,7 @@ cd /mailu
 # 5. Create admin account
 ```
 
-**Note**: For detailed instructions, see the [Mailu Email Server](../mailu/mailu.md) runbook. The VM is now ready for Mailu deployment, and you can follow that runbook starting from Step 3 (Configure DNS Records).
+**Note**: For detailed instructions, see the [Mailu Email Server](mailu.md) runbook. The VM is now ready for Mailu deployment, and you can follow that runbook starting from Step 3 (Configure DNS Records).
 
 ## Step 10: Configure DNS Records
 
@@ -432,7 +432,7 @@ Configure reverse DNS for your VM's IP address. This should point to your mail s
 
 ### Additional DNS Records
 
-After Mailu is deployed, you'll need to add SPF, DKIM, and DMARC records. These will be shown in the Mailu admin interface after deployment. See Step 9 in the [Mailu Email Server](../mailu/mailu.md) runbook for details.
+After Mailu is deployed, you'll need to add SPF, DKIM, and DMARC records. These will be shown in the Mailu admin interface after deployment. See Step 9 in the [Mailu Email Server](mailu.md) runbook for details.
 
 ## Step 11: Verify Mailu Deployment
 
@@ -487,7 +487,7 @@ incus exec $INCUS_REMOTE_NAME:mailu -- bash
 
 ### Manage Mailu
 
-Follow the [Mailu Email Server](../mailu/mailu.md) runbook for ongoing Mailu management:
+Follow the [Mailu Email Server](mailu.md) runbook for ongoing Mailu management:
 
 - Updates: `task mailu:update` (on the VM)
 - Backups: `task mailu:backup` (on the VM)
@@ -649,7 +649,7 @@ If you encounter issues deploying Mailu:
 1. Verify Docker is running: `docker ps`
 2. Check disk space: `df -h`
 3. Review Mailu logs: `docker compose logs` (in `/mailu` directory)
-4. See the [Mailu Email Server](../mailu/mailu.md) runbook troubleshooting section
+4. See the [Mailu Email Server](mailu.md) runbook troubleshooting section
 
 ## Summary
 
@@ -668,20 +668,21 @@ You now have a Mailu email server running in an isolated VM on your IncusOS infr
 
 ## Next Steps
 
-- Follow the [Mailu Email Server](../mailu/mailu.md) runbook for ongoing Mailu management
+- Follow the [Mailu Email Server](mailu.md) runbook for ongoing Mailu management
 - Set up regular backups of both the VM and Mailu data
 - Monitor email delivery and server health
 - Configure additional email domains and users as needed
 
 ## Related Runbooks
 
-- [IncusOS Setup](setup.md): Initial IncusOS server installation
-- [Mailu Email Server](../mailu/mailu.md): Complete Mailu deployment and management guide
-- [Talos Kubernetes Cluster](tc.md): Another example of Terraform-based VM deployment
-- [Ubuntu Virtual Machines](vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)
+- [IncusOS Setup](../incusos/setup.md): Initial IncusOS server installation
+- [Mailu Email Server](mailu.md): Complete Mailu deployment and management guide
+- [Talos Kubernetes Cluster](../incusos/tc.md): Another example of Terraform-based VM deployment
+- [Ubuntu Virtual Machines](../incusos/vm.md): Creating VMs for development, CI/CD runners, or other workloads (similar process)
 
 ## Additional Resources
 
 - [Terraform Incus Provider Documentation](https://registry.terraform.io/providers/lxc/incus/latest/docs)
 - [Mailu Documentation](https://mailu.io/2024.06/)
+
 

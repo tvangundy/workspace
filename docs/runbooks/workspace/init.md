@@ -131,5 +131,5 @@ If you encounter permission errors:
 
 ## Related Documentation
 
-- [Home Assistant Runbook](../home-assistant/README.md) - Example of workspace initialization in practice
+- [Home Assistant Runbook](../apps/home-assistant/README.md) - Example of workspace initialization in practice
 - [Windsor CLI Documentation](https://windsorcli.github.io/latest/)
