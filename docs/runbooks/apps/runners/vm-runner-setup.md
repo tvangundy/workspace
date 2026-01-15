@@ -26,7 +26,7 @@ This approach uses the standard VM creation workflow, making it consistent with 
 - GitHub repository or organization access
 - GitHub Actions runner token (obtained from GitHub repository/organization settings)
 
-## Step 1: Install Tools Dependencies
+## Step 1: Install Tools
 
 To fully leverage the Windsor environment and manage your runner VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
@@ -136,77 +136,7 @@ windsor env | grep INCUS_REMOTE_NAME
 - `incus list <remote-name>:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should be set to your remote name
 
-## Step 5: Configure Direct Network Attachment (Optional)
-
-If you want the VM to get an IP address directly on your physical network (recommended), you need to configure a physical network interface for direct attachment. This step is only needed if you set `VM_NETWORK_NAME` in your environment variables.
-
-### Step 5a: View Current Network Configuration
-
-First, check the current network configuration:
-
-```bash
-incus admin os system network show
-```
-
-This shows your network interfaces and their current roles.
-
-### Step 5b: Add Instances Role to Physical Interface
-
-Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
-
-```bash
-incus admin os system network edit
-```
-
-In the editor, find your physical interface (e.g., `eno1`) in the `config.interfaces` section. **Add a `roles` field** if it doesn't exist, and include `instances` in the list:
-
-```yaml
-config:
-  interfaces:
-  - addresses:
-    - dhcp4
-    - slaac
-    hwaddr: 88:ae:dd:03:f9:f4
-    name: eno1
-    required_for_online: "no"
-    roles:          # Add this field if it doesn't exist
-    - management
-    - cluster
-    - instances     # Add this line
-```
-
-**Important**: 
-
-- The `roles` field must be added to the `config.interfaces` section (not just the `state` section)
-- Make sure the YAML indentation is correct (2 spaces)
-- Save the file (in vim: press `Esc`, then type `:wq` and press Enter; in nano: press `Ctrl+X`, then `Y`, then Enter)
-
-After saving, the configuration will be applied automatically. Verify the change:
-
-```bash
-incus admin os system network show
-```
-
-You should see `instances` in the `state.interfaces.eno1.roles` list.
-
-### Step 5c: Create Physical Network
-
-After the configuration is applied, create a managed physical network:
-
-```bash
-task incus:create-physical-network
-```
-
-This creates a physical network that directly attaches to your host's network interface, allowing the VM to get an IP address directly from your physical network's DHCP server.
-
-**Note**: 
-
-- If the physical network already exists, the task will verify it's correctly configured and skip creation. If you need to recreate it, delete it first with `incus network delete <remote-name>:<interface-name>`.
-- Replace `eno1` with your actual physical network interface name if different. Common interface names include `eno1`, `eth0`, `enp5s0`, etc.
-- You can override the interface name by setting the `VM_NETWORK_NAME` environment variable in your `windsor.yaml` file.
-- After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
-
-## Step 6: Create the Ubuntu VM
+## Step 5: Create the Ubuntu VM
 
 Create the Ubuntu VM using the standard VM creation workflow:
 
@@ -249,7 +179,7 @@ task vm:info -- github-runner | grep -i ip
 task vm:exec -- github-runner -- docker --version
 ```
 
-## Step 7: Initialize Runner Environment
+## Step 6: Initialize Runner Environment
 
 Initialize the runner environment on the VM using the `vm:runner:` namespace tasks:
 
@@ -267,7 +197,7 @@ This will:
 
 **Note**: The VM created with `task vm:create` already has Docker installed, so this step will verify and configure it for the runner user.
 
-## Step 8: Install GitHub Actions Runner
+## Step 7: Install GitHub Actions Runner
 
 Install and configure the GitHub Actions runner on the VM:
 
@@ -285,7 +215,7 @@ This will:
 
 **Note**: The runner will automatically register with GitHub using the `GITHUB_RUNNER_REPO_URL` and `GITHUB_RUNNER_TOKEN` from your environment variables.
 
-## Step 9: Verify Runner Status
+## Step 8: Verify Runner Status
 
 Verify that the runner is registered and running:
 

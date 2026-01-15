@@ -6,13 +6,16 @@ This guide walks you through installing and configuring [IncusOS](https://linuxc
 
 Installing IncusOS on an Intel NUC involves:
 
-1. **Preparing the workspace**: Setting up the Windsor workspace and context
+1. **Installing tools**: Setting up required tools in your workspace
 2. **Acquiring the IncusOS image**: Downloading the IncusOS image from the customizer
 3. **Setting environment variables**: Configuring workspace variables including the image path
 4. **Preparing the NUC**: Updating BIOS, configuring Secure Boot, and wiping existing storage
 5. **Creating the boot media**: Writing the IncusOS image to a USB device
 6. **Booting and installing**: Booting from USB and installing IncusOS to the NUC's storage
 7. **Connecting to Incus**: Setting up the Incus CLI client and connecting to the server
+8. **Configuring network**: Setting up direct network attachment for VMs
+9. **Accessing web UI**: Setting up and accessing the Incus web interface
+10. **Getting certificates**: Retrieving client certificates (optional)
 
 IncusOS provides a complete, dedicated operating system optimized for running Incus, making it ideal for production deployments where you want a minimal, purpose-built platform.
 
@@ -38,7 +41,7 @@ IncusOS requires modern system features and will not function properly on older 
 - At least 50GiB of storage
 - At least one wired network port
 
-## Step 1: Install Tools Dependencies
+## Step 1: Install Tools
 
 To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
@@ -253,7 +256,77 @@ incus list
 incus info
 ```
 
-### Access Incus Web UI
+## Step 8: Configure Direct Network Attachment
+
+To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
+
+### Step 8a: View Current Network Configuration
+
+First, check the current network configuration:
+
+```bash
+incus admin os system network show
+```
+
+This shows your network interfaces and their current roles.
+
+### Step 8b: Add Instances Role to Physical Interface
+
+Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
+
+```bash
+incus admin os system network edit
+```
+
+In the editor, find your physical interface (e.g., `eno1`) in the `config.interfaces` section. **Add a `roles` field** if it doesn't exist, and include `instances` in the list:
+
+```yaml
+config:
+  interfaces:
+  - addresses:
+    - dhcp4
+    - slaac
+    hwaddr: 88:ae:dd:03:f9:f4
+    name: eno1
+    required_for_online: "no"
+    roles:          # Add this field if it doesn't exist
+    - management
+    - cluster
+    - instances     # Add this line
+```
+
+**Important**: 
+
+- The `roles` field must be added to the `config.interfaces` section (not just the `state` section)
+- Make sure the YAML indentation is correct (2 spaces)
+- Save the file (in vim: press `Esc`, then type `:wq` and press Enter; in nano: press `Ctrl+X`, then `Y`, then Enter)
+
+After saving, the configuration will be applied automatically. Verify the change:
+
+```bash
+incus admin os system network show
+```
+
+You should see `instances` in the `state.interfaces.eno1.roles` list.
+
+### Step 8c: Create Physical Network
+
+After the configuration is applied, create a managed physical network:
+
+```bash
+task incus:create-physical-network
+```
+
+This creates a physical network that directly attaches to your host's network interface, allowing VMs to get IP addresses directly from your physical network's DHCP server.
+
+**Note**: 
+
+- If the physical network already exists, the task will verify it's correctly configured and skip creation. If you need to recreate it, delete it first with `incus network delete <remote-name>:<interface-name>`.
+- Replace `eno1` with your actual physical network interface name if different. Common interface names include `eno1`, `eth0`, `enp5s0`, etc.
+- You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
+- After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
+
+## Step 9: Access Incus Web UI
 
 Incus provides a web-based user interface that you can access through your browser. To use the web UI, you'll need to set up browser certificate authentication.
 
@@ -271,13 +344,13 @@ You'll be presented with the Incus UI setup page, which guides you through the c
 
 ![Incus UI Setup](ui-setup.png)
 
-#### Step 1: Generate Certificate
+### Step 9a: Generate Certificate
 
 1. On the setup page, click the **"Generate"** button in the "1. Generate" section
 2. This creates a new certificate for browser access
 3. The certificate files (`.crt` and `.pfx`) will be available for download
 
-#### Step 2: Trust Certificate (CLI)
+### Step 9b: Trust Certificate (CLI)
 
 Add the certificate to the Incus CLI trust store so you can use the CLI with the same certificate:
 
@@ -288,7 +361,7 @@ incus config trust add-certificate /Users/$USER/Downloads/incus-ui.crt
 
 Replace `/Users/$USER/Downloads/incus-ui.crt` with the actual path where you downloaded the certificate file.
 
-#### Step 3: Import Certificate to Browser
+### Step 9c: Import Certificate to Browser
 
 To access the Incus UI through your browser, you need to import the certificate into your browser:
 
@@ -326,7 +399,7 @@ To access the Incus UI through your browser, you need to import the certificate 
 4. **Access the Incus UI**: Navigate to `https://<nuc-ip-address>:8443` again
 5. **Select the certificate**: When prompted, select the Incus UI certificate you just imported
 
-#### Step 4: Using the Web UI
+### Step 9d: Using the Web UI
 
 Once the certificate is imported and you've restarted your browser, you can:
 
@@ -339,8 +412,7 @@ Once the certificate is imported and you've restarted your browser, you can:
 
 The web UI provides a graphical interface for all Incus operations, making it easy to manage your infrastructure without using the command line.
 
-
-## Step 8: Get Client Certificate (Optional)
+## Step 10: Get Client Certificate (Optional)
 
 If you need to retrieve the client certificate for authentication or documentation purposes:
 

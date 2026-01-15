@@ -22,7 +22,7 @@ Talos clusters on IncusOS provide:
 - Sufficient resources: At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
 - Network access: The IncusOS host must be on a network with available IP addresses
 
-## Step 1: Install Tools Dependencies
+## Step 1: Install Tools
 
 To deploy the Talos cluster using Terraform, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
@@ -191,77 +191,7 @@ incus image list ${INCUS_REMOTE_NAME}:
 
 You should see your Talos image listed with the alias you specified.
 
-## Step 6: Configure Direct Network Attachment
-
-To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
-
-### Step 6a: View Current Network Configuration
-
-First, check the current network configuration:
-
-```bash
-incus admin os system network show
-```
-
-This shows your network interfaces and their current roles.
-
-### Step 6b: Add Instances Role to Physical Interface
-
-Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
-
-```bash
-incus admin os system network edit
-```
-
-In the editor, find your physical interface (e.g., `eno1`) in the `config.interfaces` section. **Add a `roles` field** if it doesn't exist, and include `instances` in the list:
-
-```yaml
-config:
-  interfaces:
-  - addresses:
-    - dhcp4
-    - slaac
-    hwaddr: 88:ae:dd:03:f9:f4
-    name: eno1
-    required_for_online: "no"
-    roles:          # Add this field if it doesn't exist
-    - management
-    - cluster
-    - instances     # Add this line
-```
-
-**Important**: 
-
-- The `roles` field must be added to the `config.interfaces` section (not just the `state` section)
-- Make sure the YAML indentation is correct (2 spaces)
-- Save the file (in vim: press `Esc`, then type `:wq` and press Enter; in nano: press `Ctrl+X`, then `Y`, then Enter)
-
-After saving, the configuration will be applied automatically. Verify the change:
-
-```bash
-incus admin os system network show
-```
-
-You should see `instances` in the `state.interfaces.eno1.roles` list.
-
-### Step 6c: Create Physical Network
-
-After the configuration is applied, create a managed physical network:
-
-```bash
-task incus:create-physical-network
-```
-
-This creates a physical network that directly attaches to your host's network interface, allowing VMs to get IP addresses directly from your physical network's DHCP server.
-
-**Note**: 
-
-- If the physical network already exists, the task will verify it's correctly configured and skip creation. If you need to recreate it, delete it first with `incus network delete <remote-name>:<interface-name>`.
-- Replace `eno1` with your actual physical network interface name if different. Common interface names include `eno1`, `eth0`, `enp5s0`, etc.
-- You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
-- After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
-
-## Step 7: Initialize and Apply Terraform
+## Step 6: Initialize and Apply Terraform
 
 Initialize Terraform:
 
@@ -312,7 +242,7 @@ Terraform will:
 3. Generate Talos machine configurations
 4. Display instructions to get the actual DHCP-assigned IP addresses
 
-After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 8** to configure the IP addresses before Terraform can continue with Talos configuration.
+After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 7** to configure the IP addresses before Terraform can continue with Talos configuration.
 
 **For existing installations** (when IP addresses are already set in `windsor.yaml`):
 
@@ -329,17 +259,17 @@ This process may take several minutes as VMs boot and configurations are applied
 
 **Important**: Since VMs get IP addresses via DHCP, for new installations you must:
 1. Wait for VMs to boot and get their DHCP-assigned IP addresses
-2. Get the actual IP addresses from Terraform outputs (see Step 8)
+2. Get the actual IP addresses from Terraform outputs (see Step 7)
 3. Update `windsor.yaml` with the actual IPs
 4. Regenerate `terraform.tfvars` and run `terraform apply` again
 
-The IP addresses you configure in `windsor.yaml` are used for Talos configuration generation. For the first deployment, these will be empty, and you'll set them in Step 8 after the VMs receive their DHCP-assigned IPs.
+The IP addresses you configure in `windsor.yaml` are used for Talos configuration generation. For the first deployment, these will be empty, and you'll set them in Step 7 after the VMs receive their DHCP-assigned IPs.
 
-## Step 8: Configure IP Addresses for Talos Deployment
+## Step 7: Configure IP Addresses for Talos Deployment
 
 After the VMs are created and have received their DHCP-assigned IP addresses, you need to update your configuration with the actual IPs before Terraform can proceed with Talos configuration.
 
-### Step 8a: Get Actual IP Addresses
+### Step 7a: Get Actual IP Addresses
 
 Terraform automatically retrieves the actual DHCP-assigned IP addresses from the VMs after they boot. View these IP addresses using Terraform outputs:
 
@@ -367,7 +297,7 @@ terraform output -json worker_ips
 terraform output -json all_node_ips
 ```
 
-### Step 8b: Update windsor.yaml with Actual IPs
+### Step 7b: Update windsor.yaml with Actual IPs
 
 Update your `windsor.yaml` file with the actual DHCP-assigned IP addresses. Edit `contexts/${WINDSOR_CONTEXT}/windsor.yaml` and update the IP address values:
 
@@ -383,7 +313,7 @@ environment:
 
 **Note**: Replace the placeholder IPs with the actual values you obtained from `terraform output`.
 
-### Step 8c: Regenerate terraform.tfvars
+### Step 7c: Regenerate terraform.tfvars
 
 After updating `windsor.yaml`, regenerate the `terraform.tfvars` file from your updated environment variables:
 
@@ -393,7 +323,7 @@ task tc:generate-tfvars
 
 This will update `terraform/cluster/terraform.tfvars` with the actual IP addresses from your `windsor.yaml` file.
 
-### Step 8d: Continue Terraform Deployment
+### Step 7d: Continue Terraform Deployment
 
 Now that the IP addresses are configured, run Terraform apply again to continue with Talos configuration:
 
@@ -420,7 +350,7 @@ To avoid this step in the future, configure DHCP reservations in your router. Re
 incus list ${INCUS_REMOTE_NAME}: --format json | jq '.[] | {name: .name, mac: .state.network.eth0.hwaddr}'
 ```
 
-## Step 9: Retrieve kubeconfig
+## Step 8: Retrieve kubeconfig
 
 After Terraform completes successfully, retrieve the kubeconfig to access your Kubernetes cluster. The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables must be set (they are configured in Step 2).
 
@@ -445,7 +375,7 @@ echo "TALOSCONFIG: ${TALOSCONFIG}"
 echo "KUBECONFIG_FILE: ${KUBECONFIG_FILE}"
 ```
 
-## Step 10: Verify Cluster Health
+## Step 9: Verify Cluster Health
 
 Check that all nodes are healthy and registered:
 
@@ -562,14 +492,14 @@ The cluster VMs should no longer appear in the list.
 ### Terraform Apply Fails
 
 - **VMs not booting**: Verify the Talos image was imported correctly and the alias matches your `TALOS_IMAGE_VERSION` (should be `talos-${TALOS_IMAGE_VERSION}-metal-amd64`)
-- **Network issues**: Ensure the physical network is configured correctly (Step 6)
+- **Network issues**: Ensure the physical network is configured correctly (see [IncusOS Server](server.md) Step 8)
 - **IP address conflicts**: Verify the IP addresses in your environment variables are available and not in use
 - **Provider errors**: Check that the Incus provider can connect to your remote: `incus list ${INCUS_REMOTE_NAME}:`
 
 ### VMs Not Getting IP Addresses
 
 - Verify the physical network exists: `incus network list ${INCUS_REMOTE_NAME}:`
-- Check if the `instances` role was added to the network interface (Step 6b)
+- Check if the `instances` role was added to the network interface (see [IncusOS Server](server.md) Step 8b)
 - Wait longer for DHCP assignment (sometimes VMs need 3-5 minutes)
 - Check your router's DHCP server is running
 

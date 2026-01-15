@@ -56,7 +56,7 @@ This approach provides you with a self-hosted email server with full control ove
 
 **Note**: Check with your hosting provider if port 25 is blocked. Some residential ISPs block port 25.
 
-## Step 1: Install Tools Dependencies
+## Step 1: Install Tools
 
 To fully leverage the Windsor environment and manage your Mailu deployment, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 

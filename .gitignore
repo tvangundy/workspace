@@ -17,3 +17,4 @@ secrets.yaml
 terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars
+todo.md

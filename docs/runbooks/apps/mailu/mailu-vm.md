@@ -29,7 +29,7 @@ This approach uses the standard VM creation workflow, making it consistent with 
 - Email ports open (25, 587, 465, 993, 143, 80, 443)
 - Sufficient resources: At least 4GB RAM and 40GB storage on the IncusOS host for the VM
 
-## Step 1: Install Tools Dependencies
+## Step 1: Install Tools
 
 To fully leverage the Windsor environment and manage your Mailu VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
 
@@ -93,8 +93,8 @@ MAILU_INITIAL_ADMIN_PW: "<your-admin-password>"
 ```
 
 Replace:
-- `<your-generated-secret-key>`: The random hex string you generated in Step 3.1
-- `<your-admin-password>`: The secure password you chose in Step 3.2
+- `<your-generated-secret-key>`: The random hex string you generated in Step 2.1
+- `<your-admin-password>`: The secure password you chose in Step 2.2
 
 ### Step 2.5: Encrypt the Secrets File
 
@@ -194,77 +194,7 @@ windsor env | grep INCUS_REMOTE_NAME
 - `incus list <remote-name>:` should show existing instances (may be empty)
 - `INCUS_REMOTE_NAME` should be set to your remote name
 
-## Step 5: Configure Direct Network Attachment (Optional)
-
-To allow the VM to get an IP address directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects the VM directly to your physical network.
-
-### Step 5a: View Current Network Configuration
-
-First, check the current network configuration:
-
-```bash
-incus admin os system network show
-```
-
-This shows your network interfaces and their current roles.
-
-### Step 5b: Add Instances Role to Physical Interface
-
-Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
-
-```bash
-incus admin os system network edit
-```
-
-In the editor, find your physical interface (e.g., `eno1`) in the `config.interfaces` section. **Add a `roles` field** if it doesn't exist, and include `instances` in the list:
-
-```yaml
-config:
-  interfaces:
-  - addresses:
-    - dhcp4
-    - slaac
-    hwaddr: 88:ae:dd:03:f9:f4
-    name: eno1
-    required_for_online: "no"
-    roles:          # Add this field if it doesn't exist
-    - management
-    - cluster
-    - instances     # Add this line
-```
-
-**Important**: 
-
-- The `roles` field must be added to the `config.interfaces` section (not just the `state` section)
-- Make sure the YAML indentation is correct (2 spaces)
-- Save the file (in vim: press `Esc`, then type `:wq` and press Enter; in nano: press `Ctrl+X`, then `Y`, then Enter)
-
-After saving, the configuration will be applied automatically. Verify the change:
-
-```bash
-incus admin os system network show
-```
-
-You should see `instances` in the `state.interfaces.eno1.roles` list.
-
-### Step 5c: Create Physical Network
-
-After the configuration is applied, create a managed physical network:
-
-```bash
-task incus:create-physical-network
-```
-
-This creates a physical network that directly attaches to your host's network interface, allowing the VM to get an IP address directly from your physical network's DHCP server.
-
-**Note**: 
-
-- If the physical network already exists, the task will verify it's correctly configured and skip creation. If you need to recreate it, delete it first with `incus network delete <remote-name>:<interface-name>`.
-- Replace `eno1` with your actual physical network interface name if different. Common interface names include `eno1`, `eth0`, `enp5s0`, etc.
-- You can override the interface name by setting the `VM_NETWORK_NAME` environment variable in your `windsor.yaml` file.
-- After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
-
-## Step 6: Create the Ubuntu VM
+## Step 5: Create the Ubuntu VM
 
 Create the Ubuntu VM using the standard VM creation workflow:
 
@@ -307,7 +237,7 @@ task vm:info -- mailu | grep -i ip
 task vm:exec -- mailu -- docker --version
 ```
 
-## Step 7: Get the VM IP Address
+## Step 6: Get the VM IP Address
 
 After the VM boots and receives its DHCP-assigned IP address, get the IP address:
 
@@ -324,7 +254,7 @@ incus list $INCUS_REMOTE_NAME:mailu
 
 **Note**: With direct network attachment, the VM gets an IP address from your DHCP server. Note this IP address as you'll need it for DNS configuration and SSH access.
 
-## Step 8: Access the VM
+## Step 7: Access the VM
 
 You can access the VM in several ways:
 
@@ -365,7 +295,7 @@ task vm:exec -- mailu -- docker compose version
 
 **Note**: The VM created with `task vm:create` already has Docker installed and SSH configured. Your SSH keys are already copied, so you can SSH directly without additional setup.
 
-## Step 9: Deploy Mailu
+## Step 8: Deploy Mailu
 
 Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](mailu.md) runbook to deploy Mailu on the VM.
 
@@ -400,7 +330,7 @@ cd /mailu
 
 **Note**: For detailed instructions, see the [Mailu Email Server](mailu.md) runbook. The VM is now ready for Mailu deployment, and you can follow that runbook starting from Step 3 (Configure DNS Records).
 
-## Step 10: Configure DNS Records
+## Step 9: Configure DNS Records
 
 Configure DNS records for your email domain. Use the VM's IP address (not the IncusOS host IP) when setting up DNS records.
 
@@ -434,7 +364,7 @@ Configure reverse DNS for your VM's IP address. This should point to your mail s
 
 After Mailu is deployed, you'll need to add SPF, DKIM, and DMARC records. These will be shown in the Mailu admin interface after deployment. See Step 9 in the [Mailu Email Server](mailu.md) runbook for details.
 
-## Step 11: Verify Mailu Deployment
+## Step 10: Verify Mailu Deployment
 
 After deploying Mailu following the Mailu runbook, verify that everything is working:
 
@@ -609,7 +539,7 @@ The Mailu VM should no longer appear in the list.
 ### VM Creation Fails
 
 - **VM not booting**: Verify the Ubuntu image is available: `incus image list ${INCUS_REMOTE_NAME}:`
-- **Network issues**: Ensure the physical network is configured correctly (Step 5)
+- **Network issues**: Ensure the physical network is configured correctly (see [IncusOS Server](../../incusos/server.md) Step 8)
 - **Provider errors**: Check that the Incus provider can connect to your remote: `incus list ${INCUS_REMOTE_NAME}:`
 
 ### VM Not Starting

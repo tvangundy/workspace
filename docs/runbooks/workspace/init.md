@@ -45,7 +45,7 @@ Before initializing a new workspace, ensure that:
 
 ## Overview
 
-Initializing a workspace involves three main steps:
+Initializing a workspace involves these steps:
 
 1. **Create the workspace structure** using the `workspace:initialize` task
 2. **Populate the workspace** using Windsor CLI's `init` command
@@ -65,21 +65,14 @@ task workspace:initialize -- <workspace-name> <workspace-global-path>
 
 This command creates the workspace structure at the specified path.
 
-## Step 2: Change to Workspace Directory
-
-Navigate to the workspace directory that was created:
-
-```bash
-cd <workspace-global-path>
-```
-
-## Step 3: Initialize with Windsor CLI
+## Step 2: Initialize with Windsor CLI
 
 Once you're in the workspace directory, use Windsor CLI to populate the folder with the necessary configuration files and structure for your chosen context.
 
 ### Command Syntax
 
 ```bash
+cd <workspace-global-path>
 windsor init <context>
 ```
 
@@ -131,5 +124,4 @@ If you encounter permission errors:
 
 ## Related Documentation
 
-- [Home Assistant Runbook](../apps/home-assistant/README.md) - Example of workspace initialization in practice
 - [Windsor CLI Documentation](https://windsorcli.github.io/latest/)
