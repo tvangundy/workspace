@@ -18,10 +18,14 @@ nav:
         - Intel NUC: runbooks/bootstrapping/nuc.md
         - Sidero Omni: runbooks/bootstrapping/omni.md
     - Apps:
+      - Introduction: runbooks/apps/README.md
       - Home Assistant: runbooks/apps/home-assistant/README.md
       - Mailu:
         - Email Server: runbooks/apps/mailu/mailu.md
         - Email Server on VM: runbooks/apps/mailu/mailu-vm.md
+      - GitHub Actions Runners:
+        - VM Runner: runbooks/apps/runners/vm-runner-setup.md
+        - Bare Metal Runner: runbooks/apps/runners/bare-metal-runner-setup.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
       - Device: taskfiles/device/README.md

@@ -48,8 +48,8 @@ Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraf
 ### 🐧 [Ubuntu Virtual Machines](./incusos/vm.md)
 Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbook covers creating generic VMs, development VMs, and GitHub Actions runner VMs. All are just named instances of Ubuntu VMs created using the `vm:` task namespace. Includes workspace initialization, Terraform-based VM creation, developer tools installation, Docker setup, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Provides isolated, persistent Ubuntu environments with direct SSH access from your local network, suitable for development work, CI/CD runners, or any other workload.
 
-### 📧 [Mailu Email Server](./apps/mailu/mailu.md)
-Deploy and manage a Mailu email server using Docker Compose. Covers Docker and Docker Compose installation, DNS configuration (MX records, SPF, DKIM, DMARC), Mailu setup and configuration, service management, admin account creation, security configuration, and ongoing maintenance. Provides a self-hosted email server with webmail, IMAP, SMTP, and administration features.
+### 📱 [Application Deployment](./apps/README.md)
+Complete guides for deploying self-hosted applications and services. Includes Home Assistant, Mailu email server, and other application deployments. Each runbook provides end-to-end deployment workflows from initial setup through ongoing management.
 
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and Operating Systems to prepar devices for deployment, including image preparation and initial configuration.
@@ -65,7 +65,8 @@ Complete guide for installing and configuring Ubuntu on Intel NUC devices, inclu
 ### 🏃 Self-Hosted GitHub Actions Runners
 Step-by-step guides for setting up self-hosted GitHub Actions runners on various platforms. These runbooks cover installing and configuring runners on different operating systems, enabling you to run CI/CD workflows on your own infrastructure.
 
-- **[Ubuntu Runner](./runners/ubuntu-runner-setup.md)**: Configure Ubuntu-based runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices
+- **[VM Runner Setup](./apps/runners/vm-runner-setup.md)**: Deploy a GitHub Actions runner on an Ubuntu VM running on IncusOS. Leverages the standard VM creation workflow for consistent, manageable runner deployments. Recommended for most use cases.
+- **[Bare Metal Runner Setup](./apps/runners/bare-metal-runner-setup.md)**: Set up Ubuntu-based GitHub Actions runners on bare metal Raspberry Pi (ARM64) or Intel NUC (x86_64) devices. Covers Ubuntu Server installation, post-installation configuration, and runner setup.
 
 
 ## Getting Started

@@ -1,6 +1,6 @@
-# Ubuntu GitHub Runner Setup
+# Bare Metal GitHub Actions Runner Setup
 
-This guide covers setting up Ubuntu-based GitHub Actions runners on Raspberry Pi (ARM64) or Intel NUC (x86_64) devices.
+This guide covers setting up Ubuntu-based GitHub Actions runners on bare metal Raspberry Pi (ARM64) or Intel NUC (x86_64) devices.
 
 ## Prerequisites
 
