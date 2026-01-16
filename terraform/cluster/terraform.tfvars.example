@@ -15,6 +15,14 @@ control_plane_ip = "192.168.2.84"
 worker_0_ip      = "192.168.2.25"
 worker_1_ip      = "192.168.2.74"
 
+# MAC addresses (optional - leave empty for auto-assignment)
+# Set these to ensure VMs get the same MAC address when recreated
+# Get current MACs with: task tc:mac-addresses
+# Format: "aa:bb:cc:dd:ee:ff" (lowercase, colons)
+control_plane_mac = ""
+worker_0_mac      = ""
+worker_1_mac      = ""
+
 # VM resources
 control_plane_memory = "2GB"
 control_plane_cpu    = "2"

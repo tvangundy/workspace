@@ -18,3 +18,9 @@ terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars
 todo.md
+terraform/**/providers_override.tf
+contexts/**/.kube/
+contexts/**/.talos/
+contexts/**/.omni/
+contexts/**/.aws/
+contexts/**/.azure/

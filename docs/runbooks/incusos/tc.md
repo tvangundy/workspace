@@ -72,15 +72,20 @@ environment:
   
   # VM IP addresses (must be on the same network as IncusOS host)
   # Leave empty for new installations - Terraform will prompt you to fill them in after VMs are created
-  CONTROL_PLANE_IP: ""
-  WORKER_0_IP: ""
-  WORKER_1_IP: ""
+  CONTROL_PLANE_IP: "192.168.2.57"
+  WORKER_0_IP: "192.168.2.123"
+  WORKER_1_IP: "192.168.2.20"
   
   # VM names (optional, defaults shown)
   CONTROL_PLANE_VM: "talos-cp"
   WORKER_0_VM: "talos-worker-0"
   WORKER_1_VM: "talos-worker-1"
   
+  # VM MAC Addresses, used for setting static ip addresses
+  CONTROL_PLANE_MAC: "10:66:6a:9d:c1:d6"
+  WORKER_0_MAC: "10:66:6a:ef:12:03"
+  WORKER_1_MAC: "10:66:6a:32:10:2f"
+
   # Talos image configuration
   # Get schematic ID from https://factory.talos.dev
   TALOS_IMAGE_SCHEMATIC_ID: "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
@@ -104,6 +109,7 @@ environment:
   # These paths are used by Terraform and talosctl commands throughout the deployment
   TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
   KUBECONFIG_FILE: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config
+  KUBECONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config
 ```
 
 **Important**: The `TALOSCONFIG` and `KUBECONFIG_FILE` environment variables are **required** and must be set. These paths are used by:

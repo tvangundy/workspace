@@ -181,9 +181,13 @@ resource "incus_instance" "workers" {
   device {
     name = "eth0"
     type = "nic"
-    properties = {
-      network = var.physical_network_name
-    }
+    properties = merge(
+      {
+        network = var.physical_network_name
+      },
+      each.value.name == var.worker_0_vm_name && var.worker_0_mac != "" ? { hwaddr = var.worker_0_mac } : {},
+      each.value.name == var.worker_1_vm_name && var.worker_1_mac != "" ? { hwaddr = var.worker_1_mac } : {}
+    )
   }
   
   depends_on = [

@@ -101,7 +101,7 @@ tasks:
         
         # Windsor Setup and Up (if --windsor-up flag is set)
         if [ "${RUN_WINDSOR_UP}" = "true" ] && [ "${REMOTE_NAME}" != "local" ]; then
-          echo ""
+        echo ""
           echo "═══════════════════════════════════════════════════════════════"
           echo "Windsor Setup and Up"
           echo "═══════════════════════════════════════════════════════════════"
@@ -3363,7 +3363,7 @@ tasks:
           echo "  VM_MEMORY: ${VM_MEMORY}"
           echo "  VM_CPU: ${VM_CPU}"
           if [ -n "${VM_DISK_SIZE}" ]; then
-            echo "  VM_DISK_SIZE: ${VM_DISK_SIZE}"
+          echo "  VM_DISK_SIZE: ${VM_DISK_SIZE}"
           fi
           echo ""
           echo "  # Network interface for VM (optional, leave empty to use default Incus network)"

@@ -104,3 +104,21 @@ variable "kubeconfig_file" {
   type        = string
 }
 
+variable "control_plane_mac" {
+  description = "MAC address for the control plane VM (optional, leave empty for auto-assignment)"
+  type        = string
+  default     = ""
+}
+
+variable "worker_0_mac" {
+  description = "MAC address for worker 0 VM (optional, leave empty for auto-assignment)"
+  type        = string
+  default     = ""
+}
+
+variable "worker_1_mac" {
+  description = "MAC address for worker 1 VM (optional, leave empty for auto-assignment)"
+  type        = string
+  default     = ""
+}
+

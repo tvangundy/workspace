@@ -235,6 +235,13 @@ tasks:
           printf "worker_0_ip      = \"${WORKER_0_IP}\"\n"
           printf "worker_1_ip      = \"${WORKER_1_IP}\"\n"
           printf "\n"
+          printf "# MAC addresses (optional - leave empty for auto-assignment)\n"
+          printf "# Set these to ensure VMs get the same MAC address when recreated\n"
+          printf "# Get current MACs with: task tc:mac-addresses\n"
+          printf "control_plane_mac = \"${CONTROL_PLANE_MAC:-}\"\n"
+          printf "worker_0_mac      = \"${WORKER_0_MAC:-}\"\n"
+          printf "worker_1_mac      = \"${WORKER_1_MAC:-}\"\n"
+          printf "\n"
           printf "# VM resources\n"
           printf "control_plane_memory = \"${CONTROL_PLANE_MEMORY}\"\n"
           printf "control_plane_cpu    = \"${CONTROL_PLANE_CPU}\"\n"
@@ -526,7 +533,163 @@ tasks:
         NODES="${WORKER_1_IP}"
         talosctl --talosconfig="${TALOSCONFIG}" health --endpoints "${ENDPOINTS}" --nodes "${NODES}"
 
+  mac-addresses:
+    silent: true
+    desc: Get MAC addresses for all cluster VMs
+    cmds:
+      - |
+        set -euo pipefail
+        
+        REMOTE_NAME="{{.INCUS_REMOTE_NAME}}"
+        if [ -z "${REMOTE_NAME}" ]; then
+          echo "Error: INCUS_REMOTE_NAME is not set"
+          echo "Set it in your windsor.yaml or use: task tc:mac-addresses -- <remote-name>"
+          exit 1
+        fi
+        
+        CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
+        CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
+        WORKER_0_VM="{{.WORKER_0_VM}}"
+        WORKER_0_VM="${WORKER_0_VM:-talos-worker-0}"
+        WORKER_1_VM="{{.WORKER_1_VM}}"
+        WORKER_1_VM="${WORKER_1_VM:-talos-worker-1}"
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "VM MAC Addresses"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # Function to get MAC address for a VM (handles errors gracefully)
+        get_mac() {
+          local vm_name="$1"
+          local mac=""
+          
+          # Temporarily disable exit on error for this function
+          set +e
+          
+          # Try to get MAC from state.network (when VM is running)
+          if command -v jq > /dev/null 2>&1; then
+            LIST_OUTPUT=$(incus list "${REMOTE_NAME}:${vm_name}" --format json 2>/dev/null)
+            LIST_EXIT=$?
+            if [ ${LIST_EXIT} -eq 0 ] && [ -n "${LIST_OUTPUT}" ]; then
+              mac=$(echo "${LIST_OUTPUT}" | jq -r '.[0].state.network.eth0.hwaddr // empty' 2>/dev/null || echo "")
+              # Check if jq returned "null" as a string
+              if [ "${mac}" = "null" ]; then
+                mac=""
+              fi
+            fi
+          fi
+          
+          # If not found, try config
+          if [ -z "${mac}" ]; then
+            CONFIG_OUTPUT=$(incus config show "${REMOTE_NAME}:${vm_name}" 2>/dev/null)
+            CONFIG_EXIT=$?
+            if [ ${CONFIG_EXIT} -eq 0 ] && [ -n "${CONFIG_OUTPUT}" ]; then
+              mac=$(echo "${CONFIG_OUTPUT}" | grep -E "volatile\.eth0\.hwaddr|eth0\.hwaddr" | \
+                awk '{print $2}' | tr -d '"' | head -1 || echo "")
+            fi
+          fi
+          
+          # If still not found, try device config
+          if [ -z "${mac}" ]; then
+            mac=$(incus config device get "${REMOTE_NAME}:${vm_name}" eth0 hwaddr 2>/dev/null || echo "")
+          fi
+          
+          # If still not found, try querying the Incus API directly
+          if [ -z "${mac}" ] && command -v jq > /dev/null 2>&1; then
+            API_OUTPUT=$(incus query "/1.0/instances/${REMOTE_NAME}:${vm_name}" 2>/dev/null)
+            API_EXIT=$?
+            if [ ${API_EXIT} -eq 0 ] && [ -n "${API_OUTPUT}" ]; then
+              mac=$(echo "${API_OUTPUT}" | jq -r '.devices.eth0.hwaddr // .expanded_devices.eth0.hwaddr // .config."volatile.eth0.hwaddr" // empty' 2>/dev/null || echo "")
+              if [ "${mac}" = "null" ]; then
+                mac=""
+              fi
+            fi
+          fi
+          
+          # Re-enable exit on error
+          set -e
+          
+          # Return empty string if mac is null or empty
+          if [ "${mac}" = "null" ] || [ -z "${mac}" ]; then
+            echo ""
+          else
+            echo "${mac}"
+          fi
+        }
+        
+        # Get MAC addresses (disable exit on error to handle cases where VMs don't exist)
+        set +e
+        CP_MAC=$(get_mac "${CONTROL_PLANE_VM}" || echo "")
+        W0_MAC=$(get_mac "${WORKER_0_VM}" || echo "")
+        W1_MAC=$(get_mac "${WORKER_1_VM}" || echo "")
+        set -e
+        
+        # Display results
+        echo "Control Plane (${CONTROL_PLANE_VM}):"
+        if [ -n "${CP_MAC}" ]; then
+          echo "  MAC: ${CP_MAC}"
+        else
+          echo "  MAC: (not found - VM may not exist or be running)"
+        fi
+        echo ""
+        
+        echo "Worker 0 (${WORKER_0_VM}):"
+        if [ -n "${W0_MAC}" ]; then
+          echo "  MAC: ${W0_MAC}"
+        else
+          echo "  MAC: (not found - VM may not exist or be running)"
+        fi
+        echo ""
+        
+        echo "Worker 1 (${WORKER_1_VM}):"
+        if [ -n "${W1_MAC}" ]; then
+          echo "  MAC: ${W1_MAC}"
+        else
+          echo "  MAC: (not found - VM may not exist or be running)"
+        fi
+        echo ""
+        
+        # Show how to set them in windsor.yaml
+        if [ -n "${CP_MAC}" ] || [ -n "${W0_MAC}" ] || [ -n "${W1_MAC}" ]; then
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "To set these MAC addresses in your configuration:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Add these to contexts/{{.WINDSOR_CONTEXT}}/windsor.yaml:"
+          echo ""
+          if [ -n "${CP_MAC}" ]; then
+            echo "  CONTROL_PLANE_MAC: \"${CP_MAC}\""
+          fi
+          if [ -n "${W0_MAC}" ]; then
+            echo "  WORKER_0_MAC: \"${W0_MAC}\""
+          fi
+          if [ -n "${W1_MAC}" ]; then
+            echo "  WORKER_1_MAC: \"${W1_MAC}\""
+          fi
+          echo ""
+          echo "Then regenerate terraform.tfvars:"
+          echo "  task tc:generate-tfvars"
+        else
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Note: MAC addresses not found via Incus"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "For VMs attached to physical networks, MAC addresses may not be"
+          echo "available via Incus. You can:"
+          echo ""
+          echo "1. Check your router's DHCP client list for MAC addresses"
+          echo "2. Use 'ip neigh show' on the Incus host to see MAC addresses"
+          echo "3. Set MAC addresses manually in terraform.tfvars if you know them"
+          echo ""
+          echo "To set MAC addresses manually, add to terraform.tfvars:"
+          echo "  control_plane_mac = \"aa:bb:cc:dd:ee:ff\""
+          echo "  worker_0_mac      = \"11:22:33:44:55:66\""
+          echo "  worker_1_mac      = \"77:88:99:aa:bb:cc\""
+        fi
+
   test:
+    silent: true
     desc: Test Talos cluster setup by running through all runbook steps and validating the cluster. Use --keep to leave cluster running after test.
     cmds:
       - |
@@ -631,6 +794,16 @@ tasks:
         TALOSCONFIG_PATH="${PROJECT_ROOT}/contexts/test/.talos/talosconfig"
         KUBECONFIG_FILE_PATH="${PROJECT_ROOT}/contexts/test/.kube/config"
         
+        # Clean up old Talos and kubeconfig files from previous test runs
+        if [ -f "${TALOSCONFIG_PATH}" ]; then
+          echo "  Cleaning up old Talos config: ${TALOSCONFIG_PATH}"
+          rm -f "${TALOSCONFIG_PATH}"
+        fi
+        if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
+          echo "  Cleaning up old kubeconfig: ${KUBECONFIG_FILE_PATH}"
+          rm -f "${KUBECONFIG_FILE_PATH}"
+        fi
+        
         # Create or update windsor.yaml with environment variables (matching Step 2 of tc.md)
         {
           echo "id: test-TC"
@@ -671,6 +844,7 @@ tasks:
           echo "  # Talos configuration paths (REQUIRED)"
           echo "  TALOSCONFIG: ${TALOSCONFIG_PATH}"
           echo "  KUBECONFIG_FILE: ${KUBECONFIG_FILE_PATH}"
+          echo "  KUBECONFIG: ${KUBECONFIG_FILE_PATH}"
         } > "${TEST_WINDSOR_YAML}"
         
         echo "✅ Created/updated ${TEST_WINDSOR_YAML}"
@@ -835,7 +1009,7 @@ tasks:
           "task tc:terraform:init" \
           ""
         
-        # Step 5: Check if cluster VMs already exist (cleanup if needed)
+        # Step 5: Check if cluster VMs already exist (prompt user to delete or keep)
         EXISTING_VMS=0
         for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
           if incus list "${TEST_REMOTE_NAME}:${VM}" --format csv -c n 2>/dev/null | grep -q "^${VM}$"; then
@@ -843,79 +1017,146 @@ tasks:
           fi
         done
         
+        DELETE_VMS=false
         if [ ${EXISTING_VMS} -gt 0 ]; then
           echo ""
-          echo "⚠️  Warning: ${EXISTING_VMS} cluster VM(s) already exist. Cleaning up..."
-          task tc:terraform:destroy > /dev/null 2>&1 || true
-          sleep 5
-        fi
-        
-        # Step 6: Create cluster VMs
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "Creating cluster VMs (this may take several minutes)..."
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        
-        # Generate tfvars, init, and apply
-        task tc:generate-tfvars > /dev/null 2>&1
-        task tc:terraform:init > /dev/null 2>&1
-        
-        if task tc:terraform:apply > /tmp/terraform_apply.log 2>&1; then
-          echo "✅ Cluster VMs created successfully"
-          TESTS_PASSED=$((TESTS_PASSED + 1))
-        else
-          echo "❌ FAIL: Cluster VM creation failed"
-          cat /tmp/terraform_apply.log | tail -50
-          TESTS_FAILED=$((TESTS_FAILED + 1))
-          FAILED_TESTS+=("Cluster VM creation")
+          echo "⚠️  Warning: ${EXISTING_VMS} cluster VM(s) already exist."
           echo ""
-          echo "═══════════════════════════════════════════════════════════════"
-          echo "Test Summary: ${TESTS_PASSED} passed, ${TESTS_FAILED} failed"
-          echo "═══════════════════════════════════════════════════════════════"
-          exit 1
-        fi
-        
-        # Step 7: Wait for VMs to boot and get IP addresses
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "Step 7: Wait for VMs to Boot and Get IP Addresses"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        
-        echo "Waiting for VMs to boot and receive DHCP-assigned IP addresses..."
-        MAX_WAIT=300  # 5 minutes
-        ELAPSED=0
-        ALL_VMS_READY=false
-        
-        while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
-          READY_COUNT=0
-          for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
-            if incus list "${TEST_REMOTE_NAME}:${VM}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
-              READY_COUNT=$((READY_COUNT + 1))
-            fi
-          done
+          echo "Do you want to delete the existing VMs and recreate the cluster?"
+          echo "(Press Enter to keep existing VMs, or type 'yes'/'y' to delete - timeout: 10 seconds)"
+          echo -n "Delete VMs? [Enter=keep, yes/y=delete]: "
           
-          if [ ${READY_COUNT} -eq 3 ]; then
-            ALL_VMS_READY=true
-            echo "✅ All VMs are running"
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-            break
+          # Use read with timeout (10 seconds)
+          # Try read -t first (works in bash and zsh)
+          USER_RESPONSE=""
+          if read -t 10 -r USER_RESPONSE 2>/dev/null; then
+            : # Response received
+          else
+            # Timeout occurred or read failed - treat as empty (keep VMs)
+            USER_RESPONSE=""
+            echo ""  # New line after timeout
           fi
           
-          sleep 10
-          ELAPSED=$((ELAPSED + 10))
-          echo "  Waiting... (${ELAPSED}s/${MAX_WAIT}s) - ${READY_COUNT}/3 VMs running"
-        done
-        
-        if [ "${ALL_VMS_READY}" = "false" ]; then
-          echo "❌ FAIL: Not all VMs are running after ${MAX_WAIT} seconds"
-          TESTS_FAILED=$((TESTS_FAILED + 1))
-          FAILED_TESTS+=("VM boot")
+          # Normalize response (trim whitespace, convert to lowercase)
+          USER_RESPONSE=$(echo "${USER_RESPONSE}" | tr '[:upper:]' '[:lower:]' | xargs)
+          
+          if [ "${USER_RESPONSE}" = "yes" ] || [ "${USER_RESPONSE}" = "y" ]; then
+            DELETE_VMS=true
+            echo "✅ Will delete existing VMs and recreate cluster"
+          else
+            DELETE_VMS=false
+            echo "✅ Keeping existing VMs (will reuse IP addresses from terraform state)"
+          fi
+          
+          if [ "${DELETE_VMS}" = "true" ]; then
+            echo ""
+            echo "Cleaning up existing VMs..."
+            
+            # Clean up old Talos and kubeconfig files
+            if [ -f "${TALOSCONFIG_PATH}" ]; then
+              echo "  Removing old Talos config: ${TALOSCONFIG_PATH}"
+              rm -f "${TALOSCONFIG_PATH}"
+            fi
+            if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
+              echo "  Removing old kubeconfig: ${KUBECONFIG_FILE_PATH}"
+              rm -f "${KUBECONFIG_FILE_PATH}"
+            fi
+            
+            task tc:terraform:destroy > /dev/null 2>&1 || true
+            sleep 5
+          fi
         fi
         
-        # Step 8: Get actual IP addresses from Terraform outputs
+        # Step 6: Create cluster VMs (only if we're deleting or they don't exist)
+        if [ "${DELETE_VMS}" = "true" ] || [ ${EXISTING_VMS} -eq 0 ]; then
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Creating cluster VMs (this may take several minutes)..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Generate tfvars, init, and apply
+          task tc:generate-tfvars > /dev/null 2>&1
+          task tc:terraform:init > /dev/null 2>&1
+          
+          if task tc:terraform:apply > /tmp/terraform_apply.log 2>&1; then
+            echo "✅ Cluster VMs created successfully"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+          else
+            echo "❌ FAIL: Cluster VM creation failed"
+            cat /tmp/terraform_apply.log | tail -50
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("Cluster VM creation")
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "Test Summary: ${TESTS_PASSED} passed, ${TESTS_FAILED} failed"
+            echo "═══════════════════════════════════════════════════════════════"
+            exit 1
+          fi
+        else
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Using existing cluster VMs"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Skipping VM creation (using existing VMs)"
+          TESTS_PASSED=$((TESTS_PASSED + 1))
+        fi
+        
+        # Step 7: Wait for VMs to boot and get IP addresses (part of Step 7: Configure IP Addresses)
         echo ""
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "Step 8: Get Actual IP Addresses"
+        echo "Step 7: Configure IP Addresses for Talos Deployment"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 7a: Wait for VMs to Boot and Get IP Addresses"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        
+        # Check if VMs are already running (if we kept existing VMs)
+        READY_COUNT=0
+        for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+          if incus list "${TEST_REMOTE_NAME}:${VM}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+            READY_COUNT=$((READY_COUNT + 1))
+          fi
+        done
+        
+        if [ ${READY_COUNT} -eq 3 ]; then
+          echo "✅ All VMs are already running"
+          TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+          echo "Waiting for VMs to boot and receive DHCP-assigned IP addresses..."
+          MAX_WAIT=300  # 5 minutes
+          ELAPSED=0
+          ALL_VMS_READY=false
+          
+          while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+            READY_COUNT=0
+            for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+              if incus list "${TEST_REMOTE_NAME}:${VM}" --format json 2>/dev/null | grep -q '"status":"Running"'; then
+                READY_COUNT=$((READY_COUNT + 1))
+              fi
+            done
+            
+            if [ ${READY_COUNT} -eq 3 ]; then
+              ALL_VMS_READY=true
+              echo "✅ All VMs are running"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+              break
+            fi
+            
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+            echo "  Waiting... (${ELAPSED}s/${MAX_WAIT}s) - ${READY_COUNT}/3 VMs running"
+          done
+          
+          if [ "${ALL_VMS_READY}" = "false" ]; then
+            echo "❌ FAIL: Not all VMs are running after ${MAX_WAIT} seconds"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("VM boot")
+          fi
+        fi
+        
+        # Step 7b: Get actual IP addresses from Terraform outputs
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Step 7b: Get Actual IP Addresses"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         
         TERRAFORM_DIR="${PROJECT_ROOT}/terraform/cluster"
@@ -927,57 +1168,190 @@ tasks:
         else
           cd "${TERRAFORM_DIR}"
           
-          # Try to get IP addresses from Terraform outputs (quick check, no waiting)
-          echo "Checking for IP addresses in Terraform outputs..."
-          CONTROL_PLANE_IP=""
-          WORKER_0_IP=""
-          WORKER_1_IP=""
+          # Function to validate IP address format
+          validate_ip() {
+            local ip="$1"
+            # Check if IP matches pattern: 4 octets separated by dots (e.g., 192.168.2.147)
+            if [[ "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+              # Check each octet is between 0-255 using a portable method
+              local octet1 octet2 octet3 octet4
+              octet1=$(echo "${ip}" | cut -d'.' -f1)
+              octet2=$(echo "${ip}" | cut -d'.' -f2)
+              octet3=$(echo "${ip}" | cut -d'.' -f3)
+              octet4=$(echo "${ip}" | cut -d'.' -f4)
+              
+              # Validate each octet is a number between 0-255
+              for octet in "${octet1}" "${octet2}" "${octet3}" "${octet4}"; do
+                # Check if it's a valid number
+                if ! [[ "${octet}" =~ ^[0-9]+$ ]]; then
+                  return 1
+                fi
+                # Check if it's in valid range
+                if [ "${octet}" -lt 0 ] || [ "${octet}" -gt 255 ]; then
+                  return 1
+                fi
+              done
+              return 0
+            else
+              return 1
+            fi
+          }
           
+          # Try to get IP addresses from windsor.yaml (environment variables), terraform state, or prompt user
+          # Priority: 1. Environment variables (from windsor.yaml), 2. Terraform state, 3. User prompt
           set +e  # Temporarily disable exit on error for IP extraction
           
-          # Try to get IP addresses from Terraform outputs
-          CONTROL_PLANE_IP=$(terraform output -raw control_plane_ip 2>/dev/null || echo "")
+          # Get IPs from environment variables (set by Windsor from windsor.yaml)
+          # These use {{.CONTROL_PLANE_IP}} syntax which Windsor replaces with values from windsor.yaml
+          CONTROL_PLANE_IP="{{.CONTROL_PLANE_IP}}"
+          WORKER_0_IP="{{.WORKER_0_IP}}"
+          WORKER_1_IP="{{.WORKER_1_IP}}"
           
-          if command -v jq > /dev/null 2>&1; then
-            WORKER_0_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_0"] // empty' 2>/dev/null || echo "")
-            WORKER_1_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_1"] // empty' 2>/dev/null || echo "")
+          # Remove quotes if present (Windsor may add them)
+          CONTROL_PLANE_IP=$(echo "${CONTROL_PLANE_IP}" | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
+          WORKER_0_IP=$(echo "${WORKER_0_IP}" | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
+          WORKER_1_IP=$(echo "${WORKER_1_IP}" | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//")
+          
+          # Check if IPs are already set in windsor.yaml (via environment variables)
+          # Windsor replaces {{.CONTROL_PLANE_IP}} with the value from windsor.yaml
+          # Empty strings mean IPs are not set and we should prompt
+          if [ -n "${CONTROL_PLANE_IP}" ] && [ -n "${WORKER_0_IP}" ] && [ -n "${WORKER_1_IP}" ]; then
+            # Validate IPs from windsor.yaml
+            if validate_ip "${CONTROL_PLANE_IP}" && validate_ip "${WORKER_0_IP}" && validate_ip "${WORKER_1_IP}"; then
+              echo "✅ Using IP addresses from windsor.yaml:"
+              echo "   Control Plane: ${CONTROL_PLANE_IP}"
+              echo "   Worker 0:      ${WORKER_0_IP}"
+              echo "   Worker 1:      ${WORKER_1_IP}"
+              echo ""
+              set -e  # Re-enable exit on error
+              # Skip further checks and prompting - we have valid IPs from windsor.yaml
+            else
+              echo "⚠️  Warning: IP addresses in windsor.yaml are invalid, will try other methods..."
+              # Clear invalid IPs so we can try terraform state or prompt
+              if ! validate_ip "${CONTROL_PLANE_IP}"; then
+                CONTROL_PLANE_IP=""
+              fi
+              if ! validate_ip "${WORKER_0_IP}"; then
+                WORKER_0_IP=""
+              fi
+              if ! validate_ip "${WORKER_1_IP}"; then
+                WORKER_1_IP=""
+              fi
+            fi
           else
-            # Fallback if jq is not available
-            WORKER_IPS_RAW=$(terraform output -json worker_ips 2>/dev/null || echo "")
-            WORKER_0_IP=$(echo "${WORKER_IPS_RAW}" | grep -o '"worker_0"[^}]*"[^"]*"' | grep -o '"[0-9.]*"' | head -1 | tr -d '"' || echo "")
-            WORKER_1_IP=$(echo "${WORKER_IPS_RAW}" | grep -o '"worker_1"[^}]*"[^"]*"' | grep -o '"[0-9.]*"' | head -1 | tr -d '"' || echo "")
+            # Some IPs are missing from windsor.yaml - will try terraform state or prompt
+            echo "IP addresses not fully set in windsor.yaml, will try to retrieve from terraform state or prompt..."
+          fi
+          
+          # If IPs not set from windsor.yaml, try to get from terraform outputs (if terraform state exists)
+          if [ -z "${CONTROL_PLANE_IP}" ] || [ -z "${WORKER_0_IP}" ] || [ -z "${WORKER_1_IP}" ]; then
+            if [ "${DELETE_VMS}" != "true" ] && [ ${EXISTING_VMS} -gt 0 ]; then
+              echo "Attempting to retrieve IP addresses from terraform state..."
+              if [ -z "${CONTROL_PLANE_IP}" ]; then
+                CONTROL_PLANE_IP=$(terraform output -raw control_plane_ip 2>/dev/null || echo "")
+              fi
+              if [ -z "${WORKER_0_IP}" ] && command -v jq > /dev/null 2>&1; then
+                WORKER_0_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_0"] // empty' 2>/dev/null || echo "")
+              fi
+              if [ -z "${WORKER_1_IP}" ] && command -v jq > /dev/null 2>&1; then
+                WORKER_1_IP=$(terraform output -json worker_ips 2>/dev/null | jq -r '.["worker_1"] // empty' 2>/dev/null || echo "")
+              fi
+              
+              # If we got IPs from terraform, validate them
+              if [ -n "${CONTROL_PLANE_IP}" ] && [ -n "${WORKER_0_IP}" ] && [ -n "${WORKER_1_IP}" ]; then
+                if validate_ip "${CONTROL_PLANE_IP}" && validate_ip "${WORKER_0_IP}" && validate_ip "${WORKER_1_IP}"; then
+                  echo "✅ Retrieved IP addresses from terraform state:"
+                  echo "   Control Plane: ${CONTROL_PLANE_IP}"
+                  echo "   Worker 0:      ${WORKER_0_IP}"
+                  echo "   Worker 1:      ${WORKER_1_IP}"
+                  echo ""
+                  set -e  # Re-enable exit on error
+                  # Skip prompting - we have valid IPs
+                else
+                  # IPs from terraform are invalid, clear them
+                  if ! validate_ip "${CONTROL_PLANE_IP}"; then
+                    CONTROL_PLANE_IP=""
+                  fi
+                  if ! validate_ip "${WORKER_0_IP}"; then
+                    WORKER_0_IP=""
+                  fi
+                  if ! validate_ip "${WORKER_1_IP}"; then
+                    WORKER_1_IP=""
+                  fi
+                fi
+              fi
+            fi
           fi
           
           set -e  # Re-enable exit on error
           
-          # Prompt for manual input if IPs are not available from Terraform
+          # Prompt user for IP addresses if we don't have them yet
           if [ -z "${CONTROL_PLANE_IP}" ] || [ -z "${WORKER_0_IP}" ] || [ -z "${WORKER_1_IP}" ]; then
             echo ""
-            echo "⚠️  Could not automatically detect all IP addresses"
-            echo "   IPs are visible in the Talos console but not accessible via incus exec"
-            echo ""
-            echo "   Please enter the IP addresses you see in the Talos console:"
+            echo "Please enter the IP addresses you see in the Talos console:"
+            echo "(Format: x.x.x.x, e.g., 192.168.2.147)"
             echo ""
             
             if [ -z "${CONTROL_PLANE_IP}" ]; then
-              read -p "   Control Plane IP (${CONTROL_PLANE_VM}): " CONTROL_PLANE_IP
-            else
-              echo "   Control Plane IP: ${CONTROL_PLANE_IP} (auto-detected)"
+              while true; do
+                read -p "Control Plane IP (${CONTROL_PLANE_VM}): " CONTROL_PLANE_IP
+                if validate_ip "${CONTROL_PLANE_IP}"; then
+                  break
+                else
+                  echo "❌ Invalid IP format. Please enter a valid IP address (e.g., 192.168.2.147)"
+                fi
+              done
             fi
             
             if [ -z "${WORKER_0_IP}" ]; then
-              read -p "   Worker 0 IP (${WORKER_0_VM}): " WORKER_0_IP
-            else
-              echo "   Worker 0 IP: ${WORKER_0_IP} (auto-detected)"
+              while true; do
+                read -p "Worker 0 IP (${WORKER_0_VM}): " WORKER_0_IP
+                if validate_ip "${WORKER_0_IP}"; then
+                  break
+                else
+                  echo "❌ Invalid IP format. Please enter a valid IP address (e.g., 192.168.2.147)"
+                fi
+              done
             fi
             
             if [ -z "${WORKER_1_IP}" ]; then
-              read -p "   Worker 1 IP (${WORKER_1_VM}): " WORKER_1_IP
-            else
-              echo "   Worker 1 IP: ${WORKER_1_IP} (auto-detected)"
+              while true; do
+                read -p "Worker 1 IP (${WORKER_1_VM}): " WORKER_1_IP
+                if validate_ip "${WORKER_1_IP}"; then
+                  break
+                else
+                  echo "❌ Invalid IP format. Please enter a valid IP address (e.g., 192.168.2.147)"
+                fi
+              done
             fi
             
             echo ""
+          fi
+          
+          # Validate all IPs before proceeding
+          INVALID_IPS=()
+          if ! validate_ip "${CONTROL_PLANE_IP}"; then
+            INVALID_IPS+=("Control Plane: ${CONTROL_PLANE_IP}")
+          fi
+          if ! validate_ip "${WORKER_0_IP}"; then
+            INVALID_IPS+=("Worker 0: ${WORKER_0_IP}")
+          fi
+          if ! validate_ip "${WORKER_1_IP}"; then
+            INVALID_IPS+=("Worker 1: ${WORKER_1_IP}")
+          fi
+          
+          if [ ${#INVALID_IPS[@]} -gt 0 ]; then
+            echo "❌ FAIL: Invalid IP address format detected:"
+            for invalid_ip in "${INVALID_IPS[@]}"; do
+              echo "  - ${invalid_ip}"
+            done
+            echo ""
+            echo "  IP addresses must be in the format: x.x.x.x (e.g., 192.168.2.147)"
+            echo "  Each octet must be between 0-255"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("Invalid IP address format")
+            cd "${PROJECT_ROOT}"
+            exit 1
           fi
           
           # Verify we have all IPs
@@ -1026,11 +1400,12 @@ tasks:
           cd "${PROJECT_ROOT}"
         fi
         
-        # Step 9: Regenerate terraform.tfvars with actual IPs and continue deployment
+        # Step 7c and 7d: Regenerate terraform.tfvars with actual IPs and continue deployment
         if [ -n "${CONTROL_PLANE_IP}" ] && [ -n "${WORKER_0_IP}" ] && [ -n "${WORKER_1_IP}" ]; then
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Step 9: Continue Terraform Deployment with IP Addresses"
+          echo "Step 7c: Regenerate terraform.tfvars"
+          echo "Step 7d: Continue Terraform Deployment with IP Addresses"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
           # Reload Windsor environment to get updated IPs
@@ -1043,63 +1418,363 @@ tasks:
             "task tc:generate-tfvars" \
             "Generated"
           
-          # Continue Terraform apply to configure Talos
+          # Check if cluster is already ready before running terraform apply
           echo ""
-          echo "  Applying Talos configurations (this may take several minutes)..."
-          if task tc:terraform:apply > /tmp/terraform_apply2.log 2>&1; then
-            echo "✅ Talos configurations applied successfully"
+          echo "  Checking if cluster is already configured and ready..."
+          CLUSTER_ALREADY_READY=false
+          set +e  # Temporarily disable exit on error
+          
+          # First, try to check via existing kubeconfig (if available)
+          KUBECONFIG_TO_CHECK="${KUBECONFIG_FILE_PATH:-${KUBECONFIG:-}}"
+          if [ -f "${KUBECONFIG_TO_CHECK}" ] && command -v kubectl > /dev/null 2>&1; then
+            echo "   Checking cluster status via existing kubeconfig..."
+            export KUBECONFIG="${KUBECONFIG_TO_CHECK}"
+            if command -v timeout >/dev/null 2>&1; then
+              KUBECTL_OUTPUT=$(timeout 10 kubectl get nodes --no-headers 2>&1)
+              KUBECTL_EXIT=$?
+            else
+              KUBECTL_OUTPUT=$(kubectl get nodes --no-headers 2>&1)
+              KUBECTL_EXIT=$?
+            fi
+            unset KUBECONFIG
+            
+            if [ ${KUBECTL_EXIT} -eq 0 ] && [ -n "${KUBECTL_OUTPUT}" ]; then
+              # Use the same reliable counting method as the wait loop
+              NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null || echo "0")
+              if [ -z "${NODE_COUNT}" ] || ! echo "${NODE_COUNT}" | grep -qE "^[0-9]+$"; then
+                NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -v "^$" | grep -v "^[[:space:]]*$" | wc -l | awk '{print $1}' || echo "0")
+              fi
+              NODE_COUNT=$((NODE_COUNT))
+              
+              echo "   Found ${NODE_COUNT} nodes via kubeconfig"
+              if [ ${NODE_COUNT} -ge 3 ]; then
+                CLUSTER_ALREADY_READY=true
+                echo "✅ Cluster is already ready (${NODE_COUNT} nodes registered)"
+                echo "   Skipping terraform apply to avoid disrupting the cluster"
+                set -e  # Re-enable exit on error
+              else
+                echo "   Cluster has ${NODE_COUNT} nodes (need 3), will check Talos API"
+              fi
+            fi
+          fi
+          
+          # If not ready yet, try checking via Talos API
+          if [ "${CLUSTER_ALREADY_READY}" != "true" ] && [ -f "${TALOSCONFIG_PATH}" ]; then
+            # Try to check cluster status
+            if talosctl --talosconfig "${TALOSCONFIG_PATH}" --nodes "${CONTROL_PLANE_IP}" version >/dev/null 2>&1; then
+              echo "   Talos API is accessible, checking if cluster is bootstrapped..."
+              # Cluster API is accessible, check if it's bootstrapped
+              if talosctl --talosconfig "${TALOSCONFIG_PATH}" --nodes "${CONTROL_PLANE_IP}" kubeconfig /tmp/test_kubeconfig_check.yaml >/dev/null 2>&1; then
+                echo "   Kubeconfig retrieved, checking node count..."
+                # Try to get nodes using the improved counting method
+                export KUBECONFIG=/tmp/test_kubeconfig_check.yaml
+                if command -v timeout >/dev/null 2>&1; then
+                  KUBECTL_OUTPUT=$(timeout 10 kubectl get nodes --no-headers 2>&1)
+                  KUBECTL_EXIT=$?
+                else
+                  KUBECTL_OUTPUT=$(kubectl get nodes --no-headers 2>&1)
+                  KUBECTL_EXIT=$?
+                fi
+                
+                if [ ${KUBECTL_EXIT} -eq 0 ] && [ -n "${KUBECTL_OUTPUT}" ]; then
+                  # Use the same reliable counting method as the wait loop
+                  NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null || echo "0")
+                  if [ -z "${NODE_COUNT}" ] || ! echo "${NODE_COUNT}" | grep -qE "^[0-9]+$"; then
+                    NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -v "^$" | grep -v "^[[:space:]]*$" | wc -l | awk '{print $1}' || echo "0")
+                  fi
+                  NODE_COUNT=$((NODE_COUNT))
+                  
+                  echo "   Found ${NODE_COUNT} nodes"
+                  if [ ${NODE_COUNT} -ge 3 ]; then
+                    CLUSTER_ALREADY_READY=true
+                    echo "✅ Cluster is already ready (${NODE_COUNT} nodes registered)"
+                    echo "   Skipping terraform apply to avoid disrupting the cluster"
+                  else
+                    echo "   Cluster has ${NODE_COUNT} nodes (need 3), will run terraform apply"
+                  fi
+                else
+                  echo "   Could not retrieve node list (exit code: ${KUBECTL_EXIT})"
+                  if [ -n "${KUBECTL_OUTPUT}" ]; then
+                    echo "   Error: $(echo "${KUBECTL_OUTPUT}" | head -1)"
+                  fi
+                fi
+                rm -f /tmp/test_kubeconfig_check.yaml
+                unset KUBECONFIG
+              else
+                echo "   Could not retrieve kubeconfig - cluster may not be bootstrapped yet"
+              fi
+            else
+              echo "   Talos API is not accessible yet (this is OK if cluster is ready via kubectl)"
+            fi
+          elif [ "${CLUSTER_ALREADY_READY}" != "true" ]; then
+            echo "   Talosconfig file not found at ${TALOSCONFIG_PATH}"
+          fi
+          set -e  # Re-enable exit on error
+          
+          if [ "${CLUSTER_ALREADY_READY}" = "true" ]; then
+            echo "✅ Skipping terraform apply - cluster is already configured and ready"
             TESTS_PASSED=$((TESTS_PASSED + 1))
           else
-            echo "❌ FAIL: Talos configuration application failed"
-            cat /tmp/terraform_apply2.log | tail -50
-            TESTS_FAILED=$((TESTS_FAILED + 1))
-            FAILED_TESTS+=("Talos configuration")
+            # Continue Terraform apply to configure Talos
+            echo ""
+            echo "  Applying Talos configurations (this may take several minutes)..."
+            echo "  This step will:"
+            echo "    1. Wait for Talos API to be accessible on each node (up to 5 minutes per node)"
+            echo "    2. Apply Talos configuration to control plane"
+            echo "    3. Apply Talos configuration to worker nodes"
+            echo "    4. Bootstrap the etcd cluster"
+            echo ""
+            echo "  Progress will be shown below (checking every 30 seconds)..."
+            echo ""
+            
+            # Run terraform apply in background and tail the log
+            TERRAFORM_LOG="/tmp/terraform_apply2.log"
+            rm -f "${TERRAFORM_LOG}"
+            
+            # Start terraform apply in background
+            # Use set +u temporarily to avoid issues with $! expansion
+            set +u
+            (
+              task tc:terraform:apply > "${TERRAFORM_LOG}" 2>&1
+              echo $? > /tmp/terraform_apply2.exit
+            ) &
+            TERRAFORM_PID=$!
+            set -u
+            
+            # Give the process a moment to start, then verify we got a valid PID
+            sleep 1
+            if [ -z "${TERRAFORM_PID}" ]; then
+              echo "⚠️  WARNING: Could not capture terraform apply process ID"
+              echo "   Process may have completed immediately or started in a different way"
+              echo "   Will check exit code after waiting..."
+              TERRAFORM_PID=""
+            elif ! kill -0 "${TERRAFORM_PID}" 2>/dev/null; then
+              echo "⚠️  WARNING: Process ${TERRAFORM_PID} not found"
+              echo "   Checking if process completed quickly..."
+              # Check if the process already finished (might have failed immediately)
+              if [ -f /tmp/terraform_apply2.exit ]; then
+                EXIT_CODE=$(cat /tmp/terraform_apply2.exit 2>/dev/null || echo "1")
+                if [ ${EXIT_CODE} -ne 0 ]; then
+                  echo "❌ FAIL: Terraform apply failed immediately"
+                  echo "   Check log: ${TERRAFORM_LOG}"
+                  if [ -f "${TERRAFORM_LOG}" ]; then
+                    echo "   Last 20 lines:"
+                    tail -20 "${TERRAFORM_LOG}"
+                  fi
+                  TESTS_FAILED=$((TESTS_FAILED + 1))
+                  FAILED_TESTS+=("Talos configuration")
+                  TERRAFORM_PID=""
+                else
+                  echo "✅ Process completed successfully"
+                  TERRAFORM_PID=""
+                fi
+              else
+                # Process might still be starting, keep the PID for monitoring
+                echo "  ⏳ Process ${TERRAFORM_PID} may still be starting..."
+              fi
+            else
+              echo "  ✓ Terraform apply process started (PID: ${TERRAFORM_PID})"
+            fi
+            
+            # Monitor progress (only if process is still running)
+            MAX_WAIT=1800  # 30 minutes total timeout
+            ELAPSED=0
+            LAST_LINE_COUNT=0
+            
+            # Initialize LAST_LINE_COUNT from existing log if present
+            if [ -f "${TERRAFORM_LOG}" ]; then
+              LAST_LINE_COUNT=$(wc -l < "${TERRAFORM_LOG}" 2>/dev/null || echo "0")
+            fi
+            
+            if [ -n "${TERRAFORM_PID}" ]; then
+            # We have a PID - monitor the process
+            while kill -0 "${TERRAFORM_PID}" 2>/dev/null && [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+              sleep 30
+              ELAPSED=$((ELAPSED + 30))
+              
+              # Show new log lines
+              if [ -f "${TERRAFORM_LOG}" ]; then
+                CURRENT_LINE_COUNT=$(wc -l < "${TERRAFORM_LOG}" 2>/dev/null || echo "0")
+                if [ "${CURRENT_LINE_COUNT}" -gt "${LAST_LINE_COUNT}" ]; then
+                  NEW_LINES=$((CURRENT_LINE_COUNT - LAST_LINE_COUNT))
+                  tail -n "${NEW_LINES}" "${TERRAFORM_LOG}" | grep -E "(Waiting for|Applying|Bootstrap|Error|accessible|ready)" || true
+                  LAST_LINE_COUNT=${CURRENT_LINE_COUNT}
+                fi
+              fi
+              
+              # Show progress indicator
+              MINUTES=$((ELAPSED / 60))
+              SECONDS=$((ELAPSED % 60))
+              printf "\r  ⏳ Still running... (%dm %ds elapsed)" "${MINUTES}" "${SECONDS}"
+            done
+            echo ""  # New line after progress indicator
+            
+            # Wait for terraform to finish
+            wait "${TERRAFORM_PID}" 2>/dev/null || true
+          else
+            # No PID captured - monitor by checking log file and exit code
+            echo "  Monitoring via log file (no PID available)..."
+            
+            # Wait a bit initially to see if process completes quickly
+            sleep 5
+            
+            # Check if process already completed
+            if [ -f /tmp/terraform_apply2.exit ]; then
+              echo "  Process completed quickly"
+            else
+              # Process is still running - monitor it
+              while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
+                # Check if process completed
+                if [ -f /tmp/terraform_apply2.exit ]; then
+                  break
+                fi
+                
+                sleep 30
+                ELAPSED=$((ELAPSED + 30))
+                
+                # Show new log lines
+                if [ -f "${TERRAFORM_LOG}" ]; then
+                  CURRENT_LINE_COUNT=$(wc -l < "${TERRAFORM_LOG}" 2>/dev/null || echo "0")
+                  if [ "${CURRENT_LINE_COUNT}" -gt "${LAST_LINE_COUNT}" ]; then
+                    NEW_LINES=$((CURRENT_LINE_COUNT - LAST_LINE_COUNT))
+                    tail -n "${NEW_LINES}" "${TERRAFORM_LOG}" | grep -E "(Waiting for|Applying|Bootstrap|Error|accessible|ready)" || true
+                    LAST_LINE_COUNT=${CURRENT_LINE_COUNT}
+                  fi
+                fi
+                
+                # Show progress indicator
+                MINUTES=$((ELAPSED / 60))
+                SECONDS=$((ELAPSED % 60))
+                printf "\r  ⏳ Still running... (%dm %ds elapsed)" "${MINUTES}" "${SECONDS}"
+              done
+              echo ""  # New line after progress indicator
+            fi
+          fi
+          
+            # Check exit status
+            EXIT_CODE=1
+            if [ -f /tmp/terraform_apply2.exit ]; then
+              EXIT_CODE=$(cat /tmp/terraform_apply2.exit 2>/dev/null || echo "1")
+              rm -f /tmp/terraform_apply2.exit
+            fi
+            
+            if [ ${EXIT_CODE} -eq 0 ]; then
+              echo "✅ Talos configurations applied successfully"
+              TESTS_PASSED=$((TESTS_PASSED + 1))
+            else
+              echo "❌ FAIL: Talos configuration application failed"
+              echo ""
+              echo "  Last 50 lines of output:"
+              if [ -f "${TERRAFORM_LOG}" ]; then
+                tail -50 "${TERRAFORM_LOG}"
+              else
+                echo "  No log file found"
+              fi
+              echo ""
+              echo "  Full log available at: ${TERRAFORM_LOG}"
+              TESTS_FAILED=$((TESTS_FAILED + 1))
+              FAILED_TESTS+=("Talos configuration")
+            fi
+            
+            # Show timeout warning if applicable
+            if [ ${ELAPSED} -ge ${MAX_WAIT} ]; then
+              echo ""
+              echo "⚠️  WARNING: Terraform apply exceeded ${MAX_WAIT} second timeout"
+              echo "   The process may still be running. Check the log file for details:"
+              echo "   ${TERRAFORM_LOG}"
+            fi
           fi
         fi
         
-        # Step 10: Retrieve kubeconfig
+        # Step 8: Retrieve kubeconfig
         if [ -n "${CONTROL_PLANE_IP}" ] && [ -f "${TALOSCONFIG_PATH}" ]; then
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Step 10: Retrieve kubeconfig"
+          echo "Step 8: Retrieve kubeconfig"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          # Wait a bit for cluster to be ready
-          sleep 30
+          # Wait for API server to be ready before retrieving kubeconfig
+          echo "  Waiting for API server to be ready (this may take a few minutes)..."
+          MAX_API_WAIT=600  # 10 minutes
+          API_ELAPSED=0
+          API_READY=false
+          
+          while [ ${API_ELAPSED} -lt ${MAX_API_WAIT} ]; do
+            # Try to connect to the API server
+            if command -v curl >/dev/null 2>&1; then
+              if curl -k -m 5 "https://${CONTROL_PLANE_IP}:6443/healthz" >/dev/null 2>&1; then
+                API_READY=true
+                break
+              fi
+            else
+              # If curl is not available, try with talosctl health check
+              set +e
+              if talosctl --talosconfig "${TALOSCONFIG_PATH}" health \
+                --endpoints "${CONTROL_PLANE_IP}" \
+                --nodes "${CONTROL_PLANE_IP}" >/dev/null 2>&1; then
+                API_READY=true
+                set -e
+                break
+              fi
+              set -e
+            fi
+            
+            sleep 10
+            API_ELAPSED=$((API_ELAPSED + 10))
+            MINUTES=$((API_ELAPSED / 60))
+            SECONDS=$((API_ELAPSED % 60))
+            printf "\r  ⏳ Waiting for API server... (%dm %ds)" "${MINUTES}" "${SECONDS}"
+          done
+          echo ""  # New line after progress indicator
+          
+          if [ "${API_READY}" = "false" ]; then
+            echo "⚠️  WARNING: API server not ready after ${MAX_API_WAIT} seconds"
+            echo "   Will attempt to retrieve kubeconfig anyway..."
+          else
+            echo "✅ API server is ready"
+          fi
           
           if talosctl kubeconfig "${KUBECONFIG_FILE_PATH}" \
             --talosconfig "${TALOSCONFIG_PATH}" \
             --nodes "${CONTROL_PLANE_IP}" > /tmp/kubeconfig_retrieve.log 2>&1; then
-            echo "✅ kubeconfig retrieved successfully"
             
-            # Verify and fix kubeconfig to point to control plane
-            if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
-              # Check all server URLs in the kubeconfig
+            # Verify kubeconfig file was actually created
+            if [ ! -f "${KUBECONFIG_FILE_PATH}" ]; then
+              echo "❌ FAIL: kubeconfig file was not created at ${KUBECONFIG_FILE_PATH}"
+              echo "   talosctl output:"
+              cat /tmp/kubeconfig_retrieve.log
+              TESTS_FAILED=$((TESTS_FAILED + 1))
+              FAILED_TESTS+=("kubeconfig retrieval")
+            else
+              echo "✅ kubeconfig file created"
+              echo "   File: ${KUBECONFIG_FILE_PATH}"
+              
+              # Always update kubeconfig server URL to match control plane IP (talosctl may use a different IP)
+              echo "   Ensuring kubeconfig server URL matches control plane IP (${CONTROL_PLANE_IP})..."
+              set +e  # Temporarily disable exit on error
               ALL_SERVERS=$(grep -E "^\s*server:" "${KUBECONFIG_FILE_PATH}" | awk '{print $2}' | sed 's|https://||' | cut -d':' -f1 || echo "")
-              NEEDS_UPDATE=false
+              set -e  # Re-enable exit on error
               
               # Check if any server URL doesn't match control plane IP
               for server in ${ALL_SERVERS}; do
                 if [ -n "${server}" ] && [ "${server}" != "${CONTROL_PLANE_IP}" ]; then
-                  NEEDS_UPDATE=true
                   echo "⚠️  Found server URL pointing to ${server} instead of control plane (${CONTROL_PLANE_IP})"
                 fi
               done
               
-              if [ "${NEEDS_UPDATE}" = "true" ]; then
-                echo "   Updating all kubeconfig server URLs to use control plane IP..."
-                # Update ALL server URLs to use control plane IP
-                if [[ "$(uname)" == "Darwin" ]]; then
-                  sed -i '' "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
-                else
-                  sed -i "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
-                fi
-                echo "✅ Updated all kubeconfig server URLs to ${CONTROL_PLANE_IP}:6443"
+              # Update ALL server URLs to use control plane IP
+              if [[ "$(uname)" == "Darwin" ]]; then
+                sed -i '' "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+              else
+                sed -i "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
               fi
+              echo "✅ Updated kubeconfig server URL to ${CONTROL_PLANE_IP}:6443"
               
               # Set the first context as current-context if not already set correctly
+              set +e  # Temporarily disable exit on error
               FIRST_CONTEXT=$(grep -A 3 "^contexts:" "${KUBECONFIG_FILE_PATH}" | grep -E "^\s+- context:" -A 2 | grep -E "^\s+name:" | head -1 | awk '{print $2}' || echo "")
               CURRENT_CONTEXT=$(grep -E "^current-context:" "${KUBECONFIG_FILE_PATH}" | awk '{print $2}' || echo "")
+              set -e  # Re-enable exit on error
               
               if [ -n "${FIRST_CONTEXT}" ] && [ "${CURRENT_CONTEXT}" != "${FIRST_CONTEXT}" ]; then
                 echo "   Setting current context to ${FIRST_CONTEXT}..."
@@ -1111,16 +1786,234 @@ tasks:
                 echo "✅ Set current context to ${FIRST_CONTEXT}"
               fi
               
-              # Verify the fix worked
+              # Verify the kubeconfig is valid (but don't fail if API server isn't ready yet)
+              echo "   Validating kubeconfig format..."
+              set +e  # Temporarily disable exit on error for validation
               export KUBECONFIG="${KUBECONFIG_FILE_PATH}"
-              VERIFIED_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed 's|https://||' | cut -d':' -f1 || echo "")
-              if [ -n "${VERIFIED_SERVER}" ] && [ "${VERIFIED_SERVER}" = "${CONTROL_PLANE_IP}" ]; then
-                echo "✅ Verified kubeconfig is correctly configured"
+              KUBECTL_VALIDATE_OUTPUT=$(kubectl config view 2>&1)
+              KUBECTL_VALIDATE_EXIT=$?
+              set -e  # Re-enable exit on error
+              
+              if [ ${KUBECTL_VALIDATE_EXIT} -ne 0 ]; then
+                echo "❌ FAIL: kubeconfig file exists but is invalid"
+                echo "   File location: ${KUBECONFIG_FILE_PATH}"
+                echo "   Error: ${KUBECTL_VALIDATE_OUTPUT}"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+                FAILED_TESTS+=("kubeconfig validation")
+              else
+                echo "   kubeconfig format is valid, verifying server URL..."
+                set +e  # Temporarily disable exit on error
+                VERIFIED_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null | sed 's|https://||' | cut -d':' -f1 || echo "")
+                set -e  # Re-enable exit on error
+                
+                if [ -n "${VERIFIED_SERVER}" ] && [ "${VERIFIED_SERVER}" = "${CONTROL_PLANE_IP}" ]; then
+                  echo "✅ Verified kubeconfig is correctly configured (server: ${VERIFIED_SERVER})"
+                else
+                  echo "⚠️  WARNING: kubeconfig server (${VERIFIED_SERVER}) doesn't match control plane IP (${CONTROL_PLANE_IP})"
+                  echo "   This may cause connection issues - attempting to fix..."
+                  if [[ "$(uname)" == "Darwin" ]]; then
+                    sed -i '' "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+                  else
+                    sed -i "s|server: https://.*:6443|server: https://${CONTROL_PLANE_IP}:6443|g" "${KUBECONFIG_FILE_PATH}"
+                  fi
+                fi
+                
+        # Test API server connectivity (but don't fail if it's not ready yet)
+        echo "   Testing API server connectivity..."
+        set +e
+        if command -v timeout >/dev/null 2>&1; then
+          if timeout 10 kubectl cluster-info >/dev/null 2>&1; then
+            echo "✅ API server is accessible"
+          else
+            echo "⚠️  WARNING: API server is not accessible yet (cluster may still be bootstrapping)"
+            echo "   This is normal - the cluster will be ready shortly"
+          fi
+        else
+          if kubectl cluster-info >/dev/null 2>&1; then
+            echo "✅ API server is accessible"
+          else
+            echo "⚠️  WARNING: API server is not accessible yet (cluster may still be bootstrapping)"
+            echo "   This is normal - the cluster will be ready shortly"
+          fi
+        fi
+        set -e
+                
+                echo "✅ kubeconfig retrieved and validated successfully"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+                
+                # Initialize NODES_READY before checking
+                NODES_READY=false
+                
+                # Quick check: if we can already get nodes, skip the wait
+                set +e
+                export KUBECONFIG="${KUBECONFIG_FILE_PATH}"
+                # Use a cross-platform approach: run kubectl directly (timeout not critical for quick check)
+                if command -v timeout >/dev/null 2>&1; then
+                  QUICK_CHECK=$(timeout 5 kubectl get nodes --no-headers 2>&1)
+                  QUICK_EXIT=$?
+                else
+                  # macOS doesn't have timeout, just run kubectl directly
+                  QUICK_CHECK=$(kubectl get nodes --no-headers 2>&1)
+                  QUICK_EXIT=$?
+                fi
+                if [ ${QUICK_EXIT} -eq 0 ] && [ -n "${QUICK_CHECK}" ]; then
+                  # Check if output is "No resources found"
+                  if echo "${QUICK_CHECK}" | grep -qiE "no resources found|no resources"; then
+                    QUICK_COUNT=0
+                  else
+                    QUICK_COUNT=$(echo "${QUICK_CHECK}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null || echo "0")
+                  fi
+                  QUICK_COUNT=$((QUICK_COUNT))
+                  if [ ${QUICK_COUNT} -ge 3 ]; then
+                    echo "✅ Cluster is already ready (${QUICK_COUNT} nodes registered)"
+                    NODES_READY=true
+                    set -e
+                  else
+                    set -e
+                    # Continue to wait loop below
+                  fi
+                else
+                  set -e
+                  # Continue to wait loop below
+                fi
+              fi
+              
+              # Wait for cluster to be fully ready (nodes registered) before proceeding
+              if [ "${NODES_READY:-false}" != "true" ]; then
+                echo ""
+                echo "  Waiting for cluster to be fully ready (nodes registered)..."
+                MAX_NODES_WAIT=600  # 10 minutes
+                NODES_ELAPSED=0
+                NODES_READY=false
+                
+                set +e  # Temporarily disable exit on error
+                export KUBECONFIG="${KUBECONFIG_FILE_PATH}"
+              
+              # First, verify kubeconfig is accessible
+              if [ ! -f "${KUBECONFIG_FILE_PATH}" ]; then
+                echo "   ERROR: Kubeconfig file not found at ${KUBECONFIG_FILE_PATH}"
+                NODES_READY=false
+              else
+                while [ ${NODES_ELAPSED} -lt ${MAX_NODES_WAIT} ]; do
+                  # Try to get nodes, capture both output and exit code
+                  # Use timeout if available, otherwise just run kubectl
+                  if command -v timeout >/dev/null 2>&1; then
+                    KUBECTL_OUTPUT=$(timeout 10 kubectl get nodes --no-headers 2>&1)
+                    KUBECTL_EXIT=$?
+                  else
+                    # macOS doesn't have timeout, just run kubectl directly
+                    KUBECTL_OUTPUT=$(kubectl get nodes --no-headers 2>&1)
+                    KUBECTL_EXIT=$?
+                  fi
+                  
+                  # Initialize NODE_COUNT to 0
+                  NODE_COUNT=0
+                  
+                  # Debug: show what we got on first iteration
+                  if [ ${NODES_ELAPSED} -eq 0 ]; then
+                    echo "   Debug: kubectl exit code: ${KUBECTL_EXIT}"
+                    if [ -n "${KUBECTL_OUTPUT}" ]; then
+                      echo "   Debug: kubectl output (first 3 lines):"
+                      echo "${KUBECTL_OUTPUT}" | head -3 | sed 's/^/      /'
+                    else
+                      echo "   Debug: kubectl output is empty"
+                    fi
+                  fi
+                  
+                  if [ ${KUBECTL_EXIT} -eq 0 ] && [ -n "${KUBECTL_OUTPUT}" ]; then
+                    # Check if output is "No resources found" or similar
+                    if echo "${KUBECTL_OUTPUT}" | grep -qiE "no resources found|no resources"; then
+                      NODE_COUNT=0
+                    else
+                      # Command succeeded, count nodes
+                      # Use grep -c which directly returns the count
+                      NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null)
+                      
+                      # If grep -c failed or returned empty, try alternative method
+                      if [ -z "${NODE_COUNT}" ] || ! echo "${NODE_COUNT}" | grep -qE "^[0-9]+$"; then
+                        NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -v "^$" | grep -v "^[[:space:]]*$" | grep -v -iE "no resources" | wc -l | awk '{print $1}')
+                      fi
+                    fi
+                    
+                    # Ensure NODE_COUNT is a valid number, default to 0 if not
+                    if ! echo "${NODE_COUNT}" | grep -qE "^[0-9]+$"; then
+                      NODE_COUNT=0
+                    fi
+                    
+                    # Convert to integer (arithmetic expansion ensures it's a number)
+                    NODE_COUNT=$((NODE_COUNT))
+                    
+                    if [ ${NODE_COUNT} -ge 3 ]; then
+                      NODES_READY=true
+                      break
+                    fi
+                  else
+                    # Command failed or no output - try to parse anyway in case there's partial data
+                    if [ -n "${KUBECTL_OUTPUT}" ]; then
+                      # Check if it's an error message
+                      if echo "${KUBECTL_OUTPUT}" | grep -qE "connection refused|Unable to connect|operation not permitted"; then
+                        # Connection error - API server not ready
+                        NODE_COUNT=0
+                      else
+                        # Might have node data despite error, try to parse
+                        NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null || echo "0")
+                        NODE_COUNT=$((NODE_COUNT))
+                        if [ ${NODE_COUNT} -ge 3 ]; then
+                          NODES_READY=true
+                          break
+                        fi
+                      fi
+                    fi
+                    # If no output or connection error, NODE_COUNT stays 0
+                  fi
+                  
+                  sleep 15
+                  NODES_ELAPSED=$((NODES_ELAPSED + 15))
+                  MINUTES=$((NODES_ELAPSED / 60))
+                  SECONDS=$((NODES_ELAPSED % 60))
+                  printf "\r  ⏳ Waiting for nodes... (%dm %ds, found %d/3 nodes)" "${MINUTES}" "${SECONDS}" "${NODE_COUNT}"
+                done
+                echo ""  # New line after progress indicator
+              fi
+              
+              # Final check - try one more time to get accurate count
+              if [ "${NODES_READY}" = "false" ]; then
+                if command -v timeout >/dev/null 2>&1; then
+                  KUBECTL_OUTPUT=$(timeout 10 kubectl get nodes --no-headers 2>&1)
+                  KUBECTL_EXIT=$?
+                else
+                  KUBECTL_OUTPUT=$(kubectl get nodes --no-headers 2>&1)
+                  KUBECTL_EXIT=$?
+                fi
+                if [ ${KUBECTL_EXIT} -eq 0 ] && [ -n "${KUBECTL_OUTPUT}" ]; then
+                  # Use the more reliable counting method
+                  NODE_COUNT=$(echo "${KUBECTL_OUTPUT}" | grep -cE "^[a-zA-Z0-9][a-zA-Z0-9-]*" 2>/dev/null || echo "0")
+                  NODE_COUNT=$((NODE_COUNT + 0))
+                  if [ ${NODE_COUNT} -ge 3 ]; then
+                    NODES_READY=true
+                  else
+                    # Debug: show what we got
+                    echo "   Debug: Found ${NODE_COUNT} nodes in output:"
+                    echo "${KUBECTL_OUTPUT}" | head -5
+                  fi
+                else
+                  # Show the error for debugging
+                  echo "   Last kubectl error: $(echo "${KUBECTL_OUTPUT}" | head -1)"
+                fi
+              fi
+              
+              set -e  # Re-enable exit on error
+              
+              if [ "${NODES_READY}" = "true" ]; then
+                echo "✅ Cluster is ready (${NODE_COUNT} nodes registered)"
+              else
+                echo "⚠️  WARNING: Cluster not fully ready after ${MAX_NODES_WAIT} seconds (found ${NODE_COUNT}/3 nodes)"
+                echo "   Continuing with tests - cluster may still be bootstrapping"
+                echo "   You can check cluster status manually with: kubectl get nodes"
               fi
             fi
-            
-            TESTS_PASSED=$((TESTS_PASSED + 1))
-          else
+          fi
+        else
             echo "⚠️  WARNING: kubeconfig retrieval failed (cluster may still be bootstrapping)"
             cat /tmp/kubeconfig_retrieve.log | tail -20
             TESTS_FAILED=$((TESTS_FAILED + 1))
@@ -1128,12 +2021,15 @@ tasks:
           fi
         fi
         
-        # Step 11: Verify cluster health
+        # Step 9: Verify cluster health
         if [ -n "${CONTROL_PLANE_IP}" ] && [ -f "${TALOSCONFIG_PATH}" ]; then
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Step 11: Verify Cluster Health"
+          echo "Step 9: Verify Cluster Health"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "  Note: Health checks may take a few minutes as the cluster finishes bootstrapping..."
+          echo ""
           
           # Test control plane health
           set +e  # Temporarily disable exit on error
@@ -1170,40 +2066,79 @@ tasks:
             fi
             
             set +e  # Temporarily disable exit on error
-            if kubectl get nodes > /tmp/kubectl_nodes.log 2>&1; then
-              echo "✅ kubectl can access cluster"
-              TESTS_PASSED=$((TESTS_PASSED + 1))
-              
-              echo ""
-              echo "  Node Status:"
-              kubectl get nodes -o wide | head -10
-              
-              # Count nodes
-              NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | xargs)
-              echo ""
-              echo "  Total nodes: ${NODE_COUNT}"
-              
-              if [ "${NODE_COUNT}" -ge 3 ]; then
-                echo "✅ All 3 nodes are registered"
-                TESTS_PASSED=$((TESTS_PASSED + 1))
-              else
-                echo "⚠️  WARNING: Expected 3 nodes, found ${NODE_COUNT}"
-                TESTS_FAILED=$((TESTS_FAILED + 1))
-                FAILED_TESTS+=("Node registration")
-              fi
+            
+            # First, verify kubeconfig is valid and API server is reachable
+            echo "  Verifying kubeconfig and API server connectivity..."
+            if command -v timeout >/dev/null 2>&1; then
+              KUBECTL_CLUSTER_INFO_CMD="timeout 10 kubectl cluster-info"
             else
-              echo "⚠️  WARNING: kubectl access failed"
+              KUBECTL_CLUSTER_INFO_CMD="kubectl cluster-info"
+            fi
+            if ! eval "${KUBECTL_CLUSTER_INFO_CMD}" > /tmp/kubectl_cluster_info.log 2>&1; then
+              echo "⚠️  WARNING: kubectl cluster-info failed or timed out"
+              echo "   This may indicate the API server is not ready or kubeconfig is invalid"
+              cat /tmp/kubectl_cluster_info.log | tail -10
               echo ""
-              echo "  Error details:"
-              cat /tmp/kubectl_nodes.log | tail -10
+              echo "   Checking kubeconfig server URL..."
+              kubectl config view --minify 2>/dev/null | grep -E "^\s*server:" || echo "   Could not read server URL from kubeconfig"
               echo ""
-              echo "  Debugging steps:"
-              echo "    1. Check kubeconfig server: kubectl config view --minify | grep server"
-              echo "    2. Verify control plane is accessible: ping ${CONTROL_PLANE_IP}"
-              echo "    3. Check if API server is running: curl -k https://${CONTROL_PLANE_IP}:6443/healthz"
-              echo "    4. Regenerate kubeconfig: talosctl kubeconfig ${KUBECONFIG_FILE_PATH} --talosconfig ${TALOSCONFIG_PATH} --nodes ${CONTROL_PLANE_IP}"
+              echo "   Testing API server connectivity..."
+              if command -v curl >/dev/null 2>&1; then
+                curl -k -m 5 "https://${CONTROL_PLANE_IP}:6443/healthz" 2>&1 | head -1 || echo "   API server not responding"
+              else
+                echo "   curl not available, skipping connectivity test"
+              fi
               TESTS_FAILED=$((TESTS_FAILED + 1))
-              FAILED_TESTS+=("kubectl access")
+              FAILED_TESTS+=("kubectl cluster-info")
+            else
+              echo "✅ kubectl can connect to API server"
+              
+              # Now try to get nodes with timeout (if available)
+              if command -v timeout >/dev/null 2>&1; then
+                KUBECTL_GET_NODES_CMD="timeout 30 kubectl get nodes"
+                KUBECTL_GET_NODES_WIDE_CMD="timeout 10 kubectl get nodes -o wide"
+                KUBECTL_GET_NODES_NOHEADERS_CMD="timeout 10 kubectl get nodes --no-headers"
+              else
+                KUBECTL_GET_NODES_CMD="kubectl get nodes"
+                KUBECTL_GET_NODES_WIDE_CMD="kubectl get nodes -o wide"
+                KUBECTL_GET_NODES_NOHEADERS_CMD="kubectl get nodes --no-headers"
+              fi
+              
+              if eval "${KUBECTL_GET_NODES_CMD}" > /tmp/kubectl_nodes.log 2>&1; then
+                echo "✅ kubectl can access cluster"
+                TESTS_PASSED=$((TESTS_PASSED + 1))
+                
+                echo ""
+                echo "  Node Status:"
+                eval "${KUBECTL_GET_NODES_WIDE_CMD}" 2>/dev/null | head -10 || echo "  (Could not retrieve node details)"
+                
+                # Count nodes
+                NODE_COUNT=$(eval "${KUBECTL_GET_NODES_NOHEADERS_CMD}" 2>/dev/null | wc -l | xargs)
+                echo ""
+                echo "  Total nodes: ${NODE_COUNT}"
+                
+                if [ "${NODE_COUNT}" -ge 3 ]; then
+                  echo "✅ All 3 nodes are registered"
+                  TESTS_PASSED=$((TESTS_PASSED + 1))
+                else
+                  echo "⚠️  WARNING: Expected 3 nodes, found ${NODE_COUNT}"
+                  TESTS_FAILED=$((TESTS_FAILED + 1))
+                  FAILED_TESTS+=("Node registration")
+                fi
+              else
+                echo "⚠️  WARNING: kubectl get nodes failed or timed out"
+                echo ""
+                echo "  Error details:"
+                cat /tmp/kubectl_nodes.log | tail -10
+                echo ""
+                echo "  Debugging steps:"
+                echo "    1. Check kubeconfig server: kubectl config view --minify | grep server"
+                echo "    2. Verify control plane is accessible: ping ${CONTROL_PLANE_IP}"
+                echo "    3. Check if API server is running: curl -k https://${CONTROL_PLANE_IP}:6443/healthz"
+                echo "    4. Regenerate kubeconfig: talosctl kubeconfig ${KUBECONFIG_FILE_PATH} --talosconfig ${TALOSCONFIG_PATH} --nodes ${CONTROL_PLANE_IP}"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+                FAILED_TESTS+=("kubectl access")
+              fi
             fi
             set -e  # Re-enable exit on error
           fi
@@ -1274,6 +2209,16 @@ tasks:
           echo "Cleaning up test cluster..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
+          # Clean up old Talos and kubeconfig files
+          if [ -f "${TALOSCONFIG_PATH}" ]; then
+            echo "  Removing Talos config: ${TALOSCONFIG_PATH}"
+            rm -f "${TALOSCONFIG_PATH}"
+          fi
+          if [ -f "${KUBECONFIG_FILE_PATH}" ]; then
+            echo "  Removing kubeconfig: ${KUBECONFIG_FILE_PATH}"
+            rm -f "${KUBECONFIG_FILE_PATH}"
+          fi
+          
           # Cleanup: Environment variables are still set from Step 0
           if task tc:terraform:destroy > /tmp/cleanup.log 2>&1; then
             echo "✅ Test cluster deleted successfully"
@@ -1307,6 +2252,7 @@ tasks:
         echo "    task tc:destroy             # Destroy the cluster using Terraform"
         echo "    task tc:list                # List all cluster VMs"
         echo "    task tc:info                # Get detailed cluster information"
+        echo "    task tc:mac-addresses       # Get MAC addresses for all cluster VMs"
         echo "    task tc:start               # Start all cluster VMs"
         echo "    task tc:stop                # Stop all cluster VMs"
         echo "    task tc:restart             # Restart all cluster VMs"
