@@ -70,27 +70,26 @@ Instantiate will: verify remote, ensure image, generate tfvars, run Terraform, s
 
 ```bash
 task vm:list
-task vm:info
-task vm:info | grep -i ip
-task vm:ssh
+incus info $INCUS_REMOTE_NAME:$VM_INSTANCE_NAME
+incus list $INCUS_REMOTE_NAME: --format csv -c n,4  # name and IPv4
 ```
 
-The VM has your username, SSH keys, Git config, and Docker. Use `task vm:ssh` for SSH or `task vm:shell` for an Incus shell.
+The VM has your username, SSH keys, Git config, and Docker. To access: get the VM IP from `incus list` or `incus info`, then `ssh <user>@<vm-ip>`. For a shell without SSH: `incus exec $INCUS_REMOTE_NAME:$VM_INSTANCE_NAME -- bash`.
 
 ## Managing the VM
 
 ```bash
-task vm:start
-task vm:stop
-task vm:restart
+incus start $INCUS_REMOTE_NAME:<vm-name>
+incus stop $INCUS_REMOTE_NAME:<vm-name>
+incus restart $INCUS_REMOTE_NAME:<vm-name>
 task vm:destroy -- <vm-name>
 ```
 
 ## Troubleshooting
 
-- **VM won't start**: `task vm:info`, `incus start <remote>:<vm>`
-- **No SSH**: `task vm:info | grep -i ip`, `task vm:exec -- systemctl status ssh`
-- **Docker**: `task vm:exec -- systemctl status docker`
+- **VM won't start**: `incus info <remote>:<vm>`, `incus start <remote>:<vm>`
+- **No SSH**: Get IP from `incus list <remote>:<vm>`; check SSH in VM: `incus exec <remote>:<vm> -- systemctl status ssh`
+- **Docker**: `incus exec <remote>:<vm> -- systemctl status docker`
 
 ## Related
 

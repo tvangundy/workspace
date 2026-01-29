@@ -8,7 +8,7 @@ Ubuntu virtual machine management for creating and managing VMs on Incus using T
 
 ## Overview
 
-The `vm:` namespace provides comprehensive tools for creating, managing, and interacting with Ubuntu virtual machines running on Incus. These tasks use Terraform for infrastructure-as-code management and handle VM lifecycle, workspace synchronization, SSH access, and environment setup including Docker, Homebrew, Aqua, and Windsor CLI.
+The `vm:` namespace provides tools for creating and managing Ubuntu virtual machines on Incus using Terraform. The primary entry point is `vm:instantiate`. For VM info, start, stop, restart, shell, SSH, and exec, use the Incus CLI (e.g. `incus info $INCUS_REMOTE_NAME:<vm>`, `incus exec $INCUS_REMOTE_NAME:<vm> -- bash`).
 
 ## Task Reference
 
@@ -31,22 +31,8 @@ The `vm:` namespace provides comprehensive tools for creating, managing, and int
 | [`terraform:plan`](#terraformplan) | Show Terraform plan for the VM |
 | [`terraform:apply`](#terraformapply) | Apply Terraform configuration to create the VM |
 | [`terraform:destroy`](#terraformdestroy) | Destroy the VM using Terraform |
-| [`start`](#start) | Start a VM instance |
-| [`stop`](#stop) | Stop a VM instance |
-| [`restart`](#restart) | Restart a VM instance |
 | [`list`](#list) | List all VM instances |
-| [`info`](#info) | Get information about a VM instance |
-| [`debug`](#debug) | Debug performance and resource usage of a VM instance |
 | [`destroy`](#destroy) | Destroy a VM using Terraform |
-| [`shell`](#shell) | Open an interactive shell in a VM instance |
-| [`ssh`](#ssh) | SSH into a VM instance |
-| [`ssh-info`](#ssh-info) | Show SSH connection information for a VM instance |
-| [`exec`](#exec) | Execute a command in a VM instance |
-| [`init-workspace`](#init-workspace) | Initialize workspace contents in an existing VM |
-| [`copy-workspace`](#copy-workspace) | Copy entire workspace to vm (replaces existing) |
-| [`add-workspace`](#add-workspace) | Add workspace to vm (merges with existing) |
-| [`sync-workspace`](#sync-workspace) | Sync workspace changes to vm using rsync |
-| [`test`](#test) | Test VM setup by running through all runbook steps and validating the VM |
 
 ## Instance Creation
 

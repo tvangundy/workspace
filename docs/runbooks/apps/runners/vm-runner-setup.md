@@ -85,7 +85,7 @@ Instantiate will: verify remote, create the VM with `vm:instantiate`, set up the
 ## Step 6: Verify
 
 - In GitHub: **Settings** → **Actions** → **Runners** — runner should appear with a green status.
-- On the VM: `task vm:exec -- <runner-name> -- sudo systemctl status actions.runner.*.service`
+- On the VM: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo systemctl status actions.runner.*.service`
 
 Use `runs-on: self-hosted` in workflows to target this runner.
 
@@ -93,10 +93,11 @@ Use `runs-on: self-hosted` in workflows to target this runner.
 
 ```bash
 task runner:status -- <runner-name>
-task vm:ssh -- <runner-name>
-task vm:start -- <runner-name>
-task vm:stop -- <runner-name>
+incus start $INCUS_REMOTE_NAME:<runner-name>
+incus stop $INCUS_REMOTE_NAME:<runner-name>
 ```
+
+To SSH into the runner VM: get its IP from `incus list $INCUS_REMOTE_NAME:<runner-name>`, then `ssh <user>@<ip>`.
 
 ## Destroying the Runner VM
 
@@ -104,13 +105,13 @@ task vm:stop -- <runner-name>
 task runner:destroy -- <runner-name>
 ```
 
-This stops the runner service, unregisters it from GitHub, and destroys the VM. Use `runner:destroy` (not only `vm:destroy`) so the runner is removed from GitHub.
+This stops the runner service, unregisters it from GitHub, and destroys the VM. Use `runner:destroy` (not only Incus delete) so the runner is removed from GitHub.
 
 ## Troubleshooting
 
-- **Runner not in GitHub**: Check token is correct and not expired; check logs: `task vm:exec -- <runner-name> -- sudo journalctl -u actions.runner.*.service -n 50`
-- **Service not starting**: `task vm:exec -- <runner-name> -- sudo systemctl status actions.runner.*.service`
-- **VM not starting**: `task vm:info -- <runner-name>`, `incus console $INCUS_REMOTE_NAME:<runner-name>`
+- **Runner not in GitHub**: Check token is correct and not expired; check logs: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo journalctl -u actions.runner.*.service -n 50`
+- **Service not starting**: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo systemctl status actions.runner.*.service`
+- **VM not starting**: `incus info $INCUS_REMOTE_NAME:<runner-name>`, `incus console $INCUS_REMOTE_NAME:<runner-name>`
 
 ## Related
 

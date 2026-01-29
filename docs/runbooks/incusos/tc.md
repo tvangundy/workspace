@@ -94,20 +94,18 @@ Instantiate will: verify remote, check no existing cluster VMs, ensure image, ge
 ```bash
 kubectl get nodes -o wide
 kubectl get pods -A -o wide
-task tc:health-controlplane
-task tc:health-worker
+task talos:health-controlplane
+task talos:health-worker
 ```
 
 ## Managing the Cluster
 
 ```bash
 task tc:list
-task tc:info
-task tc:start
-task tc:stop
-task tc:restart
-task tc:console -- <vm-name>
+task tc:destroy
 ```
+
+To start/stop/restart cluster VMs or open a console, use Incus: `incus start|stop|restart|console $INCUS_REMOTE_NAME:<vm-name>` (e.g. `talos-cp`, `talos-worker-0`, `talos-worker-1`).
 
 ## Destroying the Cluster
 

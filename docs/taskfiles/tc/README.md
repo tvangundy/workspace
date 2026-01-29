@@ -8,7 +8,7 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 
 ## Overview
 
-The `tc:` namespace provides comprehensive tools for creating, managing, and interacting with Talos Kubernetes clusters running on Incus. These tasks use Terraform for infrastructure-as-code management and handle cluster lifecycle, node management, health checks, and cluster validation.
+The `tc:` namespace provides tools for creating and managing Talos Kubernetes clusters on Incus. The primary entry point is `tc:instantiate`. For cluster VM start/stop/restart/console use the Incus CLI. For health checks use the `talos:` namespace: `task talos:health-controlplane`, `task talos:health-worker`.
 
 ## Task Reference
 
@@ -27,23 +27,8 @@ The `tc:` namespace provides comprehensive tools for creating, managing, and int
 | [`instantiate:retrieve-kubeconfig`](#instantiateretrieve-kubeconfig) | Retrieve kubeconfig from cluster |
 | [`instantiate:final-summary`](#instantiatefinal-summary) | Print success summary |
 | [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Destroy cluster unless --keep was set |
-| [`generate-tfvars`](#generate-tfvars) | Generate terraform.tfvars from environment variables |
-| [`terraform:init`](#terraforminit) | Initialize Terraform for the cluster |
-| [`terraform:plan`](#terraformplan) | Show Terraform plan for the cluster |
-| [`terraform:apply`](#terraformapply) | Apply Terraform configuration to create the cluster |
-| [`terraform:destroy`](#terraformdestroy) | Destroy the cluster using Terraform |
 | [`list`](#list) | List all cluster VMs |
-| [`info`](#info) | Get detailed information about the cluster |
-| [`console`](#console) | Access VM console |
-| [`start`](#start) | Start all cluster VMs |
-| [`stop`](#stop) | Stop all cluster VMs |
-| [`restart`](#restart) | Restart all cluster VMs |
 | [`destroy`](#destroy) | Destroy the Talos cluster using Terraform |
-| [`health-controlplane`](#health-controlplane) | Health check the control plane node |
-| [`health-worker`](#health-worker) | Health check all worker nodes |
-| [`health-worker-0`](#health-worker-0) | Health check worker-0 |
-| [`health-worker-1`](#health-worker-1) | Health check worker-1 |
-| [`test`](#test) | Test cluster setup by running through all runbook steps and validating the cluster |
 
 ## Cluster Creation
 

@@ -180,21 +180,9 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 
 **Cluster Management:**
 - `task tc:list` - List all cluster VMs
-- `task tc:info` - Get detailed information about the cluster
-- `task tc:console -- <vm-name>` - Access VM console
-- `task tc:start` - Start all cluster VMs
-- `task tc:stop` - Stop all cluster VMs
-- `task tc:restart` - Restart all cluster VMs
 - `task tc:destroy` - Destroy the Talos cluster using Terraform
 
-**Health Checks:**
-- `task tc:health-controlplane` - Health check the control plane node
-- `task tc:health-worker` - Health check all worker nodes
-- `task tc:health-worker-0` - Health check worker-0
-- `task tc:health-worker-1` - Health check worker-1
-
-**Testing:**
-- `task tc:test -- <remote-name> [--keep]` - Test complete cluster setup and validate cluster
+**Health checks** (Talos namespace): `task talos:health-controlplane`, `task talos:health-worker`. For VM start/stop/restart/console, use the Incus CLI (e.g. `incus start`, `incus console`).
 
 **Help:**
 - `task tc:help` - Show all tc commands
@@ -214,29 +202,10 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 - `task vm:terraform:destroy` - Destroy the VM using Terraform
 
 **Instance Management:**
-- `task vm:start [-- <instance-name>]` - Start an Ubuntu VM instance
-- `task vm:stop [-- <instance-name>]` - Stop an Ubuntu VM instance
-- `task vm:restart [-- <instance-name>]` - Restart an Ubuntu VM instance
 - `task vm:list` - List all Ubuntu VM instances
-- `task vm:info [-- <instance-name>]` - Get detailed information about an Ubuntu VM instance
-- `task vm:debug [-- <instance-name>]` - Debug performance and resource usage
 - `task vm:destroy [-- <instance-name>]` - Destroy an Ubuntu VM using Terraform
 
-**Access:**
-- `task vm:shell [-- <instance-name>]` - Open an interactive shell in the instance
-- `task vm:ssh [-- <instance-name>]` - SSH into an Ubuntu VM instance
-- `task vm:ssh-info [-- <instance-name>]` - Show SSH connection information
-- `task vm:exec -- <instance-name> -- <command>` - Execute a command in the instance
-
-**Workspace Management:**
-- `task vm:init-workspace [-- <instance-name>]` - Initialize workspace contents in an existing VM
-- `task vm:copy-workspace [-- <instance-name>]` - Copy entire workspace (replaces existing)
-- `task vm:add-workspace [-- <instance-name>]` - Add workspace to instance (merges with existing)
-- `task vm:sync-workspace [-- <instance-name>]` - Sync workspace changes using rsync (uploads only changed files)
-
-
-**Testing:**
-- `task vm:test -- <remote-name> [--keep] [--no-workspace]` - Test complete setup and validate VM
+**VM info, start, stop, restart, shell, SSH, and exec** are not in the vm Taskfile; use the Incus CLI (e.g. `incus info`, `incus start`, `incus exec <remote>:<vm> -- bash`).
 
 **Help:**
 - `task vm:help` - Show all vm commands
