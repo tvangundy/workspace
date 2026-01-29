@@ -1,40 +1,16 @@
 # Ubuntu Virtual Machines on IncusOS
 
-This runbook guides you through creating and managing Ubuntu virtual machines on a remote IncusOS server. These VMs provide isolated, persistent Ubuntu environments with direct SSH access from your local network.
-
-## Overview
-
-VMs run on your IncusOS server and provide:
-
-- Isolated, reproducible Ubuntu environments
-- Direct SSH access from your local network (no port forwarding needed)
-- Persistent storage and configurations
-- Full system access for installing tools and services
-- Workspace syncing capabilities for file transfer
-- Dedicated resources (CPU, memory, disk)
-
-## Use Cases
-
-This runbook covers creating Ubuntu VMs on IncusOS that can be used for various purposes:
-
-- **Development VMs**: Isolated development environments with developer tools, Docker, workspace access, and SSH configuration
-- **GitHub Actions Runners**: Self-hosted CI/CD runners for GitHub Actions workflows
-- **Generic VMs**: General-purpose Ubuntu VMs for any workload
-
-All of these are just named instances of Ubuntu VMs created using the `vm:` task namespace. The difference is in the configuration and additional software installed after VM creation.
+Create and manage Ubuntu VMs on a remote IncusOS server using `task vm:instantiate`. The VM gets developer tools, Docker, your user, SSH keys, and optional workspace setup automatically.
 
 ## Prerequisites
 
 - IncusOS server installed and running (see [IncusOS Server](server.md))
-- Incus CLI client installed on your local machine
-- Remote connection to your IncusOS server configured
+- Incus CLI on your machine, remote configured (`incus remote add`)
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
 ## Step 1: Install Tools
 
-To fully leverage the Windsor environment and manage your remote VMs, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
-
-Ensure your `aqua.yaml` includes the following packages required for this runbook. Add any missing packages to your existing `aqua.yaml`:
+Ensure `aqua.yaml` includes:
 
 ```yaml
 packages:
@@ -44,659 +20,80 @@ packages:
 - name: docker/compose@v2.32.1
 ```
 
-To install the tools specified in `aqua.yaml`, run:
+Then run:
 
 ```bash
 aqua install
 ```
 
-## Step 2: Configure Environment Variables
+## Step 2: Configure Environment
 
-Add the following to your `contexts/<context>/windsor.yaml`:
+Add to `contexts/<context>/windsor.yaml`:
 
 ```yaml
 environment:
-  # Use remote Incus server
   INCUS_REMOTE_NAME: your-remote-name
-  
-  # Workspace initialization (optional, defaults to true in test task)
-  VM_INIT_WORKSPACE: true  # Set to true to initialize workspace on creation
-  
-  # Default VM name (optional, defaults to vm)
   VM_INSTANCE_NAME: vm
-  
-  # Default image (optional, defaults to ubuntu/24.04)
   VM_IMAGE: ubuntu/24.04
-  
-  # VM resources (optional)
   VM_MEMORY: 8GB
   VM_CPU: 4
-  
-  # Network interface for VM (optional, leave empty to use default Incus network)
-  # This should be a physical interface on the IncusOS server for direct network access
-  VM_NETWORK_NAME: enp5s0
-  
-  # Storage pool (optional, defaults to local)
+  VM_NETWORK_NAME: enp5s0   # Physical interface for direct network; leave empty for default
   VM_STORAGE_POOL: local
-  
-  # Auto-start VM on host boot (optional, defaults to false)
   VM_AUTOSTART: false
-  
-  # Use default Docker socket (VMs run Docker natively)
+  VM_INIT_WORKSPACE: true   # Set false to skip workspace copy
   DOCKER_HOST: unix:///var/run/docker.sock
 ```
 
-**Important Notes:**
-
-- `INCUS_REMOTE_NAME` - The name of your Incus remote (configured via `incus remote add`)
-- `VM_NETWORK_NAME` - Physical network interface on your IncusOS server for direct network access (leave empty to use default Incus network)
-- `DOCKER_HOST` - Points to the default Docker socket (VMs run Docker natively)
-
-## Step 3: Verify Remote Connection
-
-Before creating a VM, verify you can connect to your IncusOS server:
+## Step 3: Verify Remote
 
 ```bash
-# List configured remotes
 incus remote list
-
-# Verify you can connect to your remote
 incus list <remote-name>:
-
-# Verify environment variables are set
 windsor env | grep INCUS_REMOTE_NAME
 ```
 
-**Expected output:**
-
-- Your remote should appear in `incus remote list` with the name you configured
-- `incus list <remote-name>:` should show existing instances (may be empty)
-- `INCUS_REMOTE_NAME` should be set to your remote name
-
-## Step 4: Generate Terraform Variables File
-
-Generate the `terraform.tfvars` file from your environment variables:
-
-```bash
-task vm:generate-tfvars
-```
-
-This will create `terraform/vm/terraform.tfvars` based on the environment variables you set in Step 2. The file is automatically generated, so you don't need to edit it manually. If you need to change any values, update the environment variables in your `windsor.yaml` file and regenerate the file.
-
-**Note**: The generated file includes a comment at the top indicating it's auto-generated. Do not edit this file manually - always update environment variables and regenerate.
-
-## Step 5: Initialize and Apply Terraform
-
-Initialize Terraform:
-
-```bash
-task vm:terraform:init
-```
-
-This will download the required providers (Incus).
-
-Review the Terraform plan to see what will be created:
-
-```bash
-task vm:terraform:plan
-```
-
-The plan should show:
-
-- 1 Incus virtual machine (VM)
-- VM configuration (memory, CPU, network, etc.)
-
-Apply the Terraform configuration:
-
-```bash
-task vm:terraform:apply
-```
-
-Or use the combined instantiate task which handles everything:
+## Step 4: Create the VM
 
 ```bash
 task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
 ```
 
-**Parameters:**
-- `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
-- `<vm-name>` (optional): Name for the VM (default: `vm`)
-- `--keep`, `--no-cleanup` (optional): Keep VM running (default: delete VM if used in test context)
-- `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace if `VM_INIT_WORKSPACE=true`)
-- `--windsor-up` (optional): Run `windsor init` and `windsor up` after workspace setup
+- `<remote-name>` (required): Incus remote (e.g. `nuc`)
+- `<vm-name>` (optional): VM name (default: `vm`)
+- `--keep`: Do not destroy VM after creation (use for real deployments)
+- `--no-workspace`: Skip workspace initialization
+- `--windsor-up`: Run `windsor init` and `windsor up` after workspace setup
 
-This will:
+Instantiate will: verify remote, ensure image, generate tfvars, run Terraform, set up SSH, install tools (Git, Docker, etc.), create your user and copy SSH keys, and optionally initialize workspace. Allow a few minutes for the VM to boot and get a DHCP address.
 
-1. Parse CLI arguments and initialize Windsor context
-2. Verify remote connection exists and is reachable
-3. Ensure VM image is available on the remote
-4. Generate `terraform.tfvars` from environment variables
-5. Initialize Terraform
-6. Apply the Terraform configuration to create the VM
-7. Set up SSH access for the user
-8. Set up Incus client on the VM and configure remote connection
-9. **Automatically install developer tools** (jq, Homebrew, Aqua, Docker, Windsor CLI)
-10. Optionally initialize workspace contents (if `VM_INIT_WORKSPACE=true` or not using `--no-workspace`)
-11. Validate VM setup and functionality
-12. **Create a user matching your host username** with the same UID/GID
-13. **Copy your SSH keys** for immediate GitHub access
-14. **Configure Git** with your existing settings
-15. **Install Docker** for containerized development
-16. **Set up SSH server** for direct access
+## Step 5: Verify and Access
 
-Terraform will:
-
-- Create the VM with the specified image (default: Ubuntu 24.04)
-- Configure the VM with the specified resources (memory, CPU)
-- Attach the VM to the physical network (if `VM_NETWORK_NAME` is set)
-- Enable auto-start if configured
-
-This process may take a few minutes as the VM boots and gets its DHCP-assigned IP address.
-
-**Note**: The Terraform configuration uses the Incus provider to create and manage the VM declaratively. All VM settings are defined in your `terraform.tfvars` file, which is generated from your environment variables.
-
-**Confirmation:**
 ```bash
-# Verify VM was created
 task vm:list
-
-# Check VM status
 task vm:info
-
-# Get VM IP address
 task vm:info | grep -i ip
-
-# Verify developer tools are installed
-task vm:exec -- git --version
-task vm:exec -- curl --version
-task vm:exec -- docker --version
-
-# Verify user was created (should match your host username)
-task vm:exec -- whoami
-```
-
-## Step 6: Get the VM IP Address
-
-After the VM boots and receives its DHCP-assigned IP address, get the IP address using Incus commands:
-
-```bash
-# List VMs and their IP addresses
-incus list $INCUS_REMOTE_NAME:
-
-# Or get detailed information
-incus info $INCUS_REMOTE_NAME:$VM_INSTANCE_NAME
-
-# Get just the IP address (using jq)
-incus list $INCUS_REMOTE_NAME:$VM_INSTANCE_NAME --format json | \
-  jq -r '.[0].state.network.eth0.addresses[] | select(.family == "inet") | .address' | head -1
-```
-
-**Note**: With direct network attachment, the VM gets an IP address from your DHCP server. Note this IP address as you'll need it for SSH access.
-
-You can also view Terraform outputs for reference:
-
-```bash
-cd terraform/vm
-terraform output
-```
-
-This will show the VM name and instructions for getting the IP address.
-
-## Step 7: Access the VM
-
-You can access the VM in several ways:
-
-#### Option 1: Direct SSH Access
-
-Since the VM has a direct IP address on your local network, you can SSH directly:
-
-```bash
-# Get VM IP address
-VM_IP=$(task vm:info | grep -i "ipv4" | awk '{print $2}' | head -1)
-
-# SSH directly to the VM
-ssh <username>@${VM_IP}
-```
-
-Or use the helper task:
-
-```bash
 task vm:ssh
 ```
 
-This is the recommended method for interactive development sessions.
-
-#### Option 2: Interactive Shell via Incus
-
-Open an interactive bash shell via Incus:
-
-```bash
-task vm:shell
-```
-
-This is equivalent to `incus exec <vm> -- bash`. You'll get a shell prompt where you can run commands interactively.
-
-#### Option 3: Execute Commands Directly
-
-Run specific commands without entering an interactive shell:
-
-```bash
-task vm:exec -- ls -la ${WINDSOR_PROJECT_ROOT}
-task vm:exec -- apt update && apt install -y git
-```
-
-Use this option when you want to run a single command or a series of commands without opening an interactive session.
-
-**Benefits of Direct SSH Access:**
-
-- **Better performance** - Direct network connection, no proxy overhead
-- **SSH features** - Can use SSH agent forwarding, port forwarding, etc.
-- **IDE integration** - Can use remote SSH in IDEs like VS Code
-- **File sync** - Can use tools like `rsync` or `scp` directly
-- **Persistent sessions** - SSH sessions persist even if Incus CLI connection drops
-
-## Developer Environment Setup
-
-The VM is automatically initialized with:
-
-### Installed Tools
-
-- **Git** - Version control
-- **Build tools** - build-essential, gcc, make, etc.
-- **Network tools** - curl, wget
-- **Editors** - vim, nano
-- **SSH client/server** - For GitHub access and direct access
-- **Docker** - Container runtime for development
-- **System tools** - sudo, ca-certificates, gnupg
-
-### System Configuration
-
-- **br_netfilter kernel module** - Automatically loaded and configured for Kubernetes networking (required for CNI plugins like Flannel)
-  - Module is loaded on boot via `/etc/modules-load.d/br_netfilter.conf`
-  - Sysctls are configured via `/etc/sysctl.d/99-kubernetes.conf`
-  - This ensures Kubernetes networking works correctly when running clusters on the VM
-
-### User Configuration
-
-- **Matching user account** - Created with the same username, UID, and GID as your host
-- **SSH keys** - Your `~/.ssh/id_rsa` and `id_rsa.pub` are copied
-- **SSH config** - Your `~/.ssh/config` is copied (if it exists)
-- **Git configuration** - Your global Git user.name and user.email are configured
-- **Sudo access** - Passwordless sudo is configured
-
-### Workspace Setup
-
-- **Workspace directory** - Located at `/home/<username>/<workspace-name>`
-- **Ownership** - Owned by your user account
-- **Ready for development** - Can immediately clone repos, run tasks, etc.
-
-## Workspace Syncing
-
-While direct SSH access is recommended for most workflows, you can also sync files between your local machine and the VM:
-
-### Copy Workspace to VM
-
-```bash
-# Copy workspace to VM (replaces existing)
-task vm:copy-workspace
-
-# Add workspace to VM (merges with existing)
-task vm:add-workspace
-
-# Sync only changed files (rsync)
-task vm:sync-workspace
-```
-
-### Manual File Transfer
-
-Since the VM has a direct IP address, you can use standard tools:
-
-```bash
-# Get VM IP
-VM_IP=$(task vm:info | grep -i "ipv4" | awk '{print $2}' | head -1)
-
-# Copy files using scp
-scp -r ${WINDSOR_PROJECT_ROOT} <username>@${VM_IP}:~/workspace
-
-# Sync files using rsync
-rsync -avz ${WINDSOR_PROJECT_ROOT}/ <username>@${VM_IP}:~/workspace/
-```
-
-## GitHub Operations
-
-Git and SSH keys are automatically configured during VM creation, so you can immediately work with GitHub repositories.
-
-### Verify Git Setup
-
-```bash
-# Check Git is installed and configured
-task vm:exec -- git --version
-task vm:exec -- git config --global user.name
-task vm:exec -- git config --global user.email
-```
-
-### Clone Repository
-
-You can clone repositories immediately using SSH (your keys are already set up):
-
-```bash
-# Clone a public repository
-task vm:exec -- git clone https://github.com/user/repo.git ${WINDSOR_PROJECT_ROOT}/project
-
-# Clone a private repository (SSH keys are already configured)
-task vm:exec -- git clone git@github.com:user/repo.git ${WINDSOR_PROJECT_ROOT}/project
-```
-
-### Test GitHub Connection
-
-Verify your SSH keys work with GitHub:
-
-```bash
-# Test GitHub SSH connection
-task vm:exec -- ssh -T git@github.com
-```
-
-You should see: `Hi <username>! You've successfully authenticated...`
+The VM has your username, SSH keys, Git config, and Docker. Use `task vm:ssh` for SSH or `task vm:shell` for an Incus shell.
 
 ## Managing the VM
 
-### List VMs
-
 ```bash
-# List all VMs
-task vm:list
-```
-
-### Get VM Information
-
-```bash
-# Get detailed info about the VM (including IP address)
-task vm:info
-
-# Or specify the VM name
-task vm:info -- my-vm
-```
-
-### Start/Stop VM
-
-```bash
-# Start the VM
 task vm:start
-
-# Stop the VM
 task vm:stop
-
-# Restart the VM
 task vm:restart
-```
-
-### Delete VM
-
-To completely remove the VM using Terraform:
-
-```bash
-# Destroy the VM using Terraform (destructive, includes 5-second confirmation delay)
-task vm:destroy
-
-# Or specify the VM name explicitly
 task vm:destroy -- <vm-name>
 ```
 
-This will run `terraform destroy` to remove the VM and all its resources.
-
-**What Gets Deleted:**
-
-- The VM instance and all its data
-- All files installed inside the VM
-- VM-specific configuration
-
-**Warning**: Deleting the VM is **irreversible** for VM-specific data. The Terraform state will also be updated to reflect the deletion.
-
-### Test VM Setup
-
-The `test` task automates the complete VM setup process and validates that everything is configured correctly:
-
-```bash
-# Run full test suite (creates VM, validates setup, then deletes it)
-task vm:test -- <remote-name>
-
-# Keep VM after test (useful for debugging or keeping a working VM)
-task vm:test -- <remote-name> --keep
-
-# Skip workspace initialization (faster test, workspace not copied)
-task vm:test -- <remote-name> --no-workspace
-
-# Combine options
-task vm:test -- <remote-name> --keep --no-workspace
-```
-
-**Options:**
-- `--keep`, `--no-cleanup` - Keep the VM running after the test completes (default: VM is deleted)
-- `--no-workspace` - Skip workspace initialization (default: workspace is initialized)
-
-**What the Test Validates:**
-- Remote connection exists and is accessible
-- Terraform configuration is valid
-- VM image is available (copies if needed)
-- VM is created successfully
-- VM agent is ready
-- VM has a valid IP address
-- Developer environment is set up (git, curl, docker, etc.)
-- User account matches host username
-- Git configuration is correct
-- SSH keys are set up
-- Docker and SSH services are running
-- Workspace is initialized (if enabled)
-
-**Example:**
-```bash
-# Test on remote "nuc", keep VM after test
-task vm:test -- nuc --keep
-
-# Test without workspace initialization
-task vm:test -- nuc --no-workspace
-```
-
-The test will report pass/fail for each validation step and provide a summary at the end.
-
-## Common Workflows
-
-### Initial Setup
-
-```bash
-# 1. Generate terraform.tfvars from environment variables
-task vm:generate-tfvars
-
-# 2. Create VM using Terraform (automatically installs tools, sets up user, copies SSH keys)
-task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
-
-# 3. Get VM IP address
-task vm:info | grep -i ip
-
-# 4. SSH to VM
-VM_IP=$(task vm:info | grep -i "ipv4" | awk '{print $2}' | head -1)
-ssh <username>@${VM_IP}
-
-# 5. Inside VM, verify everything is set up
-git --version
-git config --global user.name
-git config --global user.email
-ssh -T git@github.com
-docker --version
-```
-
-### Daily Development
-
-**Recommended Workflow:**
-```bash
-# 1. Start VM (if stopped)
-task vm:start
-
-# 2. SSH directly to VM
-task vm:ssh
-# Or: ssh <username>@<vm-ip>
-
-# 3. Inside VM, work with your code
-cd ~/workspace
-git clone git@github.com:user/repo.git
-cd repo
-# Edit files, run tests, etc.
-
-# 4. Commit and push changes
-git add .
-git commit -m "Changes"
-git push
-```
-
-### Working with Git
-
-Since the VM has direct SSH access, you can use Git normally:
-
-**From VM:**
-```bash
-ssh <username>@<vm-ip>
-cd ~/workspace
-git clone git@github.com:user/repo.git
-cd repo
-# Edit files in your IDE or vim
-git add .
-git commit -m "Changes"
-git push
-```
-
-## Use Cases
-
-The VMs created using the `vm:` namespace can be configured for various purposes. The sections above cover the basic VM creation and management workflow. Below are specific use cases that build on this foundation.
-
-### Development VMs
-
-For development VMs, you can use the `vm:` namespace tasks as described above. The VM created with `task vm:instantiate` automatically installs developer tools, Docker, Git, SSH keys, and configures your user account - making it ready for development work out of the box.
-
-**Note**: All VM management tasks, including development environment setup and GitHub Actions runner configuration, are available in the `vm:` namespace. See the [VM Tasks documentation](../../taskfiles/vm/README.md) for more information.
-
-### GitHub Actions Runner VMs
-
-To create a VM for use as a GitHub Actions runner, you'll need to:
-
-1. **Create the VM** using the `vm:` namespace (follow the steps above in this runbook)
-2. **Configure GitHub runner settings** in your `windsor.yaml`:
-   ```text
-   environment:
-     # Runner user configuration
-     RUNNER_USER: "runner"
-     RUNNER_HOME: "/home/runner"
-     
-    # GitHub Actions runner configuration
-    GITHUB_RUNNER_REPO_URL: "https://github.com/<org-or-user>/<repo>"
-    # Generate a random token-like string if sops is not available:
-    #   openssl rand -hex 32  # For GITHUB_RUNNER_TOKEN
-    # Or use sops if configured - replace the value below with:
-    #   GITHUB_RUNNER_TOKEN: sops.GITHUB_RUNNER_TOKEN
-    # Default value shown below:
-    GITHUB_RUNNER_TOKEN: "<runner-token>"
-    GITHUB_RUNNER_VERSION: "2.XXX.X"  # Optional: defaults to latest
-     GITHUB_RUNNER_ARCH: "x64"  # Optional: defaults to "x64"
-   ```
-3. **Store the GitHub runner token** as a SOPS secret (see [Managing Secrets with SOPS](../secrets/secrets.md))
-4. **Initialize the runner** using the `vm:runner:` namespace tasks:
-   ```bash
-   task vm:runner:initialize -- <vm-name>
-   task vm:runner:install-github-runner -- <vm-name>
-   ```
-
-**Note**: See the [VM Tasks documentation](../../taskfiles/vm/README.md) for more information about the `vm:` namespace tasks, including runner setup tasks.
-
 ## Troubleshooting
 
-### VM Won't Start
+- **VM won't start**: `task vm:info`, `incus start <remote>:<vm>`
+- **No SSH**: `task vm:info | grep -i ip`, `task vm:exec -- systemctl status ssh`
+- **Docker**: `task vm:exec -- systemctl status docker`
 
-```bash
-# Check VM status
-task vm:info
+## Related
 
-# Check Incus logs
-incus info <remote-name>:vm
-
-# Try starting manually
-incus start <remote-name>:vm
-```
-
-### Can't SSH to VM
-
-```bash
-# Get VM IP address
-task vm:info | grep -i ip
-
-# Check if VM is running
-task vm:info | grep -i status
-
-# Verify SSH service is running in VM
-task vm:exec -- systemctl status ssh
-
-# Try accessing via Incus exec first
-task vm:shell
-# Then check SSH service
-systemctl status ssh
-```
-
-### Git Operations Fail
-
-```bash
-# Verify Git is installed
-task vm:exec -- git --version
-
-# Check Git configuration
-task vm:exec -- git config --list
-
-# Test GitHub connection
-task vm:exec -- ssh -T git@github.com
-```
-
-### Permission Issues
-
-```bash
-# Check file permissions in VM
-task vm:exec -- ls -la ${WINDSOR_PROJECT_ROOT}
-
-# Adjust permissions if needed
-task vm:exec -- sudo chown -R $USER:$USER ${WINDSOR_PROJECT_ROOT}
-```
-
-### Docker Not Working
-
-```bash
-# Check Docker service status
-task vm:exec -- systemctl status docker
-
-# Start Docker service if needed
-task vm:exec -- sudo systemctl start docker
-
-# Verify Docker is accessible
-task vm:exec -- docker ps
-```
-
-## Confirmation Checklist
-
-Use this checklist to verify your setup is working correctly:
-
-- [ ] Remote connection to IncusOS server is configured (`incus remote list` shows your remote)
-- [ ] Environment variables are set correctly (`windsor env | grep INCUS_REMOTE_NAME`)
-- [ ] VM was created successfully (`task vm:list` shows your VM)
-- [ ] VM is running (`task vm:info` shows status as "Running")
-- [ ] VM has an IP address (`task vm:info` shows IPv4 address)
-- [ ] Can SSH directly to VM (`task vm:ssh` or `ssh <username>@<vm-ip>` works)
-- [ ] Can access VM shell via Incus (`task vm:shell` works)
-- [ ] Can execute commands (`task vm:exec -- echo "test"` works)
-- [ ] Git is installed (`task vm:exec -- git --version` works)
-- [ ] Git is configured (`task vm:exec -- git config --global user.name` shows your name)
-- [ ] SSH keys work with GitHub (`task vm:exec -- ssh -T git@github.com` works)
-- [ ] Docker is installed and running (`task vm:exec -- docker ps` works)
-- [ ] User account matches host (`task vm:exec -- whoami` matches your host username)
-- [ ] Can clone repositories (`task vm:exec -- git clone git@github.com:user/repo.git ${WINDSOR_PROJECT_ROOT}/test` works)
-
-## Additional Resources
-
-- [Incus Documentation](https://linuxcontainers.org/incus/docs/main/)
-- [Incus VM Management](https://linuxcontainers.org/incus/docs/main/instances/#virtual-machines)
-- [Incus Network Configuration](https://linuxcontainers.org/incus/docs/main/networks/)
-
+- [IncusOS Server](server.md)
+- [Initialize Workspace](../workspace/init.md)
+- [VM Taskfile](../../taskfiles/vm/README.md)
