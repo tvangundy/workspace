@@ -229,7 +229,7 @@ Generate GIF animations from terminal session recordings using VHS (Video-to-Har
 - `task vhs:make-windsor-up-gif` - Build Windsor up GIF
 - `task vhs:make-port-forwarding-gif` - Build port forwarding GIF
 - `task vhs:make-windsor-down-gif` - Build Windsor down GIF
-- `task vhs:make-check-ha-pod-gif` - Build check Home Assistant pod GIF
+- `task vhs:make-check-ha-pod-gif` - Build check HA pod GIF
 
 **Help:**
 

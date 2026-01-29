@@ -18,7 +18,7 @@ The `vhs:` namespace provides tools for generating animated GIFs from terminal s
 | [`make-windsor-up-gif`](#make-windsor-up-gif) | Build Windsor up GIF animation |
 | [`make-port-forwarding-gif`](#make-port-forwarding-gif) | Build port forwarding GIF animation |
 | [`make-windsor-down-gif`](#make-windsor-down-gif) | Build Windsor down GIF animation |
-| [`make-check-ha-pod-gif`](#make-check-ha-pod-gif) | Build check Home Assistant pod GIF animation |
+| [`make-check-ha-pod-gif`](#make-check-ha-pod-gif) | Build check HA pod GIF animation |
 
 ## GIF Generation Tasks
 
@@ -34,8 +34,8 @@ task vhs:make-windsor-init-gif
 
 **What it does:**
 
-1. Reads VHS tape file: `docs/img/home-assistant/vhs/windsor-init.tape`
-2. Generates GIF: `docs/img/home-assistant/windsor-init.gif`
+1. Reads VHS tape file: `docs/img/vhs/windsor-init.tape`
+2. Generates GIF: `docs/img/windsor-init.gif`
 
 **Example:**
 
@@ -55,8 +55,8 @@ task vhs:make-windsor-up-gif
 
 **What it does:**
 
-1. Reads VHS tape file: `docs/img/home-assistant/vhs/windsor-up.tape`
-2. Generates GIF: `docs/img/home-assistant/windsor-up.gif`
+1. Reads VHS tape file: `docs/img/vhs/windsor-up.tape`
+2. Generates GIF: `docs/img/windsor-up.gif`
 
 **Example:**
 
@@ -76,8 +76,8 @@ task vhs:make-port-forwarding-gif
 
 **What it does:**
 
-1. Reads VHS tape file: `docs/img/home-assistant/vhs/port-forwarding.tape`
-2. Generates GIF: `docs/img/home-assistant/port-forwarding.gif`
+1. Reads VHS tape file: `docs/img/vhs/port-forwarding.tape`
+2. Generates GIF: `docs/img/port-forwarding.gif`
 
 **Example:**
 
@@ -97,8 +97,8 @@ task vhs:make-windsor-down-gif
 
 **What it does:**
 
-1. Reads VHS tape file: `docs/img/home-assistant/vhs/windsor-down.tape`
-2. Generates GIF: `docs/img/home-assistant/windsor-down.gif`
+1. Reads VHS tape file: `docs/img/vhs/windsor-down.tape`
+2. Generates GIF: `docs/img/windsor-down.gif`
 
 **Example:**
 
@@ -108,7 +108,7 @@ task vhs:make-windsor-down-gif
 
 ### `make-check-ha-pod-gif`
 
-Build check Home Assistant pod GIF animation.
+Build check HA pod GIF animation.
 
 **Usage:**
 
@@ -118,8 +118,8 @@ task vhs:make-check-ha-pod-gif
 
 **What it does:**
 
-1. Reads VHS tape file: `docs/img/home-assistant/vhs/check-ha-pod.tape`
-2. Generates GIF: `docs/img/home-assistant/check-ha-pod.gif`
+1. Reads VHS tape file: `docs/img/vhs/check-ha-pod.tape`
+2. Generates GIF: `docs/img/check-ha-pod.gif`
 
 **Example:**
 
@@ -141,7 +141,7 @@ VHS reads `.tape` files that contain:
 **Example VHS tape file:**
 
 ```tape
-Output docs/img/home-assistant/windsor-init.gif
+Output docs/img/windsor-init.gif
 Set FontSize 14
 Set Width 800
 Set Height 600
@@ -153,14 +153,14 @@ Sleep 1s
 ## Prerequisites
 
 - VHS installed: `brew install vhs` (macOS) or download from [VHS releases](https://github.com/charmbracelet/vhs/releases)
-- VHS tape files exist in `docs/img/home-assistant/vhs/`
-- Output directory exists: `docs/img/home-assistant/`
+- VHS tape files exist in `docs/img/vhs/`
+- Output directory exists: `docs/img/`
 
 ## Creating New GIF Animations
 
 To create a new GIF animation:
 
-1. Create a `.tape` file in `docs/img/home-assistant/vhs/`
+1. Create a `.tape` file in `docs/img/vhs/`
 2. Add a new task to `tasks/vhs/Taskfile.yaml`
 3. Run the task to generate the GIF
 
@@ -170,7 +170,7 @@ To create a new GIF animation:
 make-my-gif:
   desc: Builds my custom GIF
   cmds:
-    - vhs docs/img/home-assistant/vhs/my-animation.tape -o docs/img/home-assistant/my-animation.gif
+    - vhs docs/img/vhs/my-animation.tape -o docs/img/my-animation.gif
 ```
 
 ## Help

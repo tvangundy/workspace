@@ -19,10 +19,6 @@ nav:
         - Sidero Omni: runbooks/bootstrapping/omni.md
     - Apps:
       - Introduction: runbooks/apps/README.md
-      - Home Assistant: runbooks/apps/home-assistant/README.md
-      - Mailu:
-          - Email Server: runbooks/apps/mailu/mailu.md
-          - Email Server on VM: runbooks/apps/mailu/mailu-vm.md
       - GitHub Actions Runners:
           - VM Runner: runbooks/apps/runners/vm-runner-setup.md
           - Bare Metal Runner: runbooks/apps/runners/bare-metal-runner-setup.md
@@ -31,7 +27,6 @@ nav:
       - Device: taskfiles/device/README.md
       - Docker: taskfiles/docker/README.md
       - Incus: taskfiles/incus/README.md
-      - Mailu: taskfiles/mailu/README.md
       - SOPS: taskfiles/sops/README.md
       - Talos: taskfiles/talos/README.md
       - TC: taskfiles/tc/README.md

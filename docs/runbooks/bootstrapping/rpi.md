@@ -43,7 +43,7 @@ environment:
   RPI_IMAGE_VERSION: v1.11.6
   RPI_IMAGE_ARCH: metal-arm64
 
-  CLUSTER_NAME: "home-assistant"
+  CLUSTER_NAME: "my-cluster"
 
   CONTROL_PLANE_IP: "192.168.2.31"
   WORKER_0_IP: "192.168.2.111"

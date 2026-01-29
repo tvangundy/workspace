@@ -49,7 +49,7 @@ Deploy a Talos Linux Kubernetes cluster using Infrastructure as Code with Terraf
 Create and manage Ubuntu virtual machines on a remote IncusOS server. This runbook covers creating generic VMs, development VMs, and GitHub Actions runner VMs. All are just named instances of Ubuntu VMs created using the `vm:` task namespace. Includes workspace initialization, Terraform-based VM creation, developer tools installation, Docker setup, SSH configuration for direct network access, workspace syncing capabilities, and VM lifecycle management. Provides isolated, persistent Ubuntu environments with direct SSH access from your local network, suitable for development work, CI/CD runners, or any other workload.
 
 ### 📱 [Application Deployment](./apps/README.md)
-Complete guides for deploying self-hosted applications and services. Includes Home Assistant, Mailu email server, and other application deployments. Each runbook provides end-to-end deployment workflows from initial setup through ongoing management.
+Complete guides for deploying self-hosted applications and services. Each runbook provides end-to-end deployment workflows from initial setup through ongoing management.
 
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and Operating Systems to prepar devices for deployment, including image preparation and initial configuration.

@@ -34,7 +34,7 @@ If you're new to IncusOS, we recommend starting with the [IncusOS Server](server
 
 - **For Kubernetes**: Use the [Talos Kubernetes Cluster](tc.md) guide
 - **For Development or CI/CD**: Use the [Ubuntu Virtual Machines](vm.md) guide (covers both development VMs and GitHub Actions runner VMs)
-- **For Application Deployment**: See the [Application Deployment Runbooks](../apps/README.md) for guides on deploying applications like Mailu, Home Assistant, and more
+- **For Application Deployment**: See the [Application Deployment Runbooks](../apps/README.md) for guides on deploying self-hosted applications
 
 ## Common Prerequisites
 
