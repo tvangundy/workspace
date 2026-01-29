@@ -8,7 +8,7 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 
 ## Overview
 
-The `tc:` namespace provides tools for creating and managing Talos Kubernetes clusters on Incus. The primary entry point is `tc:instantiate`. For cluster VM start/stop/restart/console use the Incus CLI. For health checks use the `talos:` namespace: `task talos:health-controlplane`, `task talos:health-worker`.
+The `tc:` namespace provides tasks for creating and managing Talos Kubernetes clusters on Incus. Use `task tc:instantiate` to create a cluster; use the **`talos:`** namespace for health checks and the **Incus** CLI for VM start/stop/restart/console.
 
 ## Task Reference
 
@@ -29,6 +29,10 @@ The `tc:` namespace provides tools for creating and managing Talos Kubernetes cl
 | [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Destroy cluster unless --keep was set |
 | [`list`](#list) | List all cluster VMs |
 | [`destroy`](#destroy) | Destroy the Talos cluster using Terraform |
+| [`delete`](#delete) | Delete cluster VMs directly via Incus (bypasses Terraform) |
+| [`help`](#help) | Show tc commands |
+
+**Note:** Health checks are in the `talos:` namespace: `task talos:health-controlplane`, `task talos:health-worker`. Cluster VM start/stop/restart/console: use `incus start/stop/restart/console $INCUS_REMOTE_NAME:<vm-name>`.
 
 ## Cluster Creation
 
@@ -199,68 +203,6 @@ Destroy cluster unless `--keep` flag was set. This is typically used in test con
 task tc:instantiate:cleanup-if-needed
 ```
 
-## Terraform Operations
-
-### `generate-tfvars`
-
-Generate `terraform.tfvars` from environment variables.
-
-**Usage:**
-
-```bash
-task tc:generate-tfvars
-```
-
-**What it does:**
-
-1. Reads environment variables from Windsor context
-2. Generates `terraform/cluster/terraform.tfvars`
-3. Includes configuration for cluster resources, network, and storage
-
-**Note:** The generated file is automatically created and should not be edited manually. Update environment variables in `contexts/<context>/windsor.yaml` instead.
-
-### `terraform:init`
-
-Initialize Terraform for the cluster.
-
-**Usage:**
-
-```bash
-task tc:terraform:init
-```
-
-### `terraform:plan`
-
-Show Terraform plan for the cluster.
-
-**Usage:**
-
-```bash
-task tc:terraform:plan
-```
-
-### `terraform:apply`
-
-Apply Terraform configuration to create the cluster.
-
-**Usage:**
-
-```bash
-task tc:terraform:apply
-```
-
-### `terraform:destroy`
-
-Destroy the cluster using Terraform.
-
-**Usage:**
-
-```bash
-task tc:terraform:destroy
-```
-
-**Warning:** This permanently removes the cluster and all its data.
-
 ## Cluster Management
 
 ### `list`
@@ -275,70 +217,6 @@ task tc:list
 
 **Output:** Shows all cluster VMs (control plane and workers) with their status, IP addresses, and resource usage.
 
-### `info`
-
-Get detailed information about the cluster.
-
-**Usage:**
-
-```bash
-task tc:info
-```
-
-**Output:** Shows cluster configuration, VM information, network details, and status.
-
-### `console`
-
-Access VM console for debugging and troubleshooting.
-
-**Usage:**
-
-```bash
-task tc:console -- <vm-name>
-```
-
-**Parameters:**
-
-- `<vm-name>` (required): VM name (e.g., `talos-cp`, `talos-worker-0`, `talos-worker-1`)
-
-**Example:**
-
-```bash
-task tc:console -- talos-cp
-```
-
-**Note:** Press `Ctrl+A` then `Q` to exit the console.
-
-### `start`
-
-Start all cluster VMs.
-
-**Usage:**
-
-```bash
-task tc:start
-```
-
-### `stop`
-
-Stop all cluster VMs.
-
-**Usage:**
-
-```bash
-task tc:stop
-```
-
-### `restart`
-
-Restart all cluster VMs.
-
-**Usage:**
-
-```bash
-task tc:restart
-```
-
 ### `destroy`
 
 Destroy the Talos cluster using Terraform.
@@ -346,120 +224,22 @@ Destroy the Talos cluster using Terraform.
 **Usage:**
 
 ```bash
-task tc:destroy
+task tc:destroy [-- <cluster-name>]
 ```
 
 **Warning:** This permanently removes the cluster and all its data.
 
-## Health Checks
+### `delete`
 
-### `health-controlplane`
-
-Health check the control plane node.
+Delete cluster VMs directly via Incus (bypasses Terraform). Use when Terraform state is lost or for manual cleanup.
 
 **Usage:**
 
 ```bash
-task tc:health-controlplane
+task tc:delete [-- <cluster-name>]
 ```
 
-**Requirements:**
-
-- `CONTROL_PLANE_IP` environment variable must be set
-- `TALOSCONFIG` environment variable must be set
-- Control plane node must be bootstrapped
-
-### `health-worker`
-
-Health check all worker nodes.
-
-**Usage:**
-
-```bash
-task tc:health-worker
-```
-
-**Requirements:**
-
-- `CONTROL_PLANE_IP`, `WORKER_0_IP`, `WORKER_1_IP` environment variables must be set
-- `TALOSCONFIG` environment variable must be set
-- Control plane node must be bootstrapped
-
-### `health-worker-0`
-
-Health check worker-0.
-
-**Usage:**
-
-```bash
-task tc:health-worker-0
-```
-
-**Requirements:**
-
-- `CONTROL_PLANE_IP`, `WORKER_0_IP` environment variables must be set
-- `TALOSCONFIG` environment variable must be set
-- Control plane node must be bootstrapped
-
-### `health-worker-1`
-
-Health check worker-1.
-
-**Usage:**
-
-```bash
-task tc:health-worker-1
-```
-
-**Requirements:**
-
-- `CONTROL_PLANE_IP`, `WORKER_1_IP` environment variables must be set
-- `TALOSCONFIG` environment variable must be set
-- Control plane node must be bootstrapped
-
-## Testing
-
-### `test`
-
-Test cluster setup by running through all runbook steps and validating the cluster. Use `--keep` to leave cluster running after test.
-
-**Usage:**
-
-```bash
-task tc:test -- <incus-remote-name> [--keep]
-```
-
-**Parameters:**
-
-- `<incus-remote-name>` (required): Incus remote name
-- `--keep`, `--no-cleanup` (optional): Keep cluster running after test (default: delete cluster)
-
-**What it does:**
-
-1. Initializes Windsor context "test"
-2. Validates remote connection
-3. Generates terraform.tfvars
-4. Ensures Talos image is available
-5. Creates cluster VMs using Terraform
-6. Waits for VMs to boot
-7. Gets IP addresses (from Terraform outputs or prompts user)
-8. Updates windsor.yaml with IP addresses
-9. Continues Terraform deployment to configure Talos
-10. Retrieves kubeconfig
-11. Verifies and fixes kubeconfig
-12. Validates cluster health using `talosctl health` and `kubectl get nodes`
-13. Displays comprehensive cluster information
-14. Optionally cleans up cluster (unless `--keep` is used)
-
-**Examples:**
-
-```bash
-# Run full test suite (creates cluster, validates setup, then deletes it)
-task tc:test -- nuc
-
-# Keep cluster after test
-task tc:test -- nuc --keep
-```
+**Note:** Cluster VM start/stop/restart/console and health checks are not in the `tc:` namespace. Use **`talos:`** for health: `task talos:health-controlplane`, `task talos:health-worker`. Use the **Incus** CLI for VM control: `incus start/stop/restart/console $INCUS_REMOTE_NAME:<vm-name>`.
 
 ## Environment Variables
 

@@ -97,7 +97,7 @@ incus start $INCUS_REMOTE_NAME:<runner-name>
 incus stop $INCUS_REMOTE_NAME:<runner-name>
 ```
 
-To SSH into the runner VM: get its IP from `incus list $INCUS_REMOTE_NAME:<runner-name>`, then `ssh <user>@<ip>`.
+To access the VM: get IP from `incus list $INCUS_REMOTE_NAME:<runner-name>` and SSH as your user, or use `incus exec $INCUS_REMOTE_NAME:<runner-name> -- bash`.
 
 ## Destroying the Runner VM
 
@@ -105,13 +105,13 @@ To SSH into the runner VM: get its IP from `incus list $INCUS_REMOTE_NAME:<runne
 task runner:destroy -- <runner-name>
 ```
 
-This stops the runner service, unregisters it from GitHub, and destroys the VM. Use `runner:destroy` (not only Incus delete) so the runner is removed from GitHub.
+This stops the runner service, unregisters it from GitHub, and destroys the VM. Use `runner:destroy` (not only `vm:destroy`) so the runner is removed from GitHub.
 
 ## Troubleshooting
 
 - **Runner not in GitHub**: Check token is correct and not expired; check logs: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo journalctl -u actions.runner.*.service -n 50`
 - **Service not starting**: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo systemctl status actions.runner.*.service`
-- **VM not starting**: `incus info $INCUS_REMOTE_NAME:<runner-name>`, `incus console $INCUS_REMOTE_NAME:<runner-name>`
+- **VM not starting**: `incus list $INCUS_REMOTE_NAME:`, `incus console $INCUS_REMOTE_NAME:<runner-name>`
 
 ## Related
 

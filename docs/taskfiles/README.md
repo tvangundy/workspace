@@ -171,21 +171,15 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 **Cluster Creation:**
 - `task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]` - Create and bootstrap a three-node Talos Kubernetes cluster using Terraform
 
-**Terraform Operations:**
-- `task tc:generate-tfvars` - Generate terraform.tfvars from environment variables
-- `task tc:terraform:init` - Initialize Terraform
-- `task tc:terraform:plan` - Show Terraform plan
-- `task tc:terraform:apply` - Apply Terraform configuration
-- `task tc:terraform:destroy` - Destroy the cluster using Terraform
-
 **Cluster Management:**
 - `task tc:list` - List all cluster VMs
-- `task tc:destroy` - Destroy the Talos cluster using Terraform
-
-**Health checks** (Talos namespace): `task talos:health-controlplane`, `task talos:health-worker`. For VM start/stop/restart/console, use the Incus CLI (e.g. `incus start`, `incus console`).
+- `task tc:destroy [-- <cluster-name>]` - Destroy the Talos cluster using Terraform
+- `task tc:delete [-- <cluster-name>]` - Delete cluster VMs directly via Incus (bypasses Terraform)
 
 **Help:**
 - `task tc:help` - Show all tc commands
+
+**Note:** Cluster VM start/stop/console and health checks use the **`talos:`** namespace and **Incus** CLI: `task talos:health-controlplane`, `task talos:health-worker`, `incus start/stop/restart/console $INCUS_REMOTE_NAME:<vm-name>`.
 
 ### 🖥️ Ubuntu VM (`vm:`)
 
@@ -204,11 +198,12 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 **Instance Management:**
 - `task vm:list` - List all Ubuntu VM instances
 - `task vm:destroy [-- <instance-name>]` - Destroy an Ubuntu VM using Terraform
-
-**VM info, start, stop, restart, shell, SSH, and exec** are not in the vm Taskfile; use the Incus CLI (e.g. `incus info`, `incus start`, `incus exec <remote>:<vm> -- bash`).
+- `task vm:delete [-- <instance-name>]` - Delete VM directly via Incus (bypasses Terraform)
 
 **Help:**
 - `task vm:help` - Show all vm commands
+
+**Note:** VM start/stop/restart, info, shell, and exec are done via the **Incus** CLI: `incus start/stop/restart/info/exec $INCUS_REMOTE_NAME:<instance-name>`.
 
 ### 🏃 GitHub Actions Runner (`runner:`)
 

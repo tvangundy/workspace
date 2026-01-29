@@ -91,8 +91,8 @@ VM_MEMORY=32GB VM_DISK_SIZE=200GB task vm:test -- nuc
 Once the new VM is created, SSH into it and clean up Docker:
 
 ```bash
-# SSH into the VM (get IP from: incus list $INCUS_REMOTE_NAME:<vm-name>, then ssh <username>@<vm-ip>)
-# Or: incus exec $INCUS_REMOTE_NAME:<vm-name> -- bash
+# SSH into the VM
+task vm:ssh
 
 # Inside the VM, check disk usage
 df -h
@@ -152,8 +152,8 @@ If the issue persists, you may need to:
 ## Check Current Disk Usage
 
 ```bash
-# SSH into the VM (get IP from: incus list $INCUS_REMOTE_NAME:<vm-name>)
-# Or: incus exec $INCUS_REMOTE_NAME:<vm-name> -- bash
+# SSH into the VM
+task vm:ssh
 
 # Inside the VM, check disk usage
 df -h

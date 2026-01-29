@@ -8,7 +8,7 @@ Ubuntu virtual machine management for creating and managing VMs on Incus using T
 
 ## Overview
 
-The `vm:` namespace provides tools for creating and managing Ubuntu virtual machines on Incus using Terraform. The primary entry point is `vm:instantiate`. For VM info, start, stop, restart, shell, SSH, and exec, use the Incus CLI (e.g. `incus info $INCUS_REMOTE_NAME:<vm>`, `incus exec $INCUS_REMOTE_NAME:<vm> -- bash`).
+The `vm:` namespace provides tasks for creating and managing Ubuntu VMs on Incus. Use `task vm:instantiate` to create a VM; use the **Incus** CLI for start/stop/restart, info, exec, and SSH (e.g. `incus exec $INCUS_REMOTE_NAME:<instance-name> -- bash`).
 
 ## Task Reference
 
@@ -20,11 +20,11 @@ The `vm:` namespace provides tools for creating and managing Ubuntu virtual mach
 | [`instantiate:verify-remote`](#instantiateverify-remote) | Verify remote connection exists |
 | [`instantiate:check-vm-image`](#instantiatecheck-vm-image) | Ensure VM image is available on remote |
 | [`instantiate:create-vm`](#instantiatecreate-vm) | Create VM using Terraform and setup developer environment |
-| [`instantiate:setup-ssh`](#instantiatesetup-ssh) | Setup SSH access for the user on the VM |
 | [`instantiate:setup-incus`](#instantiatesetup-incus) | Setup Incus client on the VM and configure remote connection |
-| [`instantiate:install-tools`](#instantiateinstall-tools) | Install tools jq, Homebrew, aqua, docker, and windsor |
-| [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if VM_INIT_WORKSPACE is true |
 | [`instantiate:validate-vm`](#instantiatevalidate-vm) | Validate VM setup and functionality |
+| [`instantiate:setup-ssh`](#instantiatesetup-ssh) | Setup SSH access for the user on the VM |
+| [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if VM_INIT_WORKSPACE is true |
+| [`instantiate:install-tools`](#instantiateinstall-tools) | Install tools jq, Homebrew, aqua, docker, and windsor |
 | [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Cleanup VM if --keep flag was not set |
 | [`generate-tfvars`](#generate-tfvars) | Generate terraform.tfvars from environment variables |
 | [`terraform:init`](#terraforminit) | Initialize Terraform for the VM |
@@ -33,6 +33,10 @@ The `vm:` namespace provides tools for creating and managing Ubuntu virtual mach
 | [`terraform:destroy`](#terraformdestroy) | Destroy the VM using Terraform |
 | [`list`](#list) | List all VM instances |
 | [`destroy`](#destroy) | Destroy a VM using Terraform |
+| [`delete`](#delete) | Delete VM directly via Incus (bypasses Terraform) |
+| [`help`](#help) | Show vm commands |
+
+**Note:** VM start/stop/restart, info, shell, exec, and SSH are done via the **Incus** CLI: `incus start/stop/restart/info/exec $INCUS_REMOTE_NAME:<instance-name>`. For SSH, use the VM's IP (e.g. from `incus list`) with your normal SSH client.
 
 ## Instance Creation
 
@@ -267,48 +271,6 @@ task vm:terraform:destroy
 
 ## Instance Management
 
-### `start`
-
-Start an VM instance.
-
-**Usage:**
-
-```bash
-task vm:start [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-### `stop`
-
-Stop an VM instance.
-
-**Usage:**
-
-```bash
-task vm:stop [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-### `restart`
-
-Restart an VM instance.
-
-**Usage:**
-
-```bash
-task vm:restart [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
 ### `list`
 
 List all VM instances on the configured remote.
@@ -320,38 +282,6 @@ task vm:list
 ```
 
 **Output:** Shows all instances with their status, IP addresses, and resource usage.
-
-### `info`
-
-Get detailed information about an VM instance.
-
-**Usage:**
-
-```bash
-task vm:info [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Output:** Shows instance configuration, resources, network information, and status.
-
-### `debug`
-
-Debug performance and resource usage of an VM instance.
-
-**Usage:**
-
-```bash
-task vm:debug [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Output:** Shows CPU, memory, disk, network usage statistics, and performance diagnostics.
 
 ### `destroy`
 
@@ -367,196 +297,14 @@ task vm:destroy
 task vm:destroy -- <vm-name>
 ```
 
-## Access
+### `delete`
 
-### `shell`
-
-Open an interactive shell in an VM instance (similar to `docker exec -it`).
+Delete VM directly via Incus (bypasses Terraform). Use when Terraform state is lost or for manual cleanup.
 
 **Usage:**
 
 ```bash
-task vm:shell [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Example:**
-
-```bash
-task vm:shell -- VM
-```
-
-### `ssh`
-
-SSH into an VM instance. Connects directly via SSH using the instance's IP address.
-
-**Usage:**
-
-```bash
-task vm:ssh [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Example:**
-
-```bash
-task vm:ssh -- VM
-```
-
-### `ssh-info`
-
-Show SSH connection information for an VM instance.
-
-**Usage:**
-
-```bash
-task vm:ssh-info [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Output:** Shows SSH host, port, username, and connection command.
-
-### `exec`
-
-Execute a command in an VM instance (similar to `docker exec`).
-
-**Usage:**
-
-```bash
-task vm:exec -- <command>
-task vm:exec -- <instance-name> -- <command>
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-- `<command>`: Command to execute (required)
-
-**Example:**
-
-```bash
-task vm:exec -- ls -la ~/workspace-name
-task vm:exec -- vm -- apt update
-```
-
-## Workspace Management
-
-### `init-workspace`
-
-Initialize workspace contents in an existing VM. Copies the workspace to the user's home directory.
-
-**Usage:**
-
-```bash
-task vm:init-workspace [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Note:** This is useful for adding workspace to a VM that was created without workspace setup.
-
-### `copy-workspace`
-
-Copy entire workspace to VM. Replaces existing workspace in the user's home directory.
-
-**Usage:**
-
-```bash
-task vm:copy-workspace [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Warning:** This replaces the entire workspace directory. Use `sync-workspace` for incremental updates.
-
-### `add-workspace`
-
-Add workspace to VM. Copies workspace to the user's home directory (same as during creation).
-
-**Usage:**
-
-```bash
-task vm:add-workspace [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-### `sync-workspace`
-
-Sync workspace changes to VM. Uploads only changed files using rsync for efficient synchronization.
-
-**Usage:**
-
-```bash
-task vm:sync-workspace [-- <instance-name>]
-```
-
-**Parameters:**
-
-- `<instance-name>` (optional): Instance name (defaults to `VM_INSTANCE_NAME` or `vm`)
-
-**Note:** This is more efficient than `copy-workspace` for regular updates as it only transfers changed files.
-
-## Testing
-
-### `test`
-
-Test VM setup by running through all runbook steps and validating the VM. By default, initializes workspace. Use `--no-workspace` to skip. Use `--keep` to leave VM running after test.
-
-**Usage:**
-
-```bash
-task vm:test -- <incus-remote-name> [--keep] [--no-workspace]
-```
-
-**Parameters:**
-
-- `<incus-remote-name>` (required): Incus remote name
-- `--keep`, `--no-cleanup` (optional): Keep VM running after test (default: destroy VM)
-- `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace)
-
-**What it does:**
-
-1. Initializes Windsor context "test"
-2. Validates remote connection
-3. Generates terraform.tfvars
-4. Ensures VM image is available
-5. Creates VM using Terraform
-6. Sets up developer environment
-7. Optionally initializes workspace
-8. Validates all components (Git, Docker, SSH, etc.)
-9. Tests SSH access and GitHub connectivity
-10. Optionally cleans up VM (unless `--keep` is used)
-
-**Examples:**
-
-```bash
-# Run full test suite (creates VM, validates setup, then destroys it)
-task vm:test -- nuc
-
-# Keep VM after test
-task vm:test -- nuc --keep
-
-# Skip workspace initialization
-task vm:test -- nuc --no-workspace
-
-# Both options
-task vm:test -- nuc --keep --no-workspace
+task vm:delete [-- <instance-name>]
 ```
 
 ## Environment Variables

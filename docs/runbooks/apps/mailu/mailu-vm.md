@@ -227,9 +227,9 @@ This will:
 # Verify VM was created
 task vm:list
 
-# Check VM status and get IP
+# Check VM status and IP
+incus list $INCUS_REMOTE_NAME:mailu
 incus info $INCUS_REMOTE_NAME:mailu
-incus list $INCUS_REMOTE_NAME:mailu --format csv -c n,4
 
 # Verify Docker is installed
 incus exec $INCUS_REMOTE_NAME:mailu -- docker --version
@@ -240,10 +240,7 @@ incus exec $INCUS_REMOTE_NAME:mailu -- docker --version
 After the VM boots and receives its DHCP-assigned IP address, get the IP address:
 
 ```bash
-# List VM and IPv4
-incus list $INCUS_REMOTE_NAME:mailu --format csv -c n,4
-
-# Or get detailed information
+incus list $INCUS_REMOTE_NAME:mailu
 incus info $INCUS_REMOTE_NAME:mailu
 ```
 
@@ -255,27 +252,19 @@ You can access the VM in several ways:
 
 #### Option 1: Direct SSH Access
 
-Since the VM has a direct IP address on your local network, you can SSH directly:
+Get the VM IP from `incus list $INCUS_REMOTE_NAME:mailu` (IPv4 column), then:
 
 ```bash
-# Get VM IP from Incus (format: name,IPv4)
-VM_IP=$(incus list $INCUS_REMOTE_NAME:mailu --format csv -c 4 | tail -1)
-
-# SSH directly to the VM (using your host username)
-ssh <username>@${VM_IP}
+ssh <username>@<vm-ip>
 ```
 
 #### Option 2: Interactive Shell via Incus
-
-Open an interactive bash shell via Incus:
 
 ```bash
 incus exec $INCUS_REMOTE_NAME:mailu -- bash
 ```
 
 #### Option 3: Execute Commands Directly
-
-Run specific commands without entering an interactive shell:
 
 ```bash
 incus exec $INCUS_REMOTE_NAME:mailu -- docker --version
@@ -290,7 +279,7 @@ Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](m
 
 **Important Notes for Deploying Mailu on the VM:**
 
-1. **SSH to the VM**: Get the VM IP from `incus list $INCUS_REMOTE_NAME:mailu`, then `ssh <username>@<vm-ip>`
+1. **SSH to the VM**: Get IP from `incus list $INCUS_REMOTE_NAME:mailu` and run `ssh <username>@<vm-ip>`, or use `incus exec $INCUS_REMOTE_NAME:mailu -- bash`
 2. **Use the VM's IP address**: When configuring DNS records, use the VM's IP address (not the IncusOS host IP)
 3. **VM has direct network access**: The VM gets its IP from DHCP, so it's directly accessible on your network
 4. **Port forwarding not needed**: Since the VM has direct network access, you don't need to set up port forwarding
@@ -301,8 +290,9 @@ Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](m
 On the VM, create a directory for Mailu and follow the Mailu runbook:
 
 ```bash
-# SSH to the VM (get IP from: incus list $INCUS_REMOTE_NAME:mailu)
+# SSH to the VM (get IP from incus list)
 ssh <username>@<vm-ip>
+# Or: incus exec $INCUS_REMOTE_NAME:mailu -- bash
 
 # Inside the VM, create Mailu directory
 sudo mkdir -p /mailu
@@ -361,8 +351,9 @@ After deploying Mailu following the Mailu runbook, verify that everything is wor
 SSH to the VM and check Mailu services:
 
 ```bash
-# SSH to the VM (get IP from: incus list $INCUS_REMOTE_NAME:mailu)
-ssh <username>@<vm-ip>
+# SSH to the VM
+incus exec $INCUS_REMOTE_NAME:mailu -- bash
+# Or: ssh <username>@<vm-ip>
 
 # Check Docker containers
 cd /mailu
@@ -392,28 +383,45 @@ Use online tools to verify your DNS records:
 You can access the Mailu VM in several ways:
 
 ```bash
-# Via SSH: get IP from incus list $INCUS_REMOTE_NAME:mailu, then ssh <username>@<vm-ip>
+# Via SSH (recommended - already configured)
+incus exec $INCUS_REMOTE_NAME:mailu -- bash
+
 # Via Incus shell
+incus exec $INCUS_REMOTE_NAME:mailu -- bash
+
+# Via Incus exec (always works)
 incus exec $INCUS_REMOTE_NAME:mailu -- bash
 ```
 
 ### Manage Mailu
 
-Follow the [Mailu Email Server](mailu.md) runbook for ongoing Mailu management. From the workspace (with mailu taskfile): `task mailu:update`, `task mailu:backup`, `task mailu:start`, `task mailu:stop`, etc.
+Follow the [Mailu Email Server](mailu.md) runbook for ongoing Mailu management:
+
+- Updates: `task mailu:update` (on the VM)
+- Backups: `task mailu:backup` (on the VM)
+- Service management: `task mailu:start`, `task mailu:stop`, etc. (on the VM)
 
 ### VM Management
 
-```bash
-# List VMs
-task vm:list
+Manage the VM using Incus or Terraform:
 
-# Start/stop/restart VM (Incus)
+**Using Incus:**
+
+```bash
+# Start VM
 incus start $INCUS_REMOTE_NAME:mailu
+
+# Stop VM
 incus stop $INCUS_REMOTE_NAME:mailu
+
+# Restart VM
 incus restart $INCUS_REMOTE_NAME:mailu
 
-# Destroy VM (Terraform)
-task vm:destroy -- mailu
+# Get VM info
+incus info $INCUS_REMOTE_NAME:mailu
+
+# List all VMs
+task vm:list
 ```
 
 **Using Terraform:**
@@ -428,22 +436,6 @@ terraform show
 # 2. Regenerate terraform.tfvars: task vm:generate-tfvars
 # 3. Review changes: task vm:terraform:plan
 # 4. Apply changes: task vm:terraform:apply
-```
-
-**Using Incus commands directly:**
-
-```bash
-# Start VM
-incus start $INCUS_REMOTE_NAME:mailu
-
-# Stop VM
-incus stop $INCUS_REMOTE_NAME:mailu
-
-# Restart VM
-incus restart $INCUS_REMOTE_NAME:mailu
-
-# Get VM info
-incus info $INCUS_REMOTE_NAME:mailu
 ```
 
 ### VM Snapshots
@@ -518,6 +510,7 @@ If the VM fails to start:
 
 ```bash
 # Check VM status
+incus list $INCUS_REMOTE_NAME:mailu
 incus info $INCUS_REMOTE_NAME:mailu
 
 # View VM logs

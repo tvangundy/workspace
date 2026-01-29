@@ -102,10 +102,12 @@ task talos:health-worker
 
 ```bash
 task tc:list
-task tc:destroy
+incus list $INCUS_REMOTE_NAME:
+incus start $INCUS_REMOTE_NAME:<vm-name>
+incus stop $INCUS_REMOTE_NAME:<vm-name>
+incus restart $INCUS_REMOTE_NAME:<vm-name>
+incus console $INCUS_REMOTE_NAME:<vm-name>
 ```
-
-To start/stop/restart cluster VMs or open a console, use Incus: `incus start|stop|restart|console $INCUS_REMOTE_NAME:<vm-name>` (e.g. `talos-cp`, `talos-worker-0`, `talos-worker-1`).
 
 ## Destroying the Cluster
 
