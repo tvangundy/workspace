@@ -199,13 +199,13 @@ windsor env | grep INCUS_REMOTE_NAME
 Create the Ubuntu VM using the standard VM creation workflow:
 
 ```bash
-task vm:create --name mailu
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep] --name mailu
 ```
 
 Or if you've set `VM_INSTANCE_NAME: mailu` in your environment variables:
 
 ```bash
-task vm:create
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep]
 ```
 
 This will:
@@ -293,7 +293,7 @@ task vm:exec -- mailu -- docker --version
 task vm:exec -- mailu -- docker compose version
 ```
 
-**Note**: The VM created with `task vm:create` already has Docker installed and SSH configured. Your SSH keys are already copied, so you can SSH directly without additional setup.
+**Note**: The VM created with `task vm:instantiate -- <remote-name> [<vm-name>] [--keep]` already has Docker installed and SSH configured. Your SSH keys are already copied, so you can SSH directly without additional setup.
 
 ## Step 8: Deploy Mailu
 
@@ -305,7 +305,7 @@ Now that your Ubuntu VM is set up with Docker, follow the [Mailu Email Server](m
 2. **Use the VM's IP address**: When configuring DNS records, use the VM's IP address (not the IncusOS host IP)
 3. **VM has direct network access**: The VM gets its IP from DHCP, so it's directly accessible on your network
 4. **Port forwarding not needed**: Since the VM has direct network access, you don't need to set up port forwarding
-5. **Docker is already installed**: The VM created with `task vm:create` already has Docker and Docker Compose installed
+5. **Docker is already installed**: The VM created with `task vm:instantiate -- <remote-name> [<vm-name>] [--keep]` already has Docker and Docker Compose installed
 
 ### Quick Start for Mailu Deployment
 
@@ -496,7 +496,7 @@ incus snapshot restore $INCUS_REMOTE_NAME:mailu mailu-backup-YYYYMMDD
 To completely destroy the Mailu VM and remove all resources, use Terraform:
 
 ```bash
-task vm:delete -- mailu
+task vm:destroy -- mailu
 ```
 
 Or using Terraform directly:
@@ -532,7 +532,7 @@ The Mailu VM should no longer appear in the list.
 
 - **Data Loss**: Destroying the VM will permanently delete all Mailu data, email, and persistent volumes. Ensure you have backups if needed.
 - **Network**: The physical network can be reused for other VMs, so it's not deleted automatically.
-- **Recreation**: To recreate the VM, simply run `task vm:create --name mailu` again.
+- **Recreation**: To recreate the VM, simply run `task vm:instantiate -- <remote-name> [<vm-name>] [--keep] --name mailu` again.
 
 ## Troubleshooting
 

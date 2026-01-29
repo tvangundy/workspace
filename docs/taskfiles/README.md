@@ -11,7 +11,7 @@ Tasks are organized into namespaces, each focusing on a specific area of infrast
 
 For example, to create a virtual machine:
 ```bash
-task vm:create
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
 ```
 
 ## Namespace Overview
@@ -22,7 +22,8 @@ task vm:create
 - **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
 - **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
 - **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
-- **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners
+- **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments
+- **`runner:`** - GitHub Actions runner management for creating and managing self-hosted runners on Incus VMs
 - **`vhs:`** - Terminal session recording and GIF generation for documentation
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
 
@@ -168,7 +169,7 @@ Talos Linux cluster health checks and management.
 Talos Kubernetes cluster management for creating and managing three-node Talos Linux clusters on Incus using Terraform.
 
 **Cluster Creation:**
-- `task tc:create` - Create a three-node Talos Kubernetes cluster using Terraform
+- `task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]` - Create and bootstrap a three-node Talos Kubernetes cluster using Terraform
 
 **Terraform Operations:**
 - `task tc:generate-tfvars` - Generate terraform.tfvars from environment variables
@@ -203,7 +204,7 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform.
 
 **Instance Creation:**
-- `task vm:create` - Create an Ubuntu VM instance using Terraform (defaults: `VM_INSTANCE_NAME`, `VM_IMAGE`, `VM_MEMORY`, etc.)
+- `task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]` - Create an Ubuntu VM instance using Terraform with complete developer environment setup
 
 **Terraform Operations:**
 - `task vm:generate-tfvars` - Generate terraform.tfvars from environment variables
@@ -219,7 +220,7 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 - `task vm:list` - List all Ubuntu VM instances
 - `task vm:info [-- <instance-name>]` - Get detailed information about an Ubuntu VM instance
 - `task vm:debug [-- <instance-name>]` - Debug performance and resource usage
-- `task vm:delete` - Delete an Ubuntu VM using Terraform
+- `task vm:destroy [-- <instance-name>]` - Destroy an Ubuntu VM using Terraform
 
 **Access:**
 - `task vm:shell [-- <instance-name>]` - Open an interactive shell in the instance
@@ -233,22 +234,26 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 - `task vm:add-workspace [-- <instance-name>]` - Add workspace to instance (merges with existing)
 - `task vm:sync-workspace [-- <instance-name>]` - Sync workspace changes using rsync (uploads only changed files)
 
-**GitHub Actions Runner Setup:**
-- `task vm:runner:initialize -- <vm-name>` - Initialize runner VM (installs all dependencies)
-- `task vm:runner:install-aqua -- <vm-name>` - Install aqua package manager
-- `task vm:runner:install-docker -- <vm-name>` - Install Docker
-- `task vm:runner:create-runner-user -- <vm-name>` - Create dedicated runner user
-- `task vm:runner:setup-ssh -- <vm-name>` - Set up SSH access
-- `task vm:runner:install-windsor-cli -- <vm-name>` - Install Windsor CLI
-- `task vm:runner:install-packages -- <vm-name>` - Install additional packages
-- `task vm:runner:install-github-runner -- <vm-name>` - Install and configure GitHub Actions runner
-- `task vm:runner:clean-work-dir -- <vm-name>` - Clean actions-runner/_work directory
 
 **Testing:**
 - `task vm:test -- <remote-name> [--keep] [--no-workspace]` - Test complete setup and validate VM
 
 **Help:**
 - `task vm:help` - Show all vm commands
+
+### 🏃 GitHub Actions Runner (`runner:`)
+
+GitHub Actions runner management for creating and managing self-hosted runners on Incus VMs.
+
+**Runner Creation:**
+- `task runner:instantiate -- <remote-name> [<runner-name>] [--keep]` - Create a GitHub Actions runner VM with complete setup
+
+**Runner Management:**
+- `task runner:status [-- <runner-name>]` - Check status of GitHub Actions runner service
+- `task runner:destroy [-- <runner-name>]` - Destroy runner VM and remove it from GitHub repository
+
+**Help:**
+- `task runner:help` - Show all runner commands
 
 ### 🎬 VHS (`vhs:`)
 
@@ -304,8 +309,9 @@ Many tasks support default values from environment variables. For example:
 **Task Arguments:**
 Tasks accept arguments using the `--` separator:
 ```bash
-task vm:create --name my-vm
-task vm:runner:initialize -- github-runner-ubuntu
+task vm:instantiate -- nuc my-vm --keep
+task runner:instantiate -- nuc my-runner
+task tc:instantiate -- nuc my-cluster --keep
 task device:apply-configuration -- 192.168.1.100 192.168.1.101 192.168.1.102
 ```
 
@@ -319,7 +325,8 @@ All task definitions are located in the `tasks/` directory, organized by namespa
 - `tasks/sops/Taskfile.yaml`
 - `tasks/talos/Taskfile.yaml`
 - `tasks/tc/Taskfile.yaml` (Talos Kubernetes cluster management)
-- `tasks/vm/Taskfile.yaml` (includes VM management, development environments, and GitHub Actions runner setup)
+- `tasks/vm/Taskfile.yaml` (VM management and development environments)
+- `tasks/runner/Taskfile.yaml` (GitHub Actions runner management)
 - `tasks/vhs/Taskfile.yaml`
 - `tasks/workspace/Taskfile.yaml`
 

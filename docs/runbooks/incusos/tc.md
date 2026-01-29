@@ -225,32 +225,36 @@ Apply the Terraform configuration:
 task tc:terraform:apply
 ```
 
-Or use the combined create task which handles everything:
+Or use the combined instantiate task which handles everything:
 
 ```bash
-task tc:create
+task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
 ```
+
+**Parameters:**
+- `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<cluster-name>` (optional): Name for the cluster (default: `talos-test-cluster`)
+- `--keep`, `--no-cleanup` (optional): Keep cluster running after creation (default: destroy cluster if used in test context)
 
 This will:
 
-1. Generate `terraform.tfvars` from environment variables
-2. Initialize Terraform
-3. Apply the Terraform configuration to create the VMs
-4. Generate Talos machine configurations
-5. Apply configurations to the VMs (using `talosctl apply-config`)
-6. Bootstrap the etcd cluster (using `talosctl bootstrap`)
+1. Parse CLI arguments and initialize Windsor context
+2. Verify Incus remote exists and is reachable
+3. Check if cluster VMs already exist (fails if they do)
+4. Ensure Talos image is available
+5. Generate `terraform.tfvars` from environment variables
+6. Initialize Terraform
+7. Create cluster VMs via Terraform (1 control plane + 2 workers)
+8. Wait for all VMs to be running
+9. Get IP addresses from Terraform outputs
+10. Update `windsor.yaml` with actual IP addresses
+11. Regenerate `terraform.tfvars` with IPs
+12. Apply Talos configurations to the VMs
+13. Bootstrap the etcd cluster
+14. Retrieve kubeconfig from the cluster
+15. Display final summary with cluster information
 
-**For new installations** (when IP addresses are empty in `windsor.yaml`):
-
-Terraform will:
-1. Create the control plane VM
-2. Create the worker VMs
-3. Generate Talos machine configurations
-4. Display instructions to get the actual DHCP-assigned IP addresses
-
-After the VMs are created, Terraform will pause and display instructions. You'll need to complete **Step 7** to configure the IP addresses before Terraform can continue with Talos configuration.
-
-**For existing installations** (when IP addresses are already set in `windsor.yaml`):
+**Note:** The `instantiate` task automatically handles IP address detection and Talos configuration, so you don't need to manually update IPs or run separate configuration steps.
 
 Terraform will:
 1. Create the control plane VM (if not exists)
@@ -337,16 +341,20 @@ Now that the IP addresses are configured, run Terraform apply again to continue 
 task tc:terraform:apply
 ```
 
-Or use the create task:
+Or use the instantiate task:
 
 ```bash
-task tc:create
+task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
 ```
 
-Terraform will now proceed with:
-1. Applying Talos configurations to all nodes
-2. Bootstrapping the etcd cluster
-3. Completing the cluster setup
+The instantiate task will automatically:
+1. Get IP addresses from Terraform outputs
+2. Update `windsor.yaml` with actual IP addresses
+3. Regenerate `terraform.tfvars` with IPs
+4. Apply Talos configurations to all nodes
+5. Bootstrap the etcd cluster
+6. Retrieve kubeconfig
+7. Complete the cluster setup
 
 **Alternative: Use DHCP Reservations** (Recommended for Production)
 
@@ -491,7 +499,7 @@ The cluster VMs should no longer appear in the list.
 - **Data Loss**: Destroying the cluster will permanently delete all Kubernetes data, workloads, and persistent volumes. Ensure you have backups if needed.
 - **Network**: The physical network can be reused for other clusters, so it's not deleted automatically.
 - **Images**: The Talos image can be reused, so it's not deleted automatically.
-- **Recreation**: To recreate the cluster, simply run `task tc:create` again.
+- **Recreation**: To recreate the cluster, simply run `task tc:instantiate -- <remote-name> [<cluster-name>]` again.
 
 ## Troubleshooting
 

@@ -24,3 +24,6 @@ contexts/**/.talos/
 contexts/**/.omni/
 contexts/**/.aws/
 contexts/**/.azure/
+.tc*
+.vm-*
+.runner-*

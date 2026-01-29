@@ -141,13 +141,13 @@ windsor env | grep INCUS_REMOTE_NAME
 Create the Ubuntu VM using the standard VM creation workflow:
 
 ```bash
-task vm:create --name github-runner
+task vm:instantiate -- <remote-name> github-runner [--keep]
 ```
 
 Or if you've set `VM_INSTANCE_NAME: github-runner` in your environment variables:
 
 ```bash
-task vm:create
+task vm:instantiate -- <remote-name> [--keep]
 ```
 
 This will:
@@ -181,28 +181,28 @@ task vm:exec -- github-runner -- docker --version
 
 ## Step 6: Initialize Runner Environment
 
-Initialize the runner environment on the VM using the `vm:runner:` namespace tasks:
+Initialize the runner environment on the VM using the `runner:` namespace tasks:
 
 ```bash
-task vm:runner:initialize -- github-runner
+task runner:instantiate:setup-runner-user -- github-runner
 ```
 
 This will:
 
-1. Install aqua package manager
-2. Install Docker (if not already installed)
-3. Create the runner user account
-4. Set up SSH access
-5. Install Windsor CLI
+1. Create the dedicated runner user account
+2. Copy SSH keys from the main user
+3. Add user to sudo, docker, and incus groups
+4. Configure Incus remote access for the runner user
+5. Set up proper permissions
 
-**Note**: The VM created with `task vm:create` already has Docker installed, so this step will verify and configure it for the runner user.
+**Note**: The VM created with `task vm:instantiate` already has Docker installed, so this step focuses on creating and configuring the runner user.
 
 ## Step 7: Install GitHub Actions Runner
 
 Install and configure the GitHub Actions runner on the VM:
 
 ```bash
-task vm:runner:install-github-runner -- github-runner
+task runner:instantiate:install-github-runner -- github-runner
 ```
 
 This will:
@@ -214,6 +214,16 @@ This will:
 5. Start the runner service
 
 **Note**: The runner will automatically register with GitHub using the `GITHUB_RUNNER_REPO_URL` and `GITHUB_RUNNER_TOKEN` from your environment variables.
+
+**Alternative: One-Command Setup**
+
+Instead of running Steps 5-7 individually, you can use the unified `runner:instantiate` task which performs all steps automatically:
+
+```bash
+task runner:instantiate -- <remote-name> github-runner --keep
+```
+
+This single command creates the VM, sets up the runner user, and installs the GitHub Actions runner.
 
 ## Step 8: Verify Runner Status
 
@@ -296,7 +306,7 @@ To update the GitHub Actions runner to a newer version:
 
 1. Update `GITHUB_RUNNER_VERSION` in your `windsor.yaml`
 2. Regenerate environment variables: `windsor env`
-3. Reinstall the runner: `task vm:runner:install-github-runner -- github-runner`
+3. Reinstall the runner: `task runner:instantiate:install-github-runner -- github-runner`
 
 ### VM Management
 
@@ -324,7 +334,7 @@ task vm:list
 To completely destroy the runner VM and remove all resources:
 
 ```bash
-task vm:delete -- github-runner
+task vm:destroy -- github-runner
 ```
 
 **Warning**: This will:

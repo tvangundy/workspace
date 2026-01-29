@@ -66,8 +66,8 @@ sudo docker system prune -a --volumes --force
 # Set Windsor context to test (if using test context)
 windsor context set test
 
-# Delete the VM
-task vm:delete
+# Destroy the VM
+task vm:destroy
 ```
 
 ### Step 2: Recreate with More Memory and Disk

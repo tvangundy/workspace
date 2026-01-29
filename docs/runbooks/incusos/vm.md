@@ -152,24 +152,37 @@ Apply the Terraform configuration:
 task vm:terraform:apply
 ```
 
-Or use the combined create task which handles everything:
+Or use the combined instantiate task which handles everything:
 
 ```bash
-task vm:create
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
 ```
+
+**Parameters:**
+- `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<vm-name>` (optional): Name for the VM (default: `vm`)
+- `--keep`, `--no-cleanup` (optional): Keep VM running (default: delete VM if used in test context)
+- `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace if `VM_INIT_WORKSPACE=true`)
+- `--windsor-up` (optional): Run `windsor init` and `windsor up` after workspace setup
 
 This will:
 
-1. Generate `terraform.tfvars` from environment variables
-2. Initialize Terraform
-3. Apply the Terraform configuration to create the VM
-4. Optionally initialize with workspace contents if `VM_INIT_WORKSPACE=true`
-5. **Automatically install developer tools** (git, build-essential, curl, vim, etc.)
-6. **Create a user matching your host username** with the same UID/GID
-7. **Copy your SSH keys** for immediate GitHub access
-8. **Configure Git** with your existing settings
-9. **Install Docker** for containerized development
-10. **Set up SSH server** for direct access
+1. Parse CLI arguments and initialize Windsor context
+2. Verify remote connection exists and is reachable
+3. Ensure VM image is available on the remote
+4. Generate `terraform.tfvars` from environment variables
+5. Initialize Terraform
+6. Apply the Terraform configuration to create the VM
+7. Set up SSH access for the user
+8. Set up Incus client on the VM and configure remote connection
+9. **Automatically install developer tools** (jq, Homebrew, Aqua, Docker, Windsor CLI)
+10. Optionally initialize workspace contents (if `VM_INIT_WORKSPACE=true` or not using `--no-workspace`)
+11. Validate VM setup and functionality
+12. **Create a user matching your host username** with the same UID/GID
+13. **Copy your SSH keys** for immediate GitHub access
+14. **Configure Git** with your existing settings
+15. **Install Docker** for containerized development
+16. **Set up SSH server** for direct access
 
 Terraform will:
 
@@ -422,8 +435,11 @@ task vm:restart
 To completely remove the VM using Terraform:
 
 ```bash
-# Delete the VM using Terraform (destructive, includes 5-second confirmation delay)
-task vm:delete
+# Destroy the VM using Terraform (destructive, includes 5-second confirmation delay)
+task vm:destroy
+
+# Or specify the VM name explicitly
+task vm:destroy -- <vm-name>
 ```
 
 This will run `terraform destroy` to remove the VM and all its resources.
@@ -492,7 +508,7 @@ The test will report pass/fail for each validation step and provide a summary at
 task vm:generate-tfvars
 
 # 2. Create VM using Terraform (automatically installs tools, sets up user, copies SSH keys)
-task vm:create
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
 
 # 3. Get VM IP address
 task vm:info | grep -i ip
@@ -554,7 +570,7 @@ The VMs created using the `vm:` namespace can be configured for various purposes
 
 ### Development VMs
 
-For development VMs, you can use the `vm:` namespace tasks as described above. The VM created with `task vm:create` automatically installs developer tools, Docker, Git, SSH keys, and configures your user account - making it ready for development work out of the box.
+For development VMs, you can use the `vm:` namespace tasks as described above. The VM created with `task vm:instantiate` automatically installs developer tools, Docker, Git, SSH keys, and configures your user account - making it ready for development work out of the box.
 
 **Note**: All VM management tasks, including development environment setup and GitHub Actions runner configuration, are available in the `vm:` namespace. See the [VM Tasks documentation](../../taskfiles/vm/README.md) for more information.
 

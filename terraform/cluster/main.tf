@@ -139,10 +139,16 @@ resource "incus_instance" "control_plane" {
   device {
     name = "eth0"
     type = "nic"
-    properties = {
-      network = var.physical_network_name
-    }
+    properties = merge(
+      {
+        network = var.physical_network_name
+      },
+      var.control_plane_mac != "" ? { hwaddr = var.control_plane_mac } : {}
+    )
   }
+  
+  # Note: If the MAC address changes, the VM must be recreated (destroy and recreate)
+  # MAC addresses are set at VM creation time and cannot be changed on existing VMs
   
   depends_on = [
     local_file.controlplane_config
@@ -408,25 +414,77 @@ resource "null_resource" "bootstrap_cluster" {
     command = <<-EOT
       set -e
       echo "Bootstraping etcd cluster on control plane..."
-      MAX_RETRIES=30
-      RETRY_COUNT=0
-      while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if talosctl --talosconfig "${var.talosconfig_path}" --nodes ${var.control_plane_ip} version 2>/dev/null; then
-          echo "Control plane API is ready"
+      
+      # First, wait for Talos API to be accessible
+      MAX_API_RETRIES=30
+      API_READY=false
+      API_COUNTER_FILE=/tmp/api_counter_$$.txt
+      echo "1" > "$$API_COUNTER_FILE"
+      while true; do
+        API_RETRY_COUNT=`cat "$$API_COUNTER_FILE"`
+        if [ $$API_RETRY_COUNT -gt $$MAX_API_RETRIES ]; then
           break
         fi
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo "Waiting for control plane API... (attempt $RETRY_COUNT/$MAX_RETRIES)"
-        sleep 10
+        if talosctl --talosconfig "${var.talosconfig_path}" --nodes ${var.control_plane_ip} version 2>/dev/null; then
+          echo "Control plane API is ready"
+          API_READY=true
+          break
+        fi
+        if [ $$API_RETRY_COUNT -lt $$MAX_API_RETRIES ]; then
+          echo "Waiting for control plane API... (attempt $$API_RETRY_COUNT/$$MAX_API_RETRIES)"
+          sleep 10
+        fi
+        echo "$$API_RETRY_COUNT" | awk '{print $$1 + 1}' > "$$API_COUNTER_FILE"
       done
-      if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        echo "Error: Control plane API did not become ready after $MAX_RETRIES attempts"
+      rm -f "$$API_COUNTER_FILE"
+      if [ "$${API_READY}" != "true" ]; then
+        echo "Error: Control plane API did not become ready after $$MAX_API_RETRIES attempts"
         exit 1
       fi
-      echo "Bootstrapping etcd cluster..."
-      talosctl bootstrap \
-        --talosconfig "${var.talosconfig_path}" \
-        --nodes ${var.control_plane_ip}
+      
+      # Wait for configuration to be fully applied and bootstrap to be available
+      # The API being ready doesn't mean the config is fully processed
+      echo "Waiting for Talos configuration to be fully applied (bootstrap will be available soon)..."
+      sleep 30  # Give the node time to process the configuration
+      
+      # Now retry bootstrap until it's available
+      echo "Attempting to bootstrap etcd cluster..."
+      MAX_BOOTSTRAP_RETRIES=30
+      BOOTSTRAP_COUNTER_FILE=/tmp/bootstrap_counter_$$.txt
+      echo "1" > "$$BOOTSTRAP_COUNTER_FILE"
+      BOOTSTRAP_SUCCESS=false
+      
+      while true; do
+        BOOTSTRAP_RETRY_COUNT=`cat "$$BOOTSTRAP_COUNTER_FILE"`
+        if [ $$BOOTSTRAP_RETRY_COUNT -gt $$MAX_BOOTSTRAP_RETRIES ]; then
+          break
+        fi
+        if talosctl bootstrap \
+          --talosconfig "${var.talosconfig_path}" \
+          --nodes ${var.control_plane_ip} 2>&1; then
+          echo "✅ Cluster bootstrapped successfully"
+          BOOTSTRAP_SUCCESS=true
+          break
+        else
+          BOOTSTRAP_ERROR=$$?
+          # Check if the error is "bootstrap is not available yet" (which is expected)
+          if [ $$BOOTSTRAP_RETRY_COUNT -lt $$MAX_BOOTSTRAP_RETRIES ]; then
+            echo "Bootstrap not available yet, waiting... (attempt $$BOOTSTRAP_RETRY_COUNT/$$MAX_BOOTSTRAP_RETRIES)"
+            sleep 10
+          else
+            # Last attempt failed
+            break
+          fi
+          echo "$$BOOTSTRAP_RETRY_COUNT" | awk '{print $$1 + 1}' > "$$BOOTSTRAP_COUNTER_FILE"
+        fi
+      done
+      rm -f "$$BOOTSTRAP_COUNTER_FILE"
+      
+      if [ "$${BOOTSTRAP_SUCCESS}" != "true" ]; then
+        echo "Error: Failed to bootstrap cluster after $$MAX_BOOTSTRAP_RETRIES attempts"
+        echo "The control plane may still be processing the configuration"
+        exit 1
+      fi
     EOT
   }
 }

@@ -849,7 +849,7 @@ The remaining issue is likely that flannel daemon is still failing to connect to
 E0113 21:33:06.416874       1 main.go:278] Failed to check br_netfilter: stat /proc/sys/net/bridge/bridge-nf-call-iptables: no such file or directory
 ```
 
-**Note for Ubuntu VMs:** If you're running Talos nodes in containers on an Ubuntu VM created via `task vm:create`, the `br_netfilter` module is automatically configured on the Ubuntu host during VM setup. The module is loaded on boot via `/etc/modules-load.d/br_netfilter.conf` and sysctls are configured via `/etc/sysctl.d/99-kubernetes.conf`. Since Talos containers share the host kernel, they should be able to access the module automatically. If you're still seeing this error, verify the module is loaded on the Ubuntu host with `lsmod | grep br_netfilter` and check the sysctls with `cat /proc/sys/net/bridge/bridge-nf-call-iptables`.
+**Note for Ubuntu VMs:** If you're running Talos nodes in containers on an Ubuntu VM created via `task vm:instantiate`, the `br_netfilter` module is automatically configured on the Ubuntu host during VM setup. The module is loaded on boot via `/etc/modules-load.d/br_netfilter.conf` and sysctls are configured via `/etc/sysctl.d/99-kubernetes.conf`. Since Talos containers share the host kernel, they should be able to access the module automatically. If you're still seeing this error, verify the module is loaded on the Ubuntu host with `lsmod | grep br_netfilter` and check the sysctls with `cat /proc/sys/net/bridge/bridge-nf-call-iptables`.
 
 **Solution:** Load the `br_netfilter` kernel module on all Talos nodes and configure it to load automatically.
 

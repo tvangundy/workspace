@@ -14,9 +14,18 @@ The `vm:` namespace provides comprehensive tools for creating, managing, and int
 
 | Task | Description |
 |------|-------------|
-| [`create`](#create) | Create a VM instance using Terraform |
-| [`create:validate`](#createvalidate) | Validate input and check prerequisites for instance creation |
-| [`create:setup-env`](#createsetup-env) | Setup developer environment in the instance |
+| [`instantiate`](#instantiate) | Create a VM instance using Terraform with complete developer environment setup |
+| [`instantiate:parse-args`](#instantiateparse-args) | Parse CLI arguments for instantiate |
+| [`instantiate:initialize-context`](#instantiateinitialize-context) | Initialize Windsor context for instantiate |
+| [`instantiate:verify-remote`](#instantiateverify-remote) | Verify remote connection exists |
+| [`instantiate:check-vm-image`](#instantiatecheck-vm-image) | Ensure VM image is available on remote |
+| [`instantiate:create-vm`](#instantiatecreate-vm) | Create VM using Terraform and setup developer environment |
+| [`instantiate:setup-ssh`](#instantiatesetup-ssh) | Setup SSH access for the user on the VM |
+| [`instantiate:setup-incus`](#instantiatesetup-incus) | Setup Incus client on the VM and configure remote connection |
+| [`instantiate:install-tools`](#instantiateinstall-tools) | Install tools jq, Homebrew, aqua, docker, and windsor |
+| [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if VM_INIT_WORKSPACE is true |
+| [`instantiate:validate-vm`](#instantiatevalidate-vm) | Validate VM setup and functionality |
+| [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Cleanup VM if --keep flag was not set |
 | [`generate-tfvars`](#generate-tfvars) | Generate terraform.tfvars from environment variables |
 | [`terraform:init`](#terraforminit) | Initialize Terraform for the VM |
 | [`terraform:plan`](#terraformplan) | Show Terraform plan for the VM |
@@ -28,7 +37,7 @@ The `vm:` namespace provides comprehensive tools for creating, managing, and int
 | [`list`](#list) | List all VM instances |
 | [`info`](#info) | Get information about a VM instance |
 | [`debug`](#debug) | Debug performance and resource usage of a VM instance |
-| [`delete`](#delete) | Delete a VM using Terraform |
+| [`destroy`](#destroy) | Destroy a VM using Terraform |
 | [`shell`](#shell) | Open an interactive shell in a VM instance |
 | [`ssh`](#ssh) | SSH into a VM instance |
 | [`ssh-info`](#ssh-info) | Show SSH connection information for a VM instance |
@@ -41,75 +50,172 @@ The `vm:` namespace provides comprehensive tools for creating, managing, and int
 
 ## Instance Creation
 
-### `create`
+### `instantiate`
 
-Create an Ubuntu virtual machine instance using Terraform.
-
-**Usage:**
-
-```bash
-task vm:create
-```
-
-**What it does:**
-
-1. Validates prerequisites and environment variables
-2. Generates `terraform.tfvars` from environment variables
-3. Initializes Terraform
-4. Applies Terraform configuration to create the VM
-5. Sets up the developer environment (for remote deployments):
-   - Installs essential developer tools (git, curl, vim, etc.)
-   - Installs Incus (for Ubuntu 24.04+)
-   - Creates user matching host user
-   - Copies SSH keys
-   - Configures Git and GitHub credentials
-   - Installs Docker
-   - Configures br_netfilter kernel module for Kubernetes networking
-   - Installs Homebrew, Aqua, and Windsor CLI
-   - Configures bashrc
-   - Sets up SSH server
-   - Optionally initializes workspace contents
-
-**Note:** Environment setup is only performed for remote deployments (`INCUS_REMOTE_NAME != local`).
-
-### `create:validate`
-
-Validate input and check prerequisites for instance creation. This is automatically called by `create` but can be run independently.
+Create an Ubuntu virtual machine instance using Terraform with complete developer environment setup. This is the primary way to create a new VM.
 
 **Usage:**
 
 ```bash
-task vm:create:validate
-```
-
-### `create:setup-env`
-
-Setup developer environment in an existing instance. Automatically called by `create` for remote deployments.
-
-**Usage:**
-
-```bash
-task vm:create:setup-env -- <instance-name>
+task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
 ```
 
 **Parameters:**
 
-- `<instance-name>` (required): Instance name
+- `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<vm-name>` (optional): Name for the VM (default: `vm`)
+- `--keep`, `--no-cleanup` (optional): Keep VM running after creation (default: delete VM if used in test context)
+- `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace if `VM_INIT_WORKSPACE=true`)
+- `--windsor-up` (optional): Run `windsor init` and `windsor up` after workspace setup
 
 **What it does:**
 
-1. Waits for VM agent to be ready
-2. Installs essential developer tools
-3. Installs Incus
-4. Creates user matching host user
-5. Copies SSH keys
-6. Configures Git and GitHub credentials
-7. Installs Docker
-8. Configures br_netfilter kernel module
-9. Installs Homebrew, Aqua, and Windsor CLI
-10. Configures bashrc
-11. Sets up SSH server
-12. Optionally initializes workspace contents (if `VM_INIT_WORKSPACE=true`)
+1. Parses CLI arguments and sets up environment
+2. Initializes Windsor context for the VM
+3. Verifies remote connection exists and is reachable
+4. Ensures VM image is available on the remote
+5. Creates VM using Terraform
+6. Sets up SSH access for the user
+7. Sets up Incus client on the VM and configures remote connection
+8. Installs developer tools (jq, Homebrew, Aqua, Docker, Windsor CLI)
+9. Optionally initializes workspace contents
+10. Validates VM setup and functionality
+11. Optionally cleans up VM (unless `--keep` is used)
+
+**Examples:**
+
+```bash
+# Create a VM on remote 'nuc' with default name 'vm'
+task vm:instantiate -- nuc
+
+# Create a VM with custom name
+task vm:instantiate -- nuc my-vm
+
+# Create a VM and keep it running
+task vm:instantiate -- nuc my-vm --keep
+
+# Create a VM without workspace initialization
+task vm:instantiate -- nuc my-vm --no-workspace
+
+# Create a VM and run windsor up after workspace setup
+task vm:instantiate -- nuc my-vm --windsor-up
+```
+
+**Note:** Environment setup (developer tools, Docker, etc.) is only performed for remote deployments (`INCUS_REMOTE_NAME != local`).
+
+### `instantiate:parse-args`
+
+Parse CLI arguments for the instantiate task. This is automatically called by `instantiate` but can be run independently for testing.
+
+**Usage:**
+
+```bash
+task vm:instantiate:parse-args
+```
+
+### `instantiate:initialize-context`
+
+Initialize Windsor context for instantiate. Creates or updates `windsor.yaml` with appropriate environment variables.
+
+**Usage:**
+
+```bash
+task vm:instantiate:initialize-context
+```
+
+### `instantiate:verify-remote`
+
+Verify that the Incus remote connection exists and is reachable.
+
+**Usage:**
+
+```bash
+task vm:instantiate:verify-remote
+```
+
+### `instantiate:check-vm-image`
+
+Ensure the VM image is available on the remote. Downloads the image if it's not already present.
+
+**Usage:**
+
+```bash
+task vm:instantiate:check-vm-image
+```
+
+### `instantiate:create-vm`
+
+Create VM using Terraform and setup developer environment. This includes:
+- Generating terraform.tfvars
+- Initializing Terraform
+- Applying Terraform configuration
+- Setting up developer environment (for remote deployments)
+
+**Usage:**
+
+```bash
+task vm:instantiate:create-vm
+```
+
+### `instantiate:setup-ssh`
+
+Setup SSH access for the user on the VM. Creates user matching host user, copies SSH keys, and configures SSH server.
+
+**Usage:**
+
+```bash
+task vm:instantiate:setup-ssh
+```
+
+### `instantiate:setup-incus`
+
+Setup Incus client on the VM and configure remote connection. This allows the VM to manage other VMs on the remote Incus server.
+
+**Usage:**
+
+```bash
+task vm:instantiate:setup-incus
+```
+
+### `instantiate:install-tools`
+
+Install developer tools including jq, Homebrew, Aqua, Docker, and Windsor CLI.
+
+**Usage:**
+
+```bash
+task vm:instantiate:install-tools
+```
+
+### `instantiate:init-workspace`
+
+Initialize workspace on the VM if `VM_INIT_WORKSPACE` is true. Copies workspace contents to the user's home directory.
+
+**Usage:**
+
+```bash
+task vm:instantiate:init-workspace
+```
+
+### `instantiate:validate-vm`
+
+Validate VM setup and functionality. Checks that all components are working correctly.
+
+**Usage:**
+
+```bash
+task vm:instantiate:validate-vm
+```
+
+### `instantiate:cleanup-if-needed`
+
+Cleanup VM if `--keep` flag was not set. This is typically used in test contexts.
+
+**Usage:**
+
+```bash
+task vm:instantiate:cleanup-if-needed
+```
 
 ## Terraform Operations
 
@@ -261,14 +367,18 @@ task vm:debug [-- <instance-name>]
 
 **Output:** Shows CPU, memory, disk, network usage statistics, and performance diagnostics.
 
-### `delete`
+### `destroy`
 
-Delete an VM using Terraform. **Warning:** This permanently removes the VM and all its data.
+Destroy a VM using Terraform. **Warning:** This permanently removes the VM and all its data.
 
 **Usage:**
 
 ```bash
-task vm:delete
+# Destroy VM using default name from environment
+task vm:destroy
+
+# Or specify the VM name explicitly
+task vm:destroy -- <vm-name>
 ```
 
 ## Access
@@ -431,7 +541,7 @@ task vm:test -- <incus-remote-name> [--keep] [--no-workspace]
 **Parameters:**
 
 - `<incus-remote-name>` (required): Incus remote name
-- `--keep`, `--no-cleanup` (optional): Keep VM running after test (default: delete VM)
+- `--keep`, `--no-cleanup` (optional): Keep VM running after test (default: destroy VM)
 - `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace)
 
 **What it does:**
@@ -450,7 +560,7 @@ task vm:test -- <incus-remote-name> [--keep] [--no-workspace]
 **Examples:**
 
 ```bash
-# Run full test suite (creates VM, validates setup, then deletes it)
+# Run full test suite (creates VM, validates setup, then destroys it)
 task vm:test -- nuc
 
 # Keep VM after test

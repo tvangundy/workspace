@@ -287,6 +287,97 @@ tasks:
         echo ""
         echo "Image imported successfully with alias: ${IMAGE_ALIAS}"
 
+  check-network-config:
+    desc: Diagnoses network configuration and checks if physical network is properly set up
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        
+        # Validate required variables
+        if [ -z "{{.INCUS_REMOTE_NAME}}" ]; then
+          echo "Error: INCUS_REMOTE_NAME variable is not defined"
+          echo "Example: INCUS_REMOTE_NAME=nuc"
+          exit 1
+        fi
+        
+        REMOTE="{{.INCUS_REMOTE_NAME}}"
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Network Configuration Diagnostic"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # Check common physical network interface names
+        echo "Checking system network interfaces..."
+        echo ""
+        for iface in enp5s0 eno1 eth0; do
+          echo "Interface: ${iface}"
+          if incus admin os system network show 2>/dev/null | grep -q "name: ${iface}"; then
+            echo "  ✓ Interface exists in system network config"
+            
+            # Check if it has the instances role
+            if incus admin os system network show 2>/dev/null | grep -A 30 "name: ${iface}" | grep -q "instances"; then
+              echo "  ✓ Has 'instances' role configured"
+              HAS_INSTANCES_ROLE=true
+            else
+              echo "  ✗ Missing 'instances' role"
+              echo "    To fix: incus admin os system network edit"
+              echo "    Add 'instances' to the roles list for ${iface}"
+              HAS_INSTANCES_ROLE=false
+            fi
+            
+            # Check if network exists
+            if incus network show "${REMOTE}:${iface}" >/dev/null 2>&1; then
+              NETWORK_JSON=$(incus network show "${REMOTE}:${iface}" --format json 2>/dev/null || echo "")
+              if [ -n "${NETWORK_JSON}" ]; then
+                NETWORK_TYPE=$(echo "${NETWORK_JSON}" | grep -o '"type":"[^"]*"' | cut -d'"' -f4 || echo "")
+                echo "  ✓ Network '${iface}' exists (type: ${NETWORK_TYPE})"
+                
+                if [ "${NETWORK_TYPE}" = "physical" ]; then
+                  echo "  ✓ Network is configured as physical network"
+                  echo ""
+                  echo "✅ ${iface} is properly configured!"
+                  echo ""
+                  exit 0
+                else
+                  echo "  ✗ Network exists but is not type 'physical'"
+                  echo "    To fix: incus network delete ${REMOTE}:${iface}"
+                  echo "    Then run: PHYSICAL_INTERFACE=${iface} task incus:create-physical-network"
+                fi
+              fi
+            else
+              if [ "${HAS_INSTANCES_ROLE}" = "true" ]; then
+                echo "  ⚠ Network '${iface}' does not exist yet"
+                echo "    To create: PHYSICAL_INTERFACE=${iface} task incus:create-physical-network"
+              else
+                echo "  ⚠ Network '${iface}' does not exist (and missing instances role)"
+                echo "    First add instances role, then create network"
+              fi
+            fi
+          else
+            echo "  - Interface not found in system network config"
+          fi
+          echo ""
+        done
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Summary"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "No properly configured physical network found."
+        echo ""
+        echo "To fix this:"
+        echo "1. Add 'instances' role to your physical interface:"
+        echo "   incus admin os system network edit"
+        echo ""
+        echo "2. Create the physical network:"
+        echo "   PHYSICAL_INTERFACE=enp5s0 task incus:create-physical-network"
+        echo ""
+        echo "After this, VMs will get IP addresses from your DHCP server (192.168.2.x)"
+        echo "instead of the default bridge network (10.x.x.x)."
+        echo ""
+
   create-physical-network:
     desc: Creates a physical network for direct attachment to the host network
     silent: true
@@ -303,16 +394,43 @@ tasks:
         
         REMOTE="{{.INCUS_REMOTE_NAME}}"
         
-        # Default physical interface name (most common on NUCs)
-        # User can override by setting PHYSICAL_INTERFACE environment variable
-        PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE:-eno1}"
+        # Auto-detect physical interface if not set
+        # Check common physical network interface names (enp5s0, eno1, eth0, etc.)
+        if [ -z "${PHYSICAL_INTERFACE:-}" ]; then
+          echo "Auto-detecting physical network interface..."
+          for iface in enp5s0 eno1 eth0; do
+            # Check if interface exists in system network config
+            if incus admin os system network show 2>/dev/null | grep -q "name: ${iface}"; then
+              # Check if it has the instances role
+              if incus admin os system network show 2>/dev/null | grep -A 20 "name: ${iface}" | grep -q "instances"; then
+                PHYSICAL_INTERFACE="${iface}"
+                echo "✅ Auto-detected physical interface: ${iface} (has 'instances' role)"
+                break
+              fi
+            fi
+          done
+          
+          # Fallback to default if auto-detection failed
+          if [ -z "${PHYSICAL_INTERFACE:-}" ]; then
+            PHYSICAL_INTERFACE="${PHYSICAL_INTERFACE:-eno1}"
+            echo "⚠️  Could not auto-detect physical interface, using default: ${PHYSICAL_INTERFACE}"
+            echo "   To specify a different interface, set PHYSICAL_INTERFACE environment variable"
+          fi
+        fi
         
+        echo ""
         echo "Creating physical network for direct attachment"
         echo "Remote: ${REMOTE}"
         echo "Physical interface: ${PHYSICAL_INTERFACE}"
         echo ""
         echo "Note: This assumes you've already added the 'instances' role to ${PHYSICAL_INTERFACE}"
         echo "      using 'incus admin os system network edit'"
+        echo ""
+        echo "      If you haven't done this yet:"
+        echo "      1. Run: incus admin os system network edit"
+        echo "      2. Find ${PHYSICAL_INTERFACE} in config.interfaces section"
+        echo "      3. Add 'instances' to the roles list"
+        echo "      4. Save and exit"
         echo ""
         
         # Check if network already exists

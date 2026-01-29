@@ -14,8 +14,19 @@ The `tc:` namespace provides comprehensive tools for creating, managing, and int
 
 | Task | Description |
 |------|-------------|
-| [`create`](#create) | Create a three-node Talos Kubernetes cluster using Terraform |
-| [`create:validate`](#createvalidate) | Validate input and check prerequisites for cluster creation |
+| [`instantiate`](#instantiate) | Create and bootstrap a three-node Talos Kubernetes cluster using Terraform |
+| [`instantiate:parse-args`](#instantiateparse-args) | Parse CLI arguments for instantiate |
+| [`instantiate:initialize-context`](#instantiateinitialize-context) | Initialize Windsor context and create windsor.yaml |
+| [`instantiate:verify-remote`](#instantiateverify-remote) | Verify Incus remote exists and is reachable |
+| [`instantiate:check-existing-vms`](#instantiatecheck-existing-vms) | Fail if cluster VMs already exist |
+| [`instantiate:check-talos-image`](#instantiatecheck-talos-image) | Ensure Talos image is available (warn only) |
+| [`instantiate:create-cluster-vms`](#instantiatecreate-cluster-vms) | Create cluster VMs via Terraform |
+| [`instantiate:wait-for-vms`](#instantiatewait-for-vms) | Wait for all VMs to be running |
+| [`instantiate:get-ip-addresses`](#instantiateget-ip-addresses) | Get IPs from Terraform, update windsor.yaml |
+| [`instantiate:regenerate-tfvars-with-ips`](#instantiategenerate-tfvars-with-ips) | Regenerate tfvars with IPs and apply Talos config |
+| [`instantiate:retrieve-kubeconfig`](#instantiateretrieve-kubeconfig) | Retrieve kubeconfig from cluster |
+| [`instantiate:final-summary`](#instantiatefinal-summary) | Print success summary |
+| [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Destroy cluster unless --keep was set |
 | [`generate-tfvars`](#generate-tfvars) | Generate terraform.tfvars from environment variables |
 | [`terraform:init`](#terraforminit) | Initialize Terraform for the cluster |
 | [`terraform:plan`](#terraformplan) | Show Terraform plan for the cluster |
@@ -36,40 +47,171 @@ The `tc:` namespace provides comprehensive tools for creating, managing, and int
 
 ## Cluster Creation
 
-### `create`
+### `instantiate`
 
-Create a three-node Talos Kubernetes cluster using Terraform.
+Create and bootstrap a three-node Talos Kubernetes cluster using Terraform. This is the primary way to create a new Talos cluster.
 
 **Usage:**
 
 ```bash
-task tc:create
+task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
 ```
+
+**Parameters:**
+
+- `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<cluster-name>` (optional): Name for the cluster (default: `talos-test-cluster`)
+- `--keep`, `--no-cleanup` (optional): Keep cluster running after creation (default: destroy cluster if used in test context)
 
 **What it does:**
 
-1. Validates prerequisites and environment variables
-2. Generates `terraform.tfvars` from environment variables
-3. Initializes Terraform
-4. Applies Terraform configuration to create 3 VMs:
-   - 1 control plane node
-   - 2 worker nodes
-5. Displays cluster information including VM names and IP addresses
+1. Parses CLI arguments and sets up environment
+2. Initializes Windsor context and creates `windsor.yaml`
+3. Verifies Incus remote exists and is reachable
+4. Checks if cluster VMs already exist (fails if they do)
+5. Ensures Talos image is available (warns if not)
+6. Creates cluster VMs via Terraform (1 control plane + 2 workers)
+7. Waits for all VMs to be running
+8. Gets IP addresses from Terraform outputs
+9. Updates `windsor.yaml` with actual IP addresses
+10. Regenerates `terraform.tfvars` with IPs and applies Talos configuration
+11. Retrieves kubeconfig from the cluster
+12. Displays final summary with cluster information
+13. Optionally cleans up cluster (unless `--keep` is used)
 
-**Note:** After creation, you need to:
-1. Wait for VMs to boot and get DHCP-assigned IP addresses
-2. Get actual IP addresses from Terraform outputs
-3. Update `windsor.yaml` with actual IPs
-4. Regenerate `terraform.tfvars` and continue deployment
+**Examples:**
 
-### `create:validate`
+```bash
+# Create a cluster on remote 'nuc' with default name
+task tc:instantiate -- nuc
 
-Validate input and check prerequisites for cluster creation. This is automatically called by `create` but can be run independently.
+# Create a cluster with custom name
+task tc:instantiate -- nuc my-cluster
+
+# Create a cluster and keep it running
+task tc:instantiate -- nuc my-cluster --keep
+```
+
+**Note:** The `instantiate` task handles the complete cluster creation and bootstrapping process automatically, including IP address detection and Talos configuration.
+
+### `instantiate:parse-args`
+
+Parse CLI arguments for the instantiate task. This is automatically called by `instantiate` but can be run independently for testing.
 
 **Usage:**
 
 ```bash
-task tc:create:validate
+task tc:instantiate:parse-args
+```
+
+### `instantiate:initialize-context`
+
+Initialize Windsor context and create `windsor.yaml` for the cluster. This is automatically called by `instantiate`.
+
+**Usage:**
+
+```bash
+task tc:instantiate:initialize-context
+```
+
+### `instantiate:verify-remote`
+
+Verify that the Incus remote exists and is reachable. This is automatically called by `instantiate`.
+
+**Usage:**
+
+```bash
+task tc:instantiate:verify-remote
+```
+
+### `instantiate:check-existing-vms`
+
+Check if cluster VMs already exist and fail if they do. This prevents accidental overwrites.
+
+**Usage:**
+
+```bash
+task tc:instantiate:check-existing-vms
+```
+
+### `instantiate:check-talos-image`
+
+Ensure Talos image is available on the remote. Warns if image is not found but does not fail.
+
+**Usage:**
+
+```bash
+task tc:instantiate:check-talos-image
+```
+
+### `instantiate:create-cluster-vms`
+
+Create cluster VMs via Terraform. This includes generating terraform.tfvars, initializing Terraform, and applying the configuration.
+
+**Usage:**
+
+```bash
+task tc:instantiate:create-cluster-vms
+```
+
+### `instantiate:wait-for-vms`
+
+Wait for all cluster VMs to be running and ready.
+
+**Usage:**
+
+```bash
+task tc:instantiate:wait-for-vms
+```
+
+### `instantiate:get-ip-addresses`
+
+Get IP addresses from Terraform outputs and update `windsor.yaml` with the actual IPs.
+
+**Usage:**
+
+```bash
+task tc:instantiate:get-ip-addresses
+```
+
+### `instantiate:regenerate-tfvars-with-ips`
+
+Regenerate terraform.tfvars with IP addresses and apply Talos configuration to the cluster.
+
+**Usage:**
+
+```bash
+task tc:instantiate:regenerate-tfvars-with-ips
+```
+
+### `instantiate:retrieve-kubeconfig`
+
+Retrieve kubeconfig from the cluster and save it to the configured location.
+
+**Usage:**
+
+```bash
+task tc:instantiate:retrieve-kubeconfig
+```
+
+### `instantiate:final-summary`
+
+Print success summary with cluster information including VM names, IP addresses, and connection details.
+
+**Usage:**
+
+```bash
+task tc:instantiate:final-summary
+```
+
+### `instantiate:cleanup-if-needed`
+
+Destroy cluster unless `--keep` flag was set. This is typically used in test contexts.
+
+**Usage:**
+
+```bash
+task tc:instantiate:cleanup-if-needed
 ```
 
 ## Terraform Operations
