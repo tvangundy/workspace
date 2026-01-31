@@ -101,6 +101,13 @@ tasks:
         sops -e --output {{.ENC_SECRETS_YAML}} {{.SECRETS_YAML}}
     silent: true
 
+  decrypt-secrets-file:
+    desc: Decrypts the secrets file
+    cmds:
+      - |
+        sops -d --output {{.SECRETS_YAML}} {{.ENC_SECRETS_YAML}}
+    silent: true
+
   help:
     desc: "Prints this help message"
     cmds:
@@ -114,6 +121,7 @@ tasks:
         echo " SOPS Operations"
         echo "  task sops:generate-secrets-file"
         echo "  task sops:encrypt-secrets-file"
+        echo "  task sops:decrypt-secrets-file"
         echo ""      
     silent: true
 

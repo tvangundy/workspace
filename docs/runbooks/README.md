@@ -15,6 +15,16 @@ The runbooks serve as instructional guides that break down the implementation pr
 - **Teams** adapting these patterns to their own environments
 - **Anyone** who prefers a guided, step-by-step approach
 
+## Runbook Usage Patterns
+
+All runbooks follow the same pattern: **set up workspace variables, then call tasks to do the work**.
+
+1. **Set up workspace variables** — Each runbook has you configure a Windsor context and put the right values in `contexts/<context>/windsor.yaml` (and optionally secrets). That might mean choosing a context name (e.g. `dev-cluster`, `prod-rpi`), setting things like `INCUS_REMOTE_NAME`, `VM_INSTANCE_NAME`, IPs, image versions, or paths. The runbook tells you which variables to set and where.
+
+2. **Call tasks** — Once the context and variables are in place, the runbook has you run taskfile commands (e.g. `task vm:instantiate`, `task tc:instantiate`, `task device:write-talos-disk`). Those tasks read from the current Windsor context and variables, so they behave consistently without you having to remember flags or one-off commands.
+
+So every runbook is: **configure the context and variables for this deployment, then run the tasks that use them.** The details (which context, which variables, which tasks) change by runbook; the pattern stays the same.
+
 ## Workspace Prerequisites
 
 All runbooks assume you're starting with a **working workspace** that has been initialized and set up for running the Windsor CLI. This means:
@@ -39,7 +49,7 @@ Step-by-step guide for initializing a new workspace using the workspace initiali
 ### 🔐 [Secrets Management](./secrets/secrets.md)
 Complete guide for managing encrypted secrets using SOPS (Secrets Operations). Learn how to generate, encrypt, decrypt, and manage secrets within your workspace contexts, including integration with Windsor CLI.
 
-### 🐳 [IncusOS Server](./incusos/server.md)
+### 🐳 [IncusOS Server](./bootstrapping/nuc-incusos.md)
 Complete guide for installing and configuring IncusOS on Intel NUC devices. Covers BIOS configuration, Secure Boot setup, boot media preparation using the IncusOS customizer, installation process, and connecting to the Incus server via CLI. This is the foundational setup required before using any other IncusOS runbooks.
 
 ### ☸️ [Talos Kubernetes Cluster](./incusos/tc.md)
@@ -54,10 +64,11 @@ Complete guides for deploying self-hosted applications and services. Each runboo
 ### 🔧 [Bootstrapping Nodes](./bootstrapping/README.md)
 Instructions for bootstrapping Talos clusters and Operating Systems to prepar devices for deployment, including image preparation and initial configuration.
 
-- **[Raspberry Pi](./bootstrapping/rpi.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
-- **[Intel NUC](./bootstrapping/nuc.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
+- **[Intel NUC BIOS Update](./bootstrapping/nuc-bios.md)**: Update BIOS on Intel NUC before Ubuntu or Talos
+- **[Raspberry Pi](./bootstrapping/rpi-talos.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
+- **[Intel NUC](./bootstrapping/nuc-talos.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
 - **[Sidero Omni](./bootstrapping/omni.md)**: Bootstrapping Talos clusters using Sidero Omni for bare metal provisioning
-- **[Ubuntu Setup](./bootstrapping/ubuntu-setup.md)**
+- **[Ubuntu Setup](./bootstrapping/nuc-ubuntu.md)**
 
 Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.
 

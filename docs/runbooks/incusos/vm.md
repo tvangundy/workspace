@@ -4,7 +4,7 @@ Create and manage Ubuntu VMs on a remote IncusOS server using `task vm:instantia
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Server](server.md))
+- IncusOS server installed and running (see [IncusOS Server](../bootstrapping/nuc-incusos.md))
 - Incus CLI on your machine, remote configured (`incus remote add`)
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
@@ -95,6 +95,6 @@ task vm:destroy -- <vm-name>
 
 ## Related
 
-- [IncusOS Server](server.md)
+- [IncusOS Server](../bootstrapping/nuc-incusos.md)
 - [Initialize Workspace](../workspace/init.md)
 - [VM Taskfile](../../taskfiles/vm/README.md)

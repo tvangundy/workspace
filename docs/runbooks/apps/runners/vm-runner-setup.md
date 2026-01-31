@@ -8,7 +8,7 @@ Deploy a GitHub Actions runner on an Ubuntu VM on IncusOS using `task runner:ins
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Server](../../incusos/server.md))
+- IncusOS server installed and running (see [IncusOS Server](../../bootstrapping/nuc-incusos.md))
 - Incus CLI on your machine, remote configured
 - Workspace initialized and context set (see [Initialize Workspace](../../workspace/init.md))
 - GitHub repo or org access and a runner registration token
@@ -115,6 +115,6 @@ This stops the runner service, unregisters it from GitHub, and destroys the VM. 
 
 ## Related
 
-- [IncusOS Server](../../incusos/server.md)
+- [IncusOS Server](../../bootstrapping/nuc-incusos.md)
 - [Ubuntu VMs](../../incusos/vm.md)
 - [Runner Taskfile](../../../taskfiles/runner/README.md)

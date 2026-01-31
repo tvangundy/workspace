@@ -4,7 +4,7 @@ Create a three-node Talos Kubernetes cluster on a remote IncusOS server using `t
 
 ## Prerequisites
 
-- IncusOS server installed and running (see [IncusOS Server](server.md))
+- IncusOS server installed and running (see [IncusOS Server](../bootstrapping/nuc-incusos.md))
 - Incus CLI on your machine, remote configured
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 - At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
@@ -119,13 +119,13 @@ This removes all cluster VMs and their data. Talos image and physical network ar
 
 ## Troubleshooting
 
-- **VMs not booting**: Check Talos image alias matches `talos-${TALOS_IMAGE_VERSION}-metal-amd64`; see [IncusOS Server](server.md) for network (Step 8).
+- **VMs not booting**: Check Talos image alias matches `talos-${TALOS_IMAGE_VERSION}-metal-amd64`; see [IncusOS Server](../bootstrapping/nuc-incusos.md) for network (Step 8).
 - **No IPs**: Ensure physical network has `instances` role; wait 3–5 minutes for DHCP.
 - **Bootstrap fails**: Ensure control plane is up; run `talosctl --nodes <control-plane-ip> version`.
 - **Resource errors**: Lower `CONTROL_PLANE_MEMORY`/`WORKER_MEMORY` (min 2GB per VM).
 
 ## Related
 
-- [IncusOS Server](server.md)
+- [IncusOS Server](../bootstrapping/nuc-incusos.md)
 - [Initialize Workspace](../workspace/init.md)
 - [TC Taskfile](../../taskfiles/tc/README.md)

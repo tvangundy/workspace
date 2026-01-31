@@ -23,8 +23,11 @@ This section covers two primary bootstrapping approaches, each suited to differe
 
 Device-specific bootstrapping guides:
 
-- **[Raspberry Pi Bootstrapping](./rpi.md)**: Step-by-step guide for bootstrapping Talos on Raspberry Pi (ARM64) devices
-- **[Intel NUC Bootstrapping](./nuc.md)**: Step-by-step guide for bootstrapping Talos on Intel NUC (x86_64) devices
+- **[Intel NUC BIOS Update](./nuc-bios.md)**: Update the BIOS on Intel NUC devices before installing Ubuntu or Talos
+- **[IncusOS Server](./nuc-incusos.md)**: Install and configure IncusOS on Intel NUC for container and VM management
+- **[Ubuntu on Intel NUC](./nuc-ubuntu.md)**: Install Ubuntu on Intel NUC for development or general-purpose computing
+- **[Raspberry Pi Bootstrapping](./rpi-talos.md)**: Step-by-step guide for bootstrapping Talos on Raspberry Pi (ARM64) devices
+- **[Intel NUC Bootstrapping](./nuc-talos.md)**: Step-by-step guide for bootstrapping Talos on Intel NUC (x86_64) devices
 
 Talos Linux is a minimal, immutable Linux distribution designed specifically for Kubernetes. The Talos bootstrapping process involves:
 

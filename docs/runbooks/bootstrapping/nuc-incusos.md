@@ -1,4 +1,4 @@
-# IncusOS Server
+# Installing IncusOS on Intel NUC
 
 This guide walks you through installing and configuring [IncusOS](https://linuxcontainers.org/incus-os/docs/main/getting-started/) on an [Intel NUC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html) device. IncusOS is a dedicated operating system designed specifically for running Incus, providing a streamlined platform for container and virtual machine management.
 
@@ -6,30 +6,36 @@ This guide walks you through installing and configuring [IncusOS](https://linuxc
 
 Installing IncusOS on an Intel NUC involves:
 
-1. **Installing tools**: Setting up required tools in your workspace
-2. **Acquiring the IncusOS image**: Downloading the IncusOS image from the customizer
-3. **Setting environment variables**: Configuring workspace variables including the image path
-4. **Preparing the NUC**: Updating BIOS, configuring Secure Boot, and wiping existing storage
-5. **Creating the boot media**: Writing the IncusOS image to a USB device
-6. **Booting and installing**: Booting from USB and installing IncusOS to the NUC's storage
-7. **Connecting to Incus**: Setting up the Incus CLI client and connecting to the server
-8. **Configuring network**: Setting up direct network attachment for VMs
-9. **Accessing web UI**: Setting up and accessing the Incus web interface
-10. **Getting certificates**: Retrieving client certificates (optional)
+1. **Downloading the IncusOS image**: Creating a custom image from the IncusOS Customizer
+2. **Setting Windsor context**: Initialize the workspace context with `windsor init` and `windsor context set`
+3. **Updating windsor.yaml**: Configuring workspace variables including the image path and USB disk
+4. **Preparing the image in workspace**: Copying the image with `task device:prepare-incus-image`
+5. **Preparing the NUC**: Updating BIOS, configuring Secure Boot, and wiping existing storage
+6. **Creating the boot media**: Writing the IncusOS image to a USB device
+7. **Booting and installing**: Booting from USB and installing IncusOS to the NUC's storage
+8. **Generating a trust token**: Creating a token on the NUC for CLI authentication
+9. **Connecting to Incus**: Setting up the Incus CLI client and connecting to the server
+10. **Configuring network**: Setting up direct network attachment for VMs
+11. **Accessing web UI**: Setting up and accessing the Incus web interface
+12. **Getting certificates**: Retrieving client certificates (optional)
 
 IncusOS provides a complete, dedicated operating system optimized for running Incus, making it ideal for production deployments where you want a minimal, purpose-built platform.
 
 ## Prerequisites
 
-- Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
-- Intel NUC device (compatible Intel NUC, x86_64 architecture, 5 years old or newer)
-- USB memory device (at least 8GB capacity, 16GB or larger recommended) for the boot media
-- Computer with macOS or Linux for preparing the boot media and running the Incus CLI
-- Network connectivity: The Intel NUC must be able to connect to your network via Ethernet
-- TPM 2.0: The NUC must have a TPM 2.0 security module
-- UEFI with Secure Boot support (required for IncusOS installation)
-- At least 50GiB of storage on the NUC's internal storage device
-- Physical access to the NUC for BIOS configuration and boot media insertion
+Before starting, ensure you have:
+
+- **Intel NUC BIOS updated** (recommended): Follow [Update the Intel NUC BIOS](./nuc-bios.md) before installing IncusOS
+- **Intel NUC device**: Compatible Intel NUC (x86_64 architecture, 5 years old or newer)
+- **USB memory device**: At least 8GB capacity (16GB or larger recommended) for the boot media
+- **Computer with macOS or Linux**: For preparing the boot media and running the Incus CLI
+- **Network connectivity**: The Intel NUC must be able to connect to your network via Ethernet
+- **TPM 2.0**: The NUC must have a TPM 2.0 security module
+- **UEFI with Secure Boot support**: Required for IncusOS installation
+- **At least 50GiB of storage**: On the NUC's internal storage device
+- **Physical access**: To the NUC for BIOS configuration and boot media insertion
+- **Windsor workspace**: Clone or open the workspace repository
+- **Required tools**: Incus CLI (`lxc/incus`), Terraform, and other tools (see [Installation Guide](../../install.md)); the Windsor project recommends [aqua](https://aquaproj.github.io/) for tool management
 
 ## System Requirements
 
@@ -41,93 +47,153 @@ IncusOS requires modern system features and will not function properly on older 
 - At least 50GiB of storage
 - At least one wired network port
 
-## Step 1: Install Tools
+## Step 1: Download the IncusOS image
 
-To fully leverage the Windsor environment and manage your remote development VM, you will need several tools installed on your system. You may install these tools manually or using your preferred tools manager (_e.g._ Homebrew). The Windsor project recommends [aqua](https://aquaproj.github.io/).
+### Determine installed drives (for customizer settings)
 
-Ensure your `aqua.yaml` includes the following packages required for this runbook. Add any missing packages to your existing `aqua.yaml`:
+Before configuring the IncusOS Customizer, identify which drives are in your NUC so you can set the correct target drive identifier. The customizer matches drives by their `/dev/disk/by-id/` names.
 
-```yaml
-packages:
-- name: hashicorp/terraform@v1.10.3
-- name: siderolabs/talos@v1.9.1
-- name: kubernetes/kubectl@v1.32.0
-- name: docker/cli@v27.4.1
-- name: docker/compose@v2.32.1
-- name: lxc/incus@v6.20.0
-- name: helm/helm@v3.17.3
-- name: fluxcd/flux2@v2.5.1
-- name: derailed/k9s@v0.50.3
-```
-
-Install the tools, run in the workspace root folder:
+If the NUC already runs Linux (or you boot it from an Ubuntu Live USB), run:
 
 ```bash
-aqua install
+# List all drives by persistent ID
+ls -la /dev/disk/by-id/
+
+# Filter for NVMe drives (M.2 blade SSD)
+ls -la /dev/disk/by-id/ | grep nvme
+
+# Filter for SATA drives (2.5" bay)
+ls -la /dev/disk/by-id/ | grep -E 'ata-|scsi-|wwn-'
 ```
 
-## Step 2: Acquire IncusOS Image
+Example output for a NUC with one NVMe and one SATA drive:
+
+```
+nvme-WD_BLACK_SN850X_1000GB_23436M801614      -> ../../nvme0n1
+nvme-WD_BLACK_SN850X_1000GB_23436M801614-part1 -> ../../nvme0n1p1
+ata-SPCC_Solid_State_Disk_AA230815S325622103  -> ../../sda
+```
+
+Use a **partial match** of the `by-id` name as the customizer's target. For a single NVMe drive, `nvme-` is usually sufficient. For multiple NVMe drives, use a more specific prefix (e.g., `nvme-WD_BLACK`). Omit USB devices and partitions when choosing the target.
+
+If you cannot boot the NUC before creating the image, use `nvme-` when the NUC has an M.2 NVMe drive (typical for NUC8ixBEH and similar models).
 
 ### Download from IncusOS Customizer
 
 Visit the [IncusOS Customizer](https://incusos-customizer.linuxcontainers.org/ui/) to create a custom IncusOS image tailored to your needs.
 
-1. Configure your image settings (storage, network, etc.)
+#### Recommended settings for Intel NUC
+
+Use these settings when generating the image for installation on an Intel NUC:
+
+| Setting | Recommended value | Notes |
+|---------|-------------------|-------|
+| **Image type** | USB | |
+| **Image Usage** | Installation | |
+| **Image Architecture** | x86_64 | |
+| **Image Application** | Incus | |
+| **Wipe the target drive** | Enabled | Erases existing partitions and data on the target disk before installing. Use this for a clean install; disable only if preserving data. |
+| **Automatically reboot after installation** | Enabled | Reboots the system once installation completes, so you don't need to manually remove the USB and power cycle. |
+| **Target drive identifier** | `nvme-` | Targets the NVMe drive (the M.2 blade SSD). The NUC's NVMe appears as `/dev/disk/by-id/nvme-*`; a partial match of `nvme-` selects it when only one NVMe is present. Omit or leave empty if the NUC has a single internal drive. |
+| **Apply default configuration** | Enabled | |
+| **Certificate** | Required | Generate and add a client certificate so Incus trusts your machine when you first connect. See below. |
+
+#### Generate the client certificate
+
+Before configuring the customizer, generate a client certificate on your Mac so IncusOS will trust your machine when you first add the remote. Without this, you must generate a trust token on the NUC console (Step 8).
+
+1. **Ensure the Incus client is installed** (e.g., `aqua install` or Homebrew).
+
+2. **Create the client certificate** (if you don't have one yet):
+
+   ```bash
+   incus remote generate-certificate
+   ```
+
+   This creates `~/.config/incus/client.crt` and `client.key`. If certificates already exist, skip to the next step.
+
+3. **Retrieve the certificate for the customizer**:
+
+   ```bash
+   incus remote get-client-certificate
+   ```
+
+   This prints the certificate. Copy the full output (including `-----BEGIN CERTIFICATE-----` and `-----END CERTIFICATE-----`).
+
+4. **Add the certificate in the IncusOS Customizer** — In the certificate / TLS client certificate section, paste the certificate or use the customizer's "Generate" or "Add" option to include it in the image. The customizer will embed it in the install seed so Incus trusts your machine when it first starts.
+
+With the certificate embedded, you can add the remote in Step 9 without needing a trust token from the NUC console.
+
+If your NUC has both NVMe and SATA drives, `nvme-` ensures IncusOS installs to the faster NVMe drive. To target a specific NVMe drive (e.g., when multiple are present), use a more specific partial match from `/dev/disk/by-id/` such as `nvme-WD_BLACK` or the full by-id name.
+
+1. Configure your image settings (including the options above)
 2. Download the generated image file (typically named like `IncusOS_YYYYMMDDHHMM.img`)
 
-**Note**: After downloading, note the full path to the image file. You'll need this path for the environment variable in Step 3.
+**Note**: After downloading, note the full path to the image file. You'll need this for Step 3.
 
-## Step 3: Set Environment Variables
+## Step 2: Set Windsor context
 
-### Determine the Target Disk for Image Copy
+Initialize and set the `nuc-incusos` context:
 
-Use the `task device:list-disks` command to get a list of disks. Set the `USB_DISK` environment variable as shown below.
+```bash
+windsor init nuc-incusos
+windsor context set nuc-incusos
+```
 
-### Add these lines to ./contexts/incus/windsor.yaml
+## Step 3: Update windsor.yaml
+
+### Determine the target disk
+
+Use `task device:list-disks` to get a list of disks. Set the `USB_DISK` environment variable accordingly.
+
+### Add variables to windsor.yaml
+
+Add or update the `environment` section in `contexts/nuc-incusos/windsor.yaml`:
 
 ```yaml
 environment:
+  INCUS_REMOTE_NAME: "nuc"
   USB_DISK: "/dev/disk4"
-  
-  # Path to the downloaded IncusOS image file
-  INCUS_IMAGE_FILE: "/Users/$USER/Downloads/IncusOS_202512250102.img"
-  INCUS_REMOTE_IP_0: 192.168.2.101
+
+  # Path to the downloaded IncusOS image file (from Step 1)
+  INCUS_IMAGE_FILE: "/Users/$USER/Downloads/IncusOS_202601260318.img"
+  INCUS_REMOTE_IP_0: "192.168.2.101 [or 170]"
 ```
 
-**Note**: Replace the placeholder values with your actual configuration:
+Replace the placeholder values with your actual configuration:
 
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
-- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file (from Step 2)
-- `INCUS_REMOTE_IP_0`: IP for a remote incus server
+- `INCUS_IMAGE_FILE`: The path to your downloaded IncusOS image file
+- `INCUS_REMOTE_IP_0`: IP address for the Incus server (used by deployment runbooks)
 
-### Prepare Image in Workspace
+## Step 4: Prepare the image in the workspace
 
-Use the taskfile command to copy the downloaded image to the workspace devices folder:
+Copy the downloaded image to the workspace devices folder:
 
 ```bash
-task device:download-incus-image
+task device:prepare-incus-image
 ```
 
-This will copy the image file specified in `INCUS_IMAGE_FILE` to `contexts/<context>/devices/incus/incusos.img`.
+This copies the image file specified in `INCUS_IMAGE_FILE` to `contexts/nuc-incusos/devices/incus/incusos.img`.
 
-## Step 4: Prepare the Intel NUC
+## Step 5: Prepare the Intel NUC
 
 ### Update the BIOS
 
-Before installing IncusOS, ensure your NUC's BIOS is up to date. Visit the manufacturer's support page for your specific NUC model to download the latest BIOS:
+Before installing IncusOS, ensure your NUC's BIOS is up to date. Follow the full runbook for step-by-step instructions:
 
-- **ASUS NUC8i5BEH**: [BIOS Downloads](https://www.asus.com/supportonly/nuc8i5beh/helpdesk_bios/)
+**[→ Update the Intel NUC BIOS](./nuc-bios.md)**
 
-Download and install the latest BIOS update following the manufacturer's instructions.
-
-### Wipe Existing Storage
+### Wipe existing storage
 
 If the NUC previously had Ubuntu or another operating system installed, you should wipe the storage device before installing IncusOS. This ensures a clean installation without bootloader or partition conflicts.
+
+**Boot from USB first**: You cannot wipe the boot disk while the system is running from it. Boot the NUC from an Ubuntu install disk (USB), and when prompted choose **"Try Ubuntu"** (do not install). This runs Ubuntu from the USB so the internal drives can be wiped. See the [Ubuntu Setup](./nuc-ubuntu.md) runbook for creating an Ubuntu bootable USB if needed.
 
 **Warning**: This will destroy all data on the storage device. Ensure you have backups of any important data.
 
 ```bash
-# On the NUC (or from another system via SSH)
+# From Ubuntu Live (Try Ubuntu) session
 # Identify the storage device first
 lsblk
 # or
@@ -135,12 +201,10 @@ sudo fdisk -l
 
 # Wipe the partition table (replace /dev/nvme0n1 with your device)
 sudo wipefs -a /dev/nvme0n1
-
-# Alternative: Zero the first few MB to destroy partition table
-sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=10
+sudo wipefs -a /dev/sda
 ```
 
-**Note**: After wiping, if you reboot the NUC, you should see "No bootable device found" - this confirms the storage has been wiped and is ready for IncusOS installation.
+**Note**: After wiping, if you reboot the NUC, you should see "A bootable device has not been detected." — this confirms the storage has been wiped and is ready for IncusOS installation.
 
 ### Configure Secure Boot
 
@@ -148,38 +212,44 @@ Access the NUC's BIOS settings (typically by pressing F2 during boot):
 
 1. Navigate to the **Boot** tab in BIOS settings
 2. In the **Secure Boot** section:
-
    - Select **"Custom"** Secure Boot Mode
    - Select **"Reset to Setup Mode"** to enable custom mode
-3. In the **Boot Priority** section:
 
+   NOTE: The two nucs I have are different.  The point here is to cause the previous secure keys to be regenerated the next time we boot on the USB device.
+
+3. In the **Boot Priority** section:
    - Select **"Boot USB devices First"** to prioritize USB boot
    - Enable **"USB"** booting if not already enabled
 
 **Important**: Secure Boot must be configured in "Custom" mode for IncusOS to install and boot properly.
 
+## Step 6: Prepare USB boot device
 
-## Step 5: Prepare USB Boot Device
-
-### Write IncusOS Image to USB
+### Write IncusOS image to USB
 
 Write the IncusOS image to your USB memory device. This process will erase all existing data on the device.
 
 ```bash
-task device:write-incus-disk [-- 3]
+task device:write-incus-disk [-- 1]
 ```
 
-### Eject the USB Device
+To write to multiple USB devices in parallel (e.g., 3 devices starting from `USB_DISK`):
+
+```bash
+task device:write-incus-disk -- 3
+```
+
+### Eject the USB device
 
 After writing completes, safely eject the device(s):
 
 ```bash
-task device:eject-disk [-- 3]
+task device:eject-disk [-- 1]
 ```
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
 
-## Step 6: Boot and Install IncusOS
+## Step 7: Boot and install IncusOS
 
 1. **Insert the boot media**: Insert the USB memory device into a USB port on your Intel NUC
 2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet
@@ -190,9 +260,34 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 **Note**: The installation process will automatically install IncusOS to the internal storage device. After installation completes and the system reboots, you can remove the USB boot device.
 
-## Step 7: Connect to Incus Server
+## Step 8: Generate trust token (if needed)
 
-### Add the Remote Server
+If you embedded a client certificate in the IncusOS Customizer (Step 1), you can skip this step and go to Step 9.
+
+Otherwise, generate a trust token on the NUC so you can add the remote from your Mac. The token must be created on the **same** Incus server you are connecting to.
+
+### Option A: Physical console on the NUC
+
+At the NUC's physical console, run:
+
+```bash
+incus config trust add <remote-name>
+```
+
+Replace `<remote-name>` with the name you'll use when adding the remote (e.g., `nuc`). Copy the token output; you'll paste it when running `incus remote add` in Step 9.
+
+### Option B: Incus Web UI
+
+1. Open a browser and go to `https://<nuc-ip-address>:8443`
+2. Accept the certificate warning if prompted
+3. On the setup page, use the **"Add token"** or **"Trust"** section to generate a token
+4. Copy the token; you'll paste it when running `incus remote add` in Step 9
+
+![Incus Web UI](incus-web-ui.png)
+
+## Step 9: Connect to Incus server
+
+### Add the remote server
 
 Add your Incus server as a remote:
 
@@ -201,7 +296,6 @@ incus remote add <remote-name> https://<nuc-ip-address>:8443
 ```
 
 Replace:
-
 - `<remote-name>` with a name for this remote (e.g., `nuc`, `incus-server`, `forest-shadows`)
 - `<nuc-ip-address>` with the actual IP address of your NUC (e.g., `192.168.2.101`)
 
@@ -211,7 +305,7 @@ Example:
 incus remote add nuc https://192.168.2.101:8443
 ```
 
-### Set the remote's url
+### Trust the certificate
 
 When adding the remote, you'll be prompted to accept the server's certificate. Type `yes` to trust the certificate.
 
@@ -221,7 +315,7 @@ If you need to trust the certificate later:
 incus remote set-url <remote-name> https://<nuc-ip-address>:8443
 ```
 
-### Verify Connection
+### Verify connection
 
 List your remotes to verify the connection:
 
@@ -239,9 +333,9 @@ incus list <remote-name>:
 incus info <remote-name>:
 ```
 
-### Set as Default Remote
+### Set as default remote
 
-IMPORTANT: The following steps rely on setting the current remote to the nuc
+**Important**: The following steps rely on setting the current remote to the NUC.
 
 If you want to make this your default remote:
 
@@ -256,11 +350,11 @@ incus list
 incus info
 ```
 
-## Step 8: Configure Direct Network Attachment
+## Step 10: Configure direct network attachment
 
 To allow VMs to get IP addresses directly on your physical network, you need to configure a physical network interface for direct attachment. This creates a network that bypasses NAT and connects VMs directly to your physical network.
 
-### Step 8a: View Current Network Configuration
+### View current network configuration
 
 First, check the current network configuration:
 
@@ -270,7 +364,7 @@ incus admin os system network show
 
 This shows your network interfaces and their current roles.
 
-### Step 8b: Add Instances Role to Physical Interface
+### Add instances role to physical interface
 
 Edit the network configuration to add the `instances` role to your physical network interface (typically `eno1` or `eth0`):
 
@@ -293,10 +387,22 @@ config:
     - management
     - cluster
     - instances     # Add this line
+...
+state:
+  interfaces:
+    eno1:
+      addresses:
+      - 192.168.2.101
+      - fd55:b018:d18b:462e:8aae:ddff:fe03:f9f4
+      hwaddr: 88:ae:dd:03:f9:f4
+      mtu: 1500
+      roles:
+      - management
+      - cluster
+      - instances    
 ```
 
-**Important**: 
-
+**Important**:
 - The `roles` field must be added to the `config.interfaces` section (not just the `state` section)
 - Make sure the YAML indentation is correct (2 spaces)
 - Save the file (in vim: press `Esc`, then type `:wq` and press Enter; in nano: press `Ctrl+X`, then `Y`, then Enter)
@@ -309,7 +415,7 @@ incus admin os system network show
 
 You should see `instances` in the `state.interfaces.eno1.roles` list.
 
-### Step 8c: Create Physical Network
+### Create physical network
 
 After the configuration is applied, create a managed physical network:
 
@@ -319,18 +425,17 @@ task incus:create-physical-network
 
 This creates a physical network that directly attaches to your host's network interface, allowing VMs to get IP addresses directly from your physical network's DHCP server.
 
-**Note**: 
-
+**Note**:
 - If the physical network already exists, the task will verify it's correctly configured and skip creation. If you need to recreate it, delete it first with `incus network delete <remote-name>:<interface-name>`.
 - Replace `eno1` with your actual physical network interface name if different. Common interface names include `eno1`, `eth0`, `enp5s0`, etc.
 - You can override the interface name by setting the `PHYSICAL_INTERFACE` environment variable in your `windsor.yaml` file.
 - After this step, VMs launched with this network will get IP addresses directly from your physical network's DHCP server, bypassing NAT.
 
-## Step 9: Access Incus Web UI
+## Step 11: Access Incus web UI
 
 Incus provides a web-based user interface that you can access through your browser. To use the web UI, you'll need to set up browser certificate authentication.
 
-#### Access the Setup Page
+### Access the setup page
 
 Open your web browser and navigate to:
 
@@ -342,15 +447,15 @@ Replace `<nuc-ip-address>` with your NUC's IP address (e.g., `https://192.168.2.
 
 You'll be presented with the Incus UI setup page, which guides you through the certificate setup process:
 
-![Incus UI Setup](ui-setup.png)
+![Incus UI Setup](../incusos/ui-setup.png)
 
-### Step 9a: Generate Certificate
+### Generate certificate
 
 1. On the setup page, click the **"Generate"** button in the "1. Generate" section
 2. This creates a new certificate for browser access
 3. The certificate files (`.crt` and `.pfx`) will be available for download
 
-### Step 9b: Trust Certificate (CLI)
+### Trust certificate (CLI)
 
 Add the certificate to the Incus CLI trust store so you can use the CLI with the same certificate:
 
@@ -361,7 +466,7 @@ incus config trust add-certificate /Users/$USER/Downloads/incus-ui.crt
 
 Replace `/Users/$USER/Downloads/incus-ui.crt` with the actual path where you downloaded the certificate file.
 
-### Step 9c: Import Certificate to Browser
+### Import certificate to browser
 
 To access the Incus UI through your browser, you need to import the certificate into your browser:
 
@@ -399,7 +504,7 @@ To access the Incus UI through your browser, you need to import the certificate 
 4. **Access the Incus UI**: Navigate to `https://<nuc-ip-address>:8443` again
 5. **Select the certificate**: When prompted, select the Incus UI certificate you just imported
 
-### Step 9d: Using the Web UI
+### Using the web UI
 
 Once the certificate is imported and you've restarted your browser, you can:
 
@@ -412,7 +517,7 @@ Once the certificate is imported and you've restarted your browser, you can:
 
 The web UI provides a graphical interface for all Incus operations, making it easy to manage your infrastructure without using the command line.
 
-## Step 10: Get Client Certificate (Optional)
+## Step 12: Get client certificate (optional)
 
 If you need to retrieve the client certificate for authentication or documentation purposes:
 
@@ -447,11 +552,11 @@ incus delete test-instance
 
 Your Incus server should be fully operational and ready for use.
 
-## Getting Device Information
+## Getting device information
 
 When working with Incus, you may need to identify storage devices by their persistent IDs rather than device names like `/dev/nvme0n1`. Incus uses persistent device identifiers to ensure consistent device naming.
 
-### List Devices by ID
+### List devices by ID
 
 ```bash
 # List all devices with persistent IDs
@@ -466,15 +571,15 @@ ls -la /dev/disk/by-id/ | grep sda
 
 Example output:
 
-- `nvme-WD_BLACK_SN850X_1000GB_23436M801614` - NVMe device with model and serial
-- `nvme-eui.e8238fa6bf530001001b448b4ce05e8e` - NVMe EUI identifier
-- `ata-SPCC_Solid_State_Disk_AA230815S325622103` - SATA device identifier
+- `nvme-WD_BLACK_SN850X_1000GB_23436M801614` — NVMe device with model and serial
+- `nvme-eui.e8238fa6bf530001001b448b4ce05e8e` — NVMe EUI identifier
+- `ata-SPCC_Solid_State_Disk_AA230815S325622103` — SATA device identifier
 
 These persistent IDs are useful when configuring storage pools or referencing devices in Incus configurations, as they remain consistent across reboots and system changes.
 
 ## Troubleshooting
 
-### NUC Not Booting from USB
+### NUC not booting from USB
 
 - Verify USB boot is enabled in BIOS/UEFI settings
 - Check that "Boot USB devices First" is selected in boot priority
@@ -482,14 +587,14 @@ These persistent IDs are useful when configuring storage pools or referencing de
 - Verify the image was written correctly to the USB device
 - Ensure the USB device is properly formatted and recognized by the BIOS
 
-### Secure Boot Issues
+### Secure Boot issues
 
 - Verify Secure Boot is set to "Custom" mode, not "Standard"
 - Ensure "Reset to Setup Mode" has been selected
 - Check that the IncusOS image supports Secure Boot (modern images should)
 - If issues persist, try disabling Secure Boot temporarily to test, then re-enable
 
-### Cannot Connect to Incus Server
+### Cannot connect to Incus server
 
 - Verify the NUC has network connectivity (check Ethernet connection)
 - Check that the IP address is correct
@@ -497,7 +602,7 @@ These persistent IDs are useful when configuring storage pools or referencing de
 - Verify the Incus service is running on the NUC: `systemctl status incus` (if you have console access)
 - Try accessing the web UI: `https://<nuc-ip-address>:8443` in a browser
 
-### Installation Fails
+### Installation fails
 
 - Verify the storage device has at least 50GiB of free space
 - Check that the storage device was properly wiped before installation
@@ -505,45 +610,13 @@ These persistent IDs are useful when configuring storage pools or referencing de
 - Verify the NUC model is compatible (x86_64, 5 years old or newer)
 - Check console output for specific error messages
 
-### Wiping the Boot Disk Using Ubuntu Live USB
+### Wiping the boot disk using Ubuntu Live USB
 
-If you need to completely wipe the NUC's boot disk to start fresh (for example, if IncusOS installation failed or you want to reinstall), you can use an Ubuntu Live USB to boot into a recovery environment and wipe the disk.
+If you need to completely wipe the NUC's boot disk to start fresh (for example, if IncusOS installation failed or you want to reinstall), you can use an Ubuntu Live USB. See the [Ubuntu Setup](./nuc-ubuntu.md) runbook for creating an Ubuntu bootable USB, then:
 
-#### Step 1: Download Ubuntu ISO
-
-Download the Ubuntu Desktop ISO from the official website:
-
-- [Ubuntu Desktop Download](https://ubuntu.com/download/desktop)
-
-#### Step 2: Create Bootable USB
-
-Create a bootable USB drive with the Ubuntu ISO:
-
-```bash
-# Identify your USB device
-task device:list-disks
-
-# Write Ubuntu ISO to USB (replace disk4 with your USB device)
-# macOS
-sudo dd if=/Users/$USER/Downloads/ubuntu-*.iso of=/dev/rdisk4 bs=4M conv=fsync status=progress
-
-# Or use Balena Etcher for easier GUI method
-```
-
-**Note**: This will erase all data on the USB device.
-
-#### Step 3: Boot from USB
-
-1. Insert the Ubuntu Live USB into the NUC
-2. Power on the NUC
-3. Access the boot menu (typically F10 or F12) or set USB as first boot option in BIOS
-4. Select the USB device to boot from
-5. Turn off Secure Boot
-6. When Ubuntu loads, choose **"Try Ubuntu"** (do not install)
-
-#### Step 4: Wipe the Disk
-
-Once booted into Ubuntu Live, open a terminal and run:
+1. **Boot from Ubuntu Live USB**: Insert the USB, power on the NUC, and choose "Try Ubuntu"
+2. **Turn off Secure Boot** in BIOS if needed
+3. **Wipe the disk**: In a terminal, run:
 
 ```bash
 # List all disks to identify the NUC's internal storage
@@ -555,34 +628,20 @@ sudo fdisk -l
 # Wipe the partition table (quick method)
 sudo wipefs -a /dev/nvme0n1
 
-# Or zero the first 10MB to destroy partition table (also quick)
+# Or zero the first 10MB to destroy partition table
 sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=10
-
-# Verify the disk is wiped
-sudo fdisk -l /dev/nvme0n1
-# Should show "does not contain a valid partition table"
 ```
 
 **Warning**: Replace `/dev/nvme0n1` with your actual disk device. Be absolutely certain you're targeting the correct disk, as this operation is destructive and cannot be undone.
 
-**Important Notes**:
+After wiping, reboot and install IncusOS from USB again.
 
-- The `wipefs` command only removes partition table metadata (quick, ~1 second)
-- The `dd` command zeros the first 10MB (takes a few seconds, more thorough)
-- For a complete wipe of the entire disk, use: `sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M status=progress` (this takes much longer)
-
-After wiping, you can:
-
-- Reboot and install IncusOS from USB again
-- Install a different operating system
-- Leave the disk empty for a fresh start
-
-### Certificate Errors
+### Certificate errors
 
 - Verify the server's certificate hasn't changed (may indicate a different server)
 - Check system time is correct on both client and server
 
-## Next Steps
+## Next steps
 
 After successfully installing IncusOS:
 
@@ -593,24 +652,22 @@ After successfully installing IncusOS:
 5. **Configure backups**: Set up automated backups for your instances
 6. **Explore features**: Learn about snapshots, migrations, and clustering
 
-## Example: Launching and Accessing an Instance
+## Example: Launching and accessing an instance
 
-This section demonstrates how to launch an Incus instance and connect to it via SSH.
+### Launch an instance
 
-### Launch an Instance
-
-Launch a new container instance on the remote Incus server you just set up. To launch on a remote server, prefix the instance name with the remote name followed by a colon:
+Launch a new container instance on the remote Incus server. To launch on a remote server, prefix the instance name with the remote name followed by a colon:
 
 ```bash
 # Launch an Ubuntu 24.04 container named "my-container" on the remote server
 incus launch images:ubuntu/24.04 <remote-name>:my-container
 ```
 
-Replace `<remote-name>` with the name you used when adding the remote (e.g., if you added the remote as `nuc`, use `nuc:my-container`).
+Replace `<remote-name>` with the name you used when adding the remote (e.g., `nuc`).
 
-**Important**: Do not use the `--target` flag when launching instances on a remote server unless you have a clustered setup. Using `--target` on a non-clustered remote will result in the error: `Error: Failed instance creation: Target only allowed when clustered`.
+**Important**: Do not use the `--target` flag when launching instances on a remote server unless you have a clustered setup.
 
-The instance will start automatically after creation. You can verify it's running:
+The instance will start automatically after creation. Verify it's running:
 
 ```bash
 # List all instances on the remote
@@ -620,23 +677,17 @@ incus list <remote-name>:
 incus info <remote-name>:my-container
 ```
 
-If you've set the remote as your default (using `incus remote switch <remote-name>`), you can omit the remote name prefix:
+If you've set the remote as your default, you can omit the remote name prefix:
 
 ```bash
-# If remote is set as default, you can launch without the prefix
 incus launch images:ubuntu/24.04 my-container
-
-# List instances
 incus list
-
-# Get instance info
 incus info my-container
 ```
 
-### Using Incus Exec
+### Using incus exec
 
-
-The simplest way to access the container is using `incus exec`. Remember to include the remote name prefix:
+The simplest way to access the container is using `incus exec`:
 
 ```bash
 # Execute a bash shell in the container on the remote
@@ -647,34 +698,7 @@ incus exec <remote-name>:my-container -- ls -la
 incus exec <remote-name>:my-container -- apt update
 ```
 
-If the remote is set as default, you can omit the remote name prefix.
-
-
-### Example: Complete Workflow
-
-Here's a complete example of launching a container on the remote server, setting it up, and accessing it:
-
-```bash
-# 1. Launch the container on the remote server
-incus launch images:ubuntu/24.04 <remote-name>:test-server
-
-# 2. Wait for it to start (usually instant)
-incus list <remote-name>:test-server
-
-# 3. Access the container
-
-# Use incus exec (recommended, simplest)
-incus exec <remote-name>:test-server -- bash
-
-
-# 4. When done, stop and delete the container
-incus stop <remote-name>:test-server
-incus delete <remote-name>:test-server
-```
-
-**Note**: Replace `<remote-name>` with your actual remote name (e.g., `nuc`, `incus-server`, etc.). If you've set the remote as default, you can omit the remote name prefix in all commands.
-
-### Accessing Virtual Machines
+### Accessing virtual machines
 
 If you're using virtual machines instead of containers, the process is similar but VMs have their own IP addresses on your network:
 
@@ -687,10 +711,9 @@ incus info my-vm
 
 # Access via console (if SSH isn't configured)
 incus console my-vm
-
 ```
 
-## Additional Resources
+## Additional resources
 
 - [Incus Documentation](https://linuxcontainers.org/incus/docs/main/)
 - [IncusOS Customizer](https://incusos-customizer.linuxcontainers.org/ui/)

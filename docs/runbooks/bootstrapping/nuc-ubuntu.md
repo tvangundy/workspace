@@ -6,13 +6,14 @@ This guide walks you through installing and configuring Ubuntu on an [Intel NUC]
 
 Installing Ubuntu on an Intel NUC involves:
 
-1. **Preparing the workspace**: Setting up the Windsor workspace and context
-2. **Acquiring the Ubuntu ISO**: Downloading the Ubuntu installation image
-3. **Setting environment variables**: Configuring workspace variables including the ISO path
-4. **Preparing the NUC**: Updating BIOS and configuring boot settings
-5. **Creating the boot media**: Writing the Ubuntu ISO to a USB device
-6. **Booting and installing**: Booting from USB and installing Ubuntu to the NUC's storage
-7. **Post-installation setup**: Configuring the system for your needs
+1. **Downloading the Ubuntu ISO**: Downloading the Ubuntu installation image from ubuntu.com
+2. **Setting Windsor context**: Initialize the workspace context with `windsor init` and `windsor context set`
+3. **Updating windsor.yaml**: Configuring workspace variables including the ISO path and USB disk
+4. **Preparing the image in workspace**: Copying the Ubuntu image to the workspace with `task device:download-ubuntu-img`
+5. **Preparing the NUC**: Updating BIOS and configuring boot settings
+6. **Creating the boot media**: Writing the Ubuntu ISO to a USB device
+7. **Booting and installing**: Booting from USB and installing Ubuntu to the NUC's storage
+8. **Post-installation setup**: Configuring the system for your needs
 
 Ubuntu provides a complete, user-friendly Linux distribution with extensive software support, making it ideal for development workstations, servers, and general-purpose computing on Intel NUC devices.
 
@@ -26,30 +27,9 @@ Before starting, ensure you have:
 - **Network connectivity**: The Intel NUC must be able to connect to your network via Ethernet (recommended) or Wi-Fi
 - **At least 20GB of storage**: On the NUC's internal storage device (50GB or more recommended)
 - **Physical access**: To the NUC for BIOS configuration and boot media insertion
-- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
+- **Windsor workspace**: Clone or open the workspace repository
 
-## Step 1: Initialize Workspace and Context
-
-### Create Workspace (if not already done)
-
-If you haven't already initialized a workspace, follow the [Initialize Workspace](../workspace/init.md) runbook:
-
-```bash
-task workspace:initialize -- ubuntu ../ubuntu
-cd ../ubuntu
-```
-
-### Initialize Windsor Context
-
-Create a new context called "ubuntu":
-
-```bash
-windsor init ubuntu
-```
-
-## Step 2: Acquire Ubuntu ISO
-
-### Download Ubuntu ISO
+## Step 1: Download the Ubuntu ISO
 
 Download the Ubuntu installation ISO from the official website:
 
@@ -61,48 +41,59 @@ Choose the version that best fits your needs:
 - **Desktop**: If you need a graphical interface, development tools, and desktop applications
 - **Server**: If you're setting up a headless server or want a minimal installation
 
-**Note**: After downloading, note the full path to the ISO file. You'll need this path for the environment variable in Step 3.
+**Note**: After downloading, note the full path to the ISO file. You'll need this for Step 3.
 
-## Step 3: Set Environment Variables
+## Step 2: Set Windsor context
 
-### Determine the Target Disk for Image Copy
+Initialize and set the `nuc-ubuntu` context:
 
-Use the `task device:list-disks` command to get a list of disks. Set the `USB_DISK` environment variable as shown below.
+```bash
+windsor init nuc-ubuntu
+windsor context set nuc-ubuntu
+```
 
-### Add these lines to ./contexts/ubuntu/windsor.yaml
+## Step 3: Update windsor.yaml
+
+### Determine the target disk
+
+Use `task device:list-disks` to get a list of disks. Set the `USB_DISK` environment variable accordingly.
+
+### Add variables to windsor.yaml
+
+Add or update the `environment` section in `contexts/nuc-ubuntu/windsor.yaml`:
 
 ```yaml
 environment:
   USB_DISK: "/dev/disk4"
   
-  # Path to the downloaded Ubuntu ISO file
-  UBUNTU_ISO_FILE: "/Users/$USER/Downloads/ubuntu-24.04-desktop-amd64.iso"
+  # Path to the downloaded Ubuntu ISO file (from Step 1)
+  UBUNTU_IMG_FILE: "/Users/$USER/Downloads/ubuntu-24.04-desktop-amd64.iso"
 ```
 
-**Note**: Replace the placeholder values with your actual configuration:
+Replace the placeholder values with your actual configuration:
 
 - `USB_DISK`: The device identifier for your USB memory device (use `task device:list-disks` to identify it)
-- `UBUNTU_ISO_FILE`: The path to your downloaded Ubuntu ISO file (from Step 2)
+- `UBUNTU_IMG_FILE`: The path to your downloaded Ubuntu image file
 
-### Prepare ISO in Workspace
+## Step 4: Prepare the image in the workspace
 
-Use the taskfile command to copy the downloaded ISO to the workspace devices folder:
+Copy the downloaded Ubuntu image to the workspace devices folder:
 
 ```bash
-task device:download-ubuntu-iso
+task device:download-ubuntu-img
 ```
 
-This will copy the ISO file specified in `UBUNTU_ISO_FILE` to `contexts/<context>/devices/ubuntu/ubuntu.iso`.
+This copies the image file specified in `UBUNTU_IMG_FILE` to `contexts/nuc-ubuntu/devices/ubuntu-img/ubuntu.img`.
 
-## Step 4: Prepare the Intel NUC
+## Step 5: Prepare the Intel NUC
 
 ### Update the BIOS
 
-Before installing Ubuntu, ensure your NUC's BIOS is up to date. Visit the manufacturer's support page for your specific NUC model to download the latest BIOS:
+Before installing Ubuntu, ensure your NUC's BIOS is up to date. Follow the full runbook for step-by-step instructions using the device tasks:
 
-- **ASUS NUC8i5BEH**: [BIOS Downloads](https://www.asus.com/supportonly/nuc8i5beh/helpdesk_bios/)
+**[→ Update the Intel NUC BIOS](./nuc-bios.md)**
 
-Download and install the latest BIOS update following the manufacturer's instructions.
+The runbook covers downloading the BIOS update, preparing the USB with `task device:prepare-bios` and `task device:write-bios-disk`, and booting with F7 to apply the update.
 
 ### Configure Boot Settings
 
@@ -138,14 +129,14 @@ sudo dd if=/dev/zero of=/dev/nvme0n1 bs=1M count=10
 
 **Note**: You can also wipe the disk during the Ubuntu installation process using the installer's disk partitioning tool.
 
-## Step 5: Prepare USB Boot Device
+## Step 6: Prepare USB boot device
 
 ### Write Ubuntu ISO to USB
 
 Write the Ubuntu ISO to your USB memory device. This process will erase all existing data on the device.
 
 ```bash
-task device:write-ubuntu-iso [-- 3]
+task device:write-ubuntu-img [-- 3]
 ```
 
 ### Eject the USB Device
@@ -158,7 +149,7 @@ task device:eject-disk [-- 3]
 
 The `eject-disk` task will automatically unmount the disks before ejecting them.
 
-## Step 6: Boot and Install Ubuntu
+## Step 7: Boot and install Ubuntu
 
 1. **Insert the boot media**: Insert the USB memory device into a USB port on your Intel NUC
 2. **Connect network**: Ensure the Intel NUC is connected to your network via Ethernet (recommended) or Wi-Fi
@@ -181,7 +172,7 @@ The `eject-disk` task will automatically unmount the disks before ejecting them.
 
 **Note**: The installation process will install Ubuntu to the internal storage device. After installation completes and the system reboots, Ubuntu will boot from the internal storage.
 
-## Step 7: Post-Installation Setup
+## Step 8: Post-installation setup
 
 ### Initial System Update
 
@@ -313,7 +304,7 @@ Your Ubuntu system should be fully operational and ready for use.
 
 ### Wiping the Boot Disk Using Ubuntu Live USB
 
-If you need to completely wipe the NUC's boot disk to start fresh, you can use an Ubuntu Live USB to boot into a recovery environment and wipe the disk. See the [IncusOS Server runbook](../incusos/server.md) for detailed instructions on creating an Ubuntu Live USB and wiping disks.
+If you need to completely wipe the NUC's boot disk to start fresh, you can use an Ubuntu Live USB to boot into a recovery environment and wipe the disk. See the [Wiping the boot disk using Ubuntu Live USB](./nuc-incusos.md#wiping-the-boot-disk-using-ubuntu-live-usb) section in the IncusOS runbook for detailed instructions on creating an Ubuntu Live USB and wiping disks.
 
 ## Next Steps
 

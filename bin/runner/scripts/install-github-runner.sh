@@ -500,9 +500,13 @@ BEGIN {
     print
     next
   }
-  if (in_env_section == 1 && !/^[[:space:]]+[a-zA-Z0-9_]+:/ && !/^[[:space:]]*$/) {
-    # If we are in the environment section but encounter a line that is not a variable
-    # (e.g., a comment or another section header), then we are out of the environment section.
+  # Allow comments and blank lines within environment section
+  if (in_env_section == 1 && (/^[[:space:]]*#/ || /^[[:space:]]*$/)) {
+    print
+    next
+  }
+  # End of environment section when we hit a non-indented key
+  if (in_env_section == 1 && /^[a-zA-Z_][a-zA-Z0-9_]*:/) {
     in_env_section = 0
     print
     next

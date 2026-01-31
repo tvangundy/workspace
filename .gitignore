@@ -1,4 +1,4 @@
-
+.DS_Store
 # managed by windsor cli
 .windsor/
 .volumes/
@@ -27,3 +27,6 @@ contexts/**/.azure/
 .tc*
 .vm-*
 .runner-*
+*.tfstate
+secrets.yaml
+*.tfstate.*

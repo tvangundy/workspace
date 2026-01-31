@@ -6,6 +6,10 @@ description: "Device management and Talos cluster configuration tasks for prepar
 
 Device management for preparing physical devices, managing disk images, and configuring Talos clusters.
 
+## Implementation
+
+The `device:` tasks delegate to scripts in `bin/device/scripts/`, similar to the `tc:` and `vm:` namespaces. Shared utilities live in `bin/device/lib/device-common.sh`. Scripts load the Windsor environment via `load_device_env` and use variables from `windsor.yaml` (e.g., `WINDSOR_CONTEXT`, `USB_DISK`, `RPI_IMAGE_ARCH`).
+
 ## Overview
 
 The `device:` namespace provides tools for managing physical devices, preparing boot media, downloading and writing disk images, and configuring Talos Linux clusters. These tasks are essential for bootstrapping Talos clusters on bare-metal hardware.
@@ -14,17 +18,17 @@ The `device:` namespace provides tools for managing physical devices, preparing 
 
 | Task | Description |
 |------|-------------|
-| [`download-image`](#download-image) | Download the Talos image from the Image Factory |
-| [`decompress-image`](#decompress-image) | Decompress the Talos image (placeholder) |
-| [`download-incus-image`](#download-incus-image) | Download or move IncusOS image to the devices folder |
-| [`download-ubuntu-iso`](#download-ubuntu-iso) | Download or move Ubuntu ISO to the devices folder |
+| [`download-talos-image`](#download-talos-image) | Download the Talos image from the Image Factory |
+| [`prepare-incus-image`](#prepare-incus-image) | Copy IncusOS image from Downloads to the devices folder |
+| [`download-ubuntu-img`](#download-ubuntu-img) | Download or move Ubuntu image to the devices folder |
+| [`prepare-bios`](#prepare-bios) | Copy BIOS update files to the devices folder |
+| [`write-bios-disk`](#write-bios-disk) | Format USB as FAT32 and copy BIOS files (for Intel NUC) |
 | [`list-disks`](#list-disks) | List available USB disks/SD cards on macOS |
-| [`write-disk`](#write-disk) | Write the Talos image to one or more USB drives in parallel |
-| [`write-ubuntu-iso`](#write-ubuntu-iso) | Write the Ubuntu ISO to one or more USB drives in parallel |
+| [`write-talos-disk`](#write-talos-disk) | Write the Talos image to one or more USB drives in parallel |
+| [`write-ubuntu-img`](#write-ubuntu-img) | Write the Ubuntu image to one or more USB drives in parallel |
 | [`write-incus-disk`](#write-incus-disk) | Write the IncusOS image to one or more USB drives in parallel |
 | [`unmount-disk`](#unmount-disk) | Unmount one or more USB disks |
 | [`eject-disk`](#eject-disk) | Eject one or more USB disks (automatically unmounts first) |
-| [`format-xfs`](#format-xfs) | Format USB disk as XFS (requires Linux, placeholder) |
 | [`get-disks`](#get-disks) | Get disk information from a Talos node |
 | [`generate-talosconfig`](#generate-talosconfig) | Generate Talos configuration files for a cluster |
 | [`apply-configuration`](#apply-configuration) | Apply Talos configuration to cluster nodes |
@@ -36,14 +40,14 @@ The `device:` namespace provides tools for managing physical devices, preparing 
 
 ## Image Management
 
-### `download-image`
+### `download-talos-image`
 
 Download the Talos image from the Image Factory.
 
 **Usage:**
 
 ```bash
-task device:download-image
+task device:download-talos-image
 ```
 
 **Environment Variables (Required):**
@@ -62,32 +66,20 @@ task device:download-image
 
 **Output:** Path to the downloaded image file.
 
-### `decompress-image`
+### `prepare-incus-image`
 
-Decompress the Talos image. Currently a placeholder.
-
-**Usage:**
-
-```bash
-task device:decompress-image
-```
-
-**Note:** This functionality is typically handled automatically by `download-image`.
-
-### `download-incus-image`
-
-Download or move IncusOS image to the devices folder.
+Copy IncusOS image from the Downloads folder (or specified path) to the devices folder. The image is downloaded in the previous step via the IncusOS Customizer.
 
 **Usage:**
 
 ```bash
-task device:download-incus-image
+task device:prepare-incus-image
 ```
 
 **Environment Variables (Required):**
 
 - `WINDSOR_CONTEXT`: Windsor context name
-- `INCUS_IMAGE_FILE`: Path to the IncusOS image file
+- `INCUS_IMAGE_FILE`: Path to the IncusOS image file (e.g., in Downloads)
 
 **Example:**
 
@@ -95,8 +87,8 @@ task device:download-incus-image
 # Set environment variable
 export INCUS_IMAGE_FILE=~/Downloads/IncusOS_202512250102.img
 
-# Download/copy the image
-task device:download-incus-image
+# Copy the image to the workspace
+task device:prepare-incus-image
 ```
 
 **What it does:**
@@ -104,35 +96,88 @@ task device:download-incus-image
 1. Creates directory: `contexts/<context>/devices/incus/`
 2. Copies the image file to `contexts/<context>/devices/incus/incusos.img`
 
-### `download-ubuntu-iso`
+### `download-ubuntu-img`
 
-Download or move Ubuntu ISO to the devices folder.
+Download or move Ubuntu image to the devices folder.
 
 **Usage:**
 
 ```bash
-task device:download-ubuntu-iso
+task device:download-ubuntu-img
 ```
 
 **Environment Variables (Required):**
 
 - `WINDSOR_CONTEXT`: Windsor context name
-- `UBUNTU_ISO_FILE`: Path to the Ubuntu ISO file
+- `UBUNTU_IMG_FILE`: Path to the Ubuntu image file
 
 **Example:**
 
 ```bash
 # Set environment variable
-export UBUNTU_ISO_FILE=~/Downloads/ubuntu-24.04-desktop-amd64.iso
+export UBUNTU_IMG_FILE=~/Downloads/ubuntu-24.04-desktop-amd64.iso
 
-# Download/copy the ISO
-task device:download-ubuntu-iso
+# Download/copy the image
+task device:download-ubuntu-img
 ```
 
 **What it does:**
 
-1. Creates directory: `contexts/<context>/devices/ubuntu/`
-2. Copies the ISO file to `contexts/<context>/devices/ubuntu/ubuntu.iso`
+1. Creates directory: `contexts/<context>/devices/ubuntu-img/`
+2. Copies the image file to `contexts/<context>/devices/ubuntu-img/ubuntu.img`
+
+### `prepare-bios`
+
+Copy BIOS update files to the devices folder for Intel NUC BIOS updates.
+
+**Usage:**
+
+```bash
+task device:prepare-bios
+```
+
+**Environment Variables (Required):**
+
+- `WINDSOR_CONTEXT`: Windsor context name
+- `BIOS_FOLDER`: Path to the extracted BIOS update folder (contains `.bio` file and `IFLASH2.exe`)
+
+**Example:**
+
+```bash
+# Set in windsor.yaml or export
+export BIOS_FOLDER=~/Downloads/NUC8i5BEHAS003
+
+# Copy BIOS files to devices folder
+task device:prepare-bios
+```
+
+**What it does:**
+
+1. Creates directory: `contexts/<context>/devices/bios/`
+2. Copies all files from `BIOS_FOLDER` to the bios directory
+
+### `write-bios-disk`
+
+Format a USB drive as FAT32 and copy BIOS update files. Used for Intel NUC BIOS updates (boot with F7).
+
+**Usage:**
+
+```bash
+task device:write-bios-disk
+```
+
+**Environment Variables (Required):**
+
+- `WINDSOR_CONTEXT`: Windsor context name
+- `USB_DISK`: USB device (e.g., `/dev/disk4`)
+- Run `task device:prepare-bios` first
+
+**What it does:**
+
+1. Unmounts the USB disk
+2. Formats it as FAT32
+3. Copies BIOS files from `contexts/<context>/devices/bios/` to the USB
+4. USB is ready to boot the NUC for BIOS update (press F7 during boot)
 
 ## Disk Operations
 
@@ -150,14 +195,14 @@ task device:list-disks
 
 **Note:** On Linux, use `lsblk` or `fdisk -l` directly.
 
-### `write-disk`
+### `write-talos-disk`
 
 Write the Talos image to one or more USB drives in parallel.
 
 **Usage:**
 
 ```bash
-task device:write-disk [-- <disk_count>]
+task device:write-talos-disk [-- <disk_count>]
 ```
 
 **Parameters:**
@@ -175,10 +220,10 @@ task device:write-disk [-- <disk_count>]
 ```bash
 # Write to single disk
 export USB_DISK=/dev/disk4
-task device:write-disk
+task device:write-talos-disk
 
 # Write to 3 consecutive disks (disk4, disk5, disk6)
-task device:write-disk -- 3
+task device:write-talos-disk -- 3
 ```
 
 **What it does:**
@@ -197,14 +242,14 @@ task device:write-disk -- 3
 - Progress is shown every 30 seconds during the write
 - All disks are written in parallel for efficiency
 
-### `write-ubuntu-iso`
+### `write-ubuntu-img`
 
-Write the Ubuntu ISO to one or more USB drives in parallel.
+Write the Ubuntu image to one or more USB drives in parallel.
 
 **Usage:**
 
 ```bash
-task device:write-ubuntu-iso [-- <disk_count>]
+task device:write-ubuntu-img [-- <disk_count>]
 ```
 
 **Parameters:**
@@ -218,7 +263,7 @@ task device:write-ubuntu-iso [-- <disk_count>]
 
 **Prerequisites:**
 
-- Run `task device:download-ubuntu-iso` first to prepare the ISO
+- Run `task device:download-ubuntu-img` first to prepare the image
 
 ### `write-incus-disk`
 
@@ -241,7 +286,7 @@ task device:write-incus-disk [-- <disk_count>]
 
 **Prerequisites:**
 
-- Run `task device:download-incus-image` first to prepare the image
+- Run `task device:prepare-incus-image` first to prepare the image
 
 ### `unmount-disk`
 
@@ -290,18 +335,6 @@ task device:eject-disk [-- <disk_count>]
 - `USB_DISK`: First disk device (e.g., `/dev/disk4`)
 
 **Dependencies:** Automatically runs `unmount-disk` first.
-
-### `format-xfs`
-
-Format USB disk as XFS (requires Linux).
-
-**Usage:**
-
-```bash
-task device:format-xfs
-```
-
-**Note:** This is a placeholder task with manual instructions. Use `mkfs.xfs` or `mkfs.ext4` directly on Linux.
 
 ### `get-disks`
 
@@ -528,7 +561,7 @@ The following environment variables are commonly used:
 - `TALOSCONFIG`: Path to talosconfig file
 - `KUBECONFIG_FILE`: Path to kubeconfig file
 - `INCUS_IMAGE_FILE`: Path to IncusOS image file
-- `UBUNTU_ISO_FILE`: Path to Ubuntu ISO file
+- `UBUNTU_IMG_FILE`: Path to Ubuntu image file
 
 ## Prerequisites
 

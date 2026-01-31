@@ -7,15 +7,16 @@ nav:
     - Secrets: runbooks/secrets/secrets.md
     - IncusOS:
       - Introduction: runbooks/incusos/README.md
-      - Server: runbooks/incusos/server.md
       - Kubernetes Clusters: runbooks/incusos/tc.md
       - Virtual Machines: runbooks/incusos/vm.md
     - Bootstrapping:
       - Introduction: runbooks/bootstrapping/README.md
-      - Ubuntu Server: runbooks/bootstrapping/ubuntu-setup.md
+      - Intel NUC BIOS Update: runbooks/bootstrapping/nuc-bios.md
+      - IncusOS Server: runbooks/bootstrapping/nuc-incusos.md
+      - Ubuntu Server: runbooks/bootstrapping/nuc-ubuntu.md
       - Talos Cluster:
-        - Raspberry Pi: runbooks/bootstrapping/rpi.md
-        - Intel NUC: runbooks/bootstrapping/nuc.md
+        - Raspberry Pi: runbooks/bootstrapping/rpi-talos.md
+        - Intel NUC: runbooks/bootstrapping/nuc-talos.md
         - Sidero Omni: runbooks/bootstrapping/omni.md
     - Apps:
       - Introduction: runbooks/apps/README.md

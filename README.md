@@ -20,7 +20,7 @@ Build, deploy, and manage infrastructure with **repeatable, maintainable workflo
 
 ## Runbooks
 
-**Runbooks** (`/docs/runbooks/`) are comprehensive, step-by-step instructional guides that teach you how to build infrastructure deployments from the ground up. Each runbook leverages taskfiles extensively—you'll see commands like `task device:write-disk` throughout the documentation—which encapsulate complex operations, making the guides easier to follow while ensuring consistent, reliable execution. 
+**Runbooks** (`/docs/runbooks/`) are comprehensive, step-by-step instructional guides that teach you how to build infrastructure deployments from the ground up. Each runbook leverages taskfiles extensively—you'll see commands like `task device:write-talos-disk` throughout the documentation—which encapsulate complex operations, making the guides easier to follow while ensuring consistent, reliable execution. 
 
 Follow these guides step-by-step to understand each part of the process and create your own implementation.
 
@@ -34,7 +34,7 @@ For more details on how runbooks and taskfiles work together, see the [Runbooks 
 
 ## Taskfiles
 
-This workspace uses [Taskfile](https://taskfile.dev) to organize and run common commands. **Taskfiles are the execution engine behind all runbooks** - every step in a runbook that requires action is performed through a taskfile command. When you follow a runbook, you'll execute commands like `task device:write-disk`, `task runner:initialize`, or `task incus:launch-vm` to complete each step.
+This workspace uses [Taskfile](https://taskfile.dev) to organize and run common commands. **Taskfiles are the execution engine behind all runbooks** - every step in a runbook that requires action is performed through a taskfile command. When you follow a runbook, you'll execute commands like `task device:write-talos-disk`, `task runner:initialize`, or `task incus:launch-vm` to complete each step.
 
 This design means runbooks focus on explaining **what** to do and **why**, while taskfiles handle the **how** - encapsulating complex operations, platform-specific commands, error handling, and validation into simple, repeatable commands. The details aren't lost: every taskfile command can be run with the `--dry` flag to reveal the detailed subcommands that will be executed, providing full transparency into what's happening under the hood. This separation makes runbooks easier to follow while ensuring consistent, reliable execution across different environments.
 

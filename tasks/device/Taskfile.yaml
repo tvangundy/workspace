@@ -1,1479 +1,207 @@
+# https://taskfile.dev
+# Device preparation tasks - uses scripts from bin/device/
+
 version: "3"
 
 tasks:
 
   #-----------------------------------------------------------------------------------------------------------------------
-  # Device
+  # Download images
   #-----------------------------------------------------------------------------------------------------------------------
 
-  download-image:
+  download-talos-image:
     desc: Downloads the Talos image
     cmds:
       - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.RPI_IMAGE_ARCH}}" ]; then
-          echo "Error: RPI_IMAGE_ARCH variable is not defined"
-          echo "RPI_IMAGE_ARCH should be set in the task variables (e.g., metal-arm64, metal-amd64)"
-          exit 1
-        fi
-        
-        if [ -z "{{.RPI_IMAGE_SCHEMATIC_ID}}" ]; then
-          echo "Error: RPI_IMAGE_SCHEMATIC_ID variable is not defined"
-          echo "RPI_IMAGE_SCHEMATIC_ID should be set in the task variables"
-          exit 1
-        fi
-        
-        if [ -z "{{.RPI_IMAGE_VERSION}}" ]; then
-          echo "Error: RPI_IMAGE_VERSION variable is not defined"
-          echo "RPI_IMAGE_VERSION should be set in the task variables (e.g., v1.11.5)"
-          exit 1
-        fi
-      
-        DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
-        ARCH_DIR="${DEVICES_DIR}/{{.RPI_IMAGE_ARCH}}"
-        IMAGE_FILE="${ARCH_DIR}/{{.RPI_IMAGE_ARCH}}.raw"
-        IMAGE_XZ="${IMAGE_FILE}.xz"
-        
-        # Create devices directory structure
-        mkdir -p "${ARCH_DIR}"
-        
-        # Download the image
-        curl -L -o "${IMAGE_XZ}" https://factory.talos.dev/image/{{.RPI_IMAGE_SCHEMATIC_ID}}/{{.RPI_IMAGE_VERSION}}/{{.RPI_IMAGE_ARCH}}.raw.xz
-        
-        # Decompress the image
-        xz -d "${IMAGE_XZ}"
-        
-        echo "Image downloaded to: ${IMAGE_FILE}"
-      
-  decompress-image:
-    desc: Decompresses the Talos image
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/download-talos-image.sh"
+
+  prepare-incus-image:
+    desc: Copies IncusOS image from Downloads to the devices folder
     cmds:
       - |
-        echo ARGS: {{.CLI_ARGS}}
-        # xz -d {{.CLI_ARGS}}
-  
-  download-incus-image:
-    desc: Downloads or moves IncusOS image to the devices folder
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/prepare-incus-image.sh"
+
+  download-ubuntu-img:
+    desc: Downloads or moves Ubuntu image to the devices folder
     cmds:
       - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.INCUS_IMAGE_FILE}}" ]; then
-          echo "Error: INCUS_IMAGE_FILE variable is not defined"
-          echo "INCUS_IMAGE_FILE should be set to the path of the IncusOS image file"
-          echo "Example: INCUS_IMAGE_FILE=~/Downloads/IncusOS_202512250102.img"
-          exit 1
-        fi
-        
-        DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
-        INCUS_DIR="${DEVICES_DIR}/incus"
-        IMAGE_FILE="${INCUS_DIR}/incusos.img"
-        
-        # Create devices directory structure
-        mkdir -p "${INCUS_DIR}"
-        
-        # Check if source file exists
-        if [ ! -f "{{.INCUS_IMAGE_FILE}}" ]; then
-          echo "Error: IncusOS image file not found at {{.INCUS_IMAGE_FILE}}"
-          exit 1
-        fi
-        
-        # Copy the image to the devices folder
-        echo "Copying IncusOS image to devices folder..."
-        cp "{{.INCUS_IMAGE_FILE}}" "${IMAGE_FILE}"
-        
-        echo "IncusOS image copied to: ${IMAGE_FILE}"
-  
-  download-ubuntu-iso:
-    desc: Downloads or moves Ubuntu ISO to the devices folder
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/download-ubuntu-img.sh"
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # BIOS update (Intel NUC)
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  prepare-bios:
+    desc: Copies BIOS update files to the devices folder
     cmds:
       - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.UBUNTU_ISO_FILE}}" ]; then
-          echo "Error: UBUNTU_ISO_FILE variable is not defined"
-          echo "UBUNTU_ISO_FILE should be set to the path of the Ubuntu ISO file"
-          echo "Example: UBUNTU_ISO_FILE=~/Downloads/ubuntu-24.04-desktop-amd64.iso"
-          exit 1
-        fi
-        
-        DEVICES_DIR="contexts/{{.WINDSOR_CONTEXT}}/devices"
-        UBUNTU_DIR="${DEVICES_DIR}/ubuntu"
-        ISO_FILE="${UBUNTU_DIR}/ubuntu.iso"
-        
-        # Create devices directory structure
-        mkdir -p "${UBUNTU_DIR}"
-        
-        # Check if source file exists
-        if [ ! -f "{{.UBUNTU_ISO_FILE}}" ]; then
-          echo "Error: Ubuntu ISO file not found at {{.UBUNTU_ISO_FILE}}"
-          exit 1
-        fi
-        
-        # Copy the ISO to the devices folder
-        echo "Copying Ubuntu ISO to devices folder..."
-        cp "{{.UBUNTU_ISO_FILE}}" "${ISO_FILE}"
-        
-        echo "Ubuntu ISO copied to: ${ISO_FILE}"
-  
-  write-ubuntu-iso:
-    desc: Writes the Ubuntu ISO to one or more USB drives
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/prepare-bios.sh"
+
+  write-bios-disk:
+    desc: Formats USB as FAT32 and copies BIOS update files (for Intel NUC BIOS updates)
     cmds:
       - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.USB_DISK}}" ]; then
-          echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
-          echo "Use 'task device:list-disks' to see available disks"
-          exit 1
-        fi
-        
-        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          eval set -- ${CLI_ARGS_STR}
-          DISK_COUNT="${1:-1}"
-          
-          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
-            echo "Error: disk_count must be a positive integer (minimum 1)"
-            echo "Usage: task device:write-ubuntu-iso [-- <disk_count>]"
-            echo "Example: task device:write-ubuntu-iso -- 2"
-            exit 1
-          fi
-          TOTAL_DISKS=${DISK_COUNT}
-        else
-          TOTAL_DISKS=1
-        fi
-        
-        # Extract disk number from USB_DISK
-        BASE_DISK="{{.USB_DISK}}"
-        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
-          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
-          echo "Current value: ${BASE_DISK}"
-          exit 1
-        fi
-        
-        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
-        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
-          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
-          exit 1
-        fi
-        DISK_PREFIX="/dev/disk"
-        
-        ISO_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/ubuntu/ubuntu.iso"
-        if [ ! -f "${ISO_FILE}" ]; then
-          echo "Error: Ubuntu ISO file not found at ${ISO_FILE}"
-          echo "Run 'task device:download-ubuntu-iso' first to prepare the ISO"
-          exit 1
-        fi
-        
-        # Verify ISO file exists and has reasonable size
-        ISO_SIZE=$(stat -f%z "${ISO_FILE}" 2>/dev/null || stat -c%s "${ISO_FILE}" 2>/dev/null || echo "0")
-        if [ "${ISO_SIZE}" -lt 1000000 ]; then
-          echo "Error: ISO file appears to be too small (${ISO_SIZE} bytes). Please download the ISO first."
-          exit 1
-        fi
-        echo "ISO file size: $(numfmt --to=iec-i --suffix=B ${ISO_SIZE} 2>/dev/null || echo "${ISO_SIZE} bytes")"
-        echo ""
-        echo "Writing Ubuntu ISO to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK} in parallel..."
-        echo ""
-        
-        # Use the same parallel write logic as write-incus-disk task
-        declare -a PIDS
-        declare -a DISKS
-        declare -a LOG_FILES
-        declare -a START_TIMES
-        declare -a COMPLETED
-        declare -a EXIT_CODES
-        
-        for ((i=0; i<${TOTAL_DISKS}; i++)); do
-          DISK_NUM=$((BASE_DISK_NUM + i))
-          DISK="${DISK_PREFIX}${DISK_NUM}"
-          DISKS[$i]="${DISK}"
-          LOG_FILE="/tmp/ubuntu-iso-write-${DISK_NUM}.log"
-          LOG_FILES[$i]="${LOG_FILE}"
-          COMPLETED[$i]="0"
-          EXIT_CODES[$i]=1
-          START_TIMES[$i]=$(date +%s)
-          
-          # Unmount the disk
-          if [[ "$(uname)" == "Darwin" ]]; then
-            diskutil unmountDisk "${DISK}" 2>/dev/null || true
-            RAW_DISK="/dev/rdisk${DISK_NUM}"
-          else
-            umount "${DISK}"* 2>/dev/null || true
-            RAW_DISK="${DISK}"
-          fi
-          
-          echo "🚀 [${DISK}] Starting write process..."
-          
-          # Start the write in background
-          (
-            set -euo pipefail
-            if [[ "$(uname)" == "Darwin" ]]; then
-              sudo dd if="${ISO_FILE}" of="${RAW_DISK}" bs=4M conv=fsync status=progress 2>&1 | tee "${LOG_FILE}"
-            else
-              sudo dd if="${ISO_FILE}" of="${RAW_DISK}" bs=4M conv=fsync status=progress 2>&1 | tee "${LOG_FILE}"
-            fi
-            DD_EXIT=$?
-            echo "dd completed for ${DISK} with exit code: ${DD_EXIT}" >> "${LOG_FILE}"
-          ) &
-          
-          set +u
-          PIDS[$i]=$!
-          set -u
-        done
-        
-        # Monitor progress (same logic as write-incus-disk)
-        MAX_WAIT=1800  # 30 minutes
-        START_TIME=$(date +%s)
-        LAST_UPDATE=0
-        
-        while true; do
-          CURRENT_TIME=$(date +%s)
-          ELAPSED=$((CURRENT_TIME - START_TIME))
-          
-          if [ ${ELAPSED} -ge ${MAX_WAIT} ]; then
-            echo ""
-            echo "❌ Timeout: Write process exceeded ${MAX_WAIT} seconds"
-            for ((i=0; i<${TOTAL_DISKS}; i++)); do
-              if [ "${COMPLETED[$i]}" = "0" ]; then
-                echo "  Killing process for ${DISKS[$i]}..."
-                kill "${PIDS[$i]}" 2>/dev/null || true
-              fi
-            done
-            exit 1
-          fi
-          
-          ALL_DONE=1
-          for ((i=0; i<${TOTAL_DISKS}; i++)); do
-            if [ "${COMPLETED[$i]}" = "0" ]; then
-              ALL_DONE=0
-              
-              # Check if process is still running
-              if ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
-                # Process finished, check exit code
-                wait "${PIDS[$i]}"
-                EXIT_CODES[$i]=$?
-                COMPLETED[$i]="1"
-                DURATION=$(( $(date +%s) - ${START_TIMES[$i]} ))
-                DURATION_MIN=$((DURATION / 60))
-                DURATION_SEC=$((DURATION % 60))
-                
-                if [ ${EXIT_CODES[$i]} -eq 0 ]; then
-                  echo ""
-                  echo "  ✅ [${DISKS[$i]}] WRITE COMPLETED SUCCESSFULLY!"
-                  echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                  echo ""
-                else
-                  echo ""
-                  echo "  ❌ [${DISKS[$i]}] WRITE FAILED"
-                  echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                  echo "     Exit code: ${EXIT_CODES[$i]}"
-                  echo ""
-                fi
-              else
-                # Process still running, show progress every 30 seconds
-                if [ $((ELAPSED - LAST_UPDATE)) -ge 30 ]; then
-                  COMPLETED_COUNT=0
-                  for ((j=0; j<${TOTAL_DISKS}; j++)); do
-                    if [ "${COMPLETED[$j]}" = "1" ]; then
-                      COMPLETED_COUNT=$((COMPLETED_COUNT + 1))
-                    fi
-                  done
-                  
-                  STILL_WRITING=""
-                  for ((j=0; j<${TOTAL_DISKS}; j++)); do
-                    if [ "${COMPLETED[$j]}" = "0" ]; then
-                      STILL_WRITING="${STILL_WRITING} ${DISKS[$j]}"
-                    fi
-                  done
-                  
-                  echo "📊 Progress: ${COMPLETED_COUNT}/${TOTAL_DISKS} completed | Still writing:${STILL_WRITING} | Elapsed: ${ELAPSED}s"
-                  LAST_UPDATE=${ELAPSED}
-                fi
-              fi
-            fi
-          done
-          
-          if [ ${ALL_DONE} -eq 1 ]; then
-            break
-          fi
-          
-          sleep 2
-        done
-        
-        # Check final status
-        FAILED=0
-        for ((i=0; i<${TOTAL_DISKS}; i++)); do
-          if [ ${EXIT_CODES[$i]} -ne 0 ]; then
-            FAILED=1
-            echo "❌ [${DISKS[$i]}] Write failed with exit code ${EXIT_CODES[$i]}"
-          fi
-        done
-        
-        if [ ${FAILED} -eq 1 ]; then
-          echo ""
-          echo "❌ One or more writes failed. Check the logs above for details."
-          exit 1
-        else
-          echo ""
-          echo "✅ All writes completed successfully!"
-        fi
-  
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/write-bios-disk.sh"
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Disks
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  list-disks:
+    desc: Lists the available disks
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/list-disks.sh"
+    silent: true
+
+  write-talos-disk:
+    desc: Writes the Talos image to one or more USB drives
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/write-talos-disk.sh" "{{.CLI_ARGS}}"
+    silent: true
+
+  write-ubuntu-img:
+    desc: Writes the Ubuntu image to one or more USB drives
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/write-ubuntu-img.sh" "{{.CLI_ARGS}}"
+
   write-incus-disk:
     desc: Writes the IncusOS image to one or more USB drives
     cmds:
       - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.USB_DISK}}" ]; then
-          echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
-          echo "Use 'task device:list-disks' to see available disks"
-          exit 1
-        fi
-        
-        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          eval set -- ${CLI_ARGS_STR}
-          DISK_COUNT="${1:-1}"
-          
-          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
-            echo "Error: disk_count must be a positive integer (minimum 1)"
-            echo "Usage: task device:write-incus-disk [-- <disk_count>]"
-            echo "Example: task device:write-incus-disk -- 2"
-            exit 1
-          fi
-          TOTAL_DISKS=${DISK_COUNT}
-        else
-          TOTAL_DISKS=1
-        fi
-        
-        # Extract disk number from USB_DISK
-        BASE_DISK="{{.USB_DISK}}"
-        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
-          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
-          echo "Current value: ${BASE_DISK}"
-          exit 1
-        fi
-        
-        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
-        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
-          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
-          exit 1
-        fi
-        DISK_PREFIX="/dev/disk"
-        
-        IMAGE_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/incus/incusos.img"
-        if [ ! -f "${IMAGE_FILE}" ]; then
-          echo "Error: IncusOS image file not found at ${IMAGE_FILE}"
-          echo "Run 'task device:download-incus-image' first to prepare the image"
-          exit 1
-        fi
-        
-        # Verify image file exists and has reasonable size
-        IMAGE_SIZE=$(stat -f%z "${IMAGE_FILE}" 2>/dev/null || stat -c%s "${IMAGE_FILE}" 2>/dev/null || echo "0")
-        if [ "${IMAGE_SIZE}" -lt 1000000 ]; then
-          echo "Error: Image file appears to be too small (${IMAGE_SIZE} bytes). Please download the image first."
-          exit 1
-        fi
-        echo "Image file size: $(numfmt --to=iec-i --suffix=B ${IMAGE_SIZE} 2>/dev/null || echo "${IMAGE_SIZE} bytes")"
-        echo ""
-        echo "Writing IncusOS image to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK} in parallel..."
-        echo ""
-        
-        # Use the same parallel write logic as write-disk task
-        # (Copy the write-disk implementation but use IMAGE_FILE instead of RAW_FILE)
-        declare -a PIDS
-        declare -a DISKS
-        declare -a LOG_FILES
-        declare -a START_TIMES
-        declare -a COMPLETED
-        declare -a EXIT_CODES
-        
-        for ((i=0; i<${TOTAL_DISKS}; i++)); do
-          DISK_NUM=$((BASE_DISK_NUM + i))
-          DISK="${DISK_PREFIX}${DISK_NUM}"
-          DISKS[$i]="${DISK}"
-          LOG_FILE="/tmp/incus-write-${DISK_NUM}.log"
-          LOG_FILES[$i]="${LOG_FILE}"
-          COMPLETED[$i]="0"
-          EXIT_CODES[$i]=1
-          START_TIMES[$i]=$(date +%s)
-          
-          # Unmount the disk
-          if [[ "$(uname)" == "Darwin" ]]; then
-            diskutil unmountDisk "${DISK}" 2>/dev/null || true
-            RAW_DISK="/dev/rdisk${DISK_NUM}"
-          else
-            umount "${DISK}"* 2>/dev/null || true
-            RAW_DISK="${DISK}"
-          fi
-          
-          echo "🚀 [${DISK}] Starting write process..."
-          
-          # Start the write in background
-          (
-            set -euo pipefail
-            if [[ "$(uname)" == "Darwin" ]]; then
-              sudo dd if="${IMAGE_FILE}" of="${RAW_DISK}" bs=4M conv=fsync status=progress 2>&1 | tee "${LOG_FILE}"
-            else
-              sudo dd if="${IMAGE_FILE}" of="${RAW_DISK}" bs=4M conv=fsync status=progress 2>&1 | tee "${LOG_FILE}"
-            fi
-            DD_EXIT=$?
-            echo "dd completed for ${DISK} with exit code: ${DD_EXIT}" >> "${LOG_FILE}"
-          ) &
-          
-          set +u
-          PIDS[$i]=$!
-          set -u
-        done
-        
-        # Monitor progress
-        MAX_WAIT=1800  # 30 minutes
-        START_TIME=$(date +%s)
-        LAST_UPDATE=0
-        
-        while true; do
-          CURRENT_TIME=$(date +%s)
-          ELAPSED=$((CURRENT_TIME - START_TIME))
-          
-          if [ ${ELAPSED} -ge ${MAX_WAIT} ]; then
-            echo ""
-            echo "❌ Timeout: Write process exceeded ${MAX_WAIT} seconds"
-            for ((i=0; i<${TOTAL_DISKS}; i++)); do
-              if [ "${COMPLETED[$i]}" = "0" ]; then
-                echo "  Killing process for ${DISKS[$i]}..."
-                kill "${PIDS[$i]}" 2>/dev/null || true
-              fi
-            done
-            exit 1
-          fi
-          
-          ALL_DONE=1
-          for ((i=0; i<${TOTAL_DISKS}; i++)); do
-            if [ "${COMPLETED[$i]}" = "0" ]; then
-              ALL_DONE=0
-              
-              # Check if process is still running
-              if ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
-                # Process finished, check exit code
-                wait "${PIDS[$i]}"
-                EXIT_CODES[$i]=$?
-                COMPLETED[$i]="1"
-                DURATION=$(( $(date +%s) - ${START_TIMES[$i]} ))
-                DURATION_MIN=$((DURATION / 60))
-                DURATION_SEC=$((DURATION % 60))
-                
-                if [ ${EXIT_CODES[$i]} -eq 0 ]; then
-                  echo ""
-                  echo "  ✅ [${DISKS[$i]}] WRITE COMPLETED SUCCESSFULLY!"
-                  echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                  echo ""
-                else
-                  echo ""
-                  echo "  ❌ [${DISKS[$i]}] WRITE FAILED"
-                  echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                  echo "     Exit code: ${EXIT_CODES[$i]}"
-                  echo ""
-                fi
-              else
-                # Process still running, show progress every 30 seconds
-                if [ $((ELAPSED - LAST_UPDATE)) -ge 30 ]; then
-                  COMPLETED_COUNT=0
-                  for ((j=0; j<${TOTAL_DISKS}; j++)); do
-                    if [ "${COMPLETED[$j]}" = "1" ]; then
-                      COMPLETED_COUNT=$((COMPLETED_COUNT + 1))
-                    fi
-                  done
-                  
-                  STILL_WRITING=""
-                  for ((j=0; j<${TOTAL_DISKS}; j++)); do
-                    if [ "${COMPLETED[$j]}" = "0" ]; then
-                      STILL_WRITING="${STILL_WRITING} ${DISKS[$j]}"
-                    fi
-                  done
-                  
-                  echo "📊 Progress: ${COMPLETED_COUNT}/${TOTAL_DISKS} completed | Still writing:${STILL_WRITING} | Elapsed: ${ELAPSED}s"
-                  LAST_UPDATE=${ELAPSED}
-                fi
-              fi
-            fi
-          done
-          
-          if [ ${ALL_DONE} -eq 1 ]; then
-            break
-          fi
-          
-          sleep 2
-        done
-        
-        # Check final status
-        FAILED=0
-        for ((i=0; i<${TOTAL_DISKS}; i++)); do
-          if [ ${EXIT_CODES[$i]} -ne 0 ]; then
-            FAILED=1
-            echo "❌ [${DISKS[$i]}] Write failed with exit code ${EXIT_CODES[$i]}"
-          fi
-        done
-        
-        if [ ${FAILED} -eq 1 ]; then
-          echo ""
-          echo "❌ One or more writes failed. Check the logs above for details."
-          exit 1
-        else
-          echo ""
-          echo "✅ All writes completed successfully!"
-        fi
-      
-  list-disks:
-    desc: Lists the sdcards
-    cmds:
-      - diskutil list
-      # - sudo fdisk -l
-      # udisksctl status
-    silent: true
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/write-incus-disk.sh" "{{.CLI_ARGS}}"
 
-  write-disk:
-    desc: Writes the Talos image to one or more USB drives
-    cmds:
-      - |
-        set -euo pipefail
-        
-        # Validate required variables
-        if [ -z "{{.WINDSOR_CONTEXT}}" ]; then
-          echo "Error: WINDSOR_CONTEXT variable is not defined"
-          echo "Set the context using: windsor context set <context>"
-          exit 1
-        fi
-        
-        if [ -z "{{.RPI_IMAGE_ARCH}}" ]; then
-          echo "Error: RPI_IMAGE_ARCH variable is not defined"
-          echo "RPI_IMAGE_ARCH should be set in the task variables (e.g., metal-arm64, metal-amd64)"
-          exit 1
-        fi
-        
-        if [ -z "{{.USB_DISK}}" ]; then
-          echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
-          echo "Use 'task device:list-disks' to see available disks"
-          exit 1
-        fi
-        
-        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          eval set -- ${CLI_ARGS_STR}
-          DISK_COUNT="${1:-1}"
-          
-          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
-            echo "Error: disk_count must be a positive integer (minimum 1)"
-            echo "Usage: task device:write-disk [-- <disk_count>]"
-            echo "Example: task device:write-disk -- 2"
-            exit 1
-          fi
-          # When argument provided, disk_count represents total number of disks
-          TOTAL_DISKS=${DISK_COUNT}
-        else
-          # No arguments provided, default to 1 disk (write only to base disk)
-          TOTAL_DISKS=1
-        fi
-        
-        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
-        BASE_DISK="{{.USB_DISK}}"
-        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
-          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
-          echo "Current value: ${BASE_DISK}"
-          exit 1
-        fi
-        
-        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
-        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
-        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
-          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
-          exit 1
-        fi
-        DISK_PREFIX="/dev/disk"
-        
-        RAW_FILE="contexts/{{.WINDSOR_CONTEXT}}/devices/{{.RPI_IMAGE_ARCH}}/{{.RPI_IMAGE_ARCH}}.raw"
-        if [ ! -f "${RAW_FILE}" ]; then
-          echo "Error: Image file not found at ${RAW_FILE}"
-          echo "Run 'task device:download-image' first to download the image"
-          exit 1
-        fi
-        
-        # Verify image file exists and has reasonable size
-        IMAGE_SIZE=$(stat -f%z "${RAW_FILE}" 2>/dev/null || stat -c%s "${RAW_FILE}" 2>/dev/null || echo "0")
-        if [ "${IMAGE_SIZE}" -lt 1000000 ]; then
-          echo "Error: Image file appears to be too small (${IMAGE_SIZE} bytes). Please download the image first."
-          exit 1
-        fi
-        echo "Image file size: $(numfmt --to=iec-i --suffix=B ${IMAGE_SIZE} 2>/dev/null || echo "${IMAGE_SIZE} bytes")"
-        echo ""
-        echo "Writing image to ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK} in parallel..."
-        echo ""
-        
-        # Temporarily disable -u for parallel processing (arrays and $!)
-        set +u
-        
-        # Arrays to track background processes
-        declare -a PIDS=()
-        declare -a DISKS=()
-        declare -a LOG_FILES=()
-        
-        # Check if disks are mounted and warn/error
-        MOUNTED_DISKS=()
-        for ((i=0; i<TOTAL_DISKS; i++)); do
-          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
-          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
-          
-          # Check if disk or any of its partitions are mounted (macOS)
-          MOUNTED=$(mount | grep -E "${CURRENT_DISK}(s[0-9]+)?" || true)
-          if [ -n "${MOUNTED}" ]; then
-            echo "✗ Error: ${CURRENT_DISK} or its partitions are mounted!"
-            echo "  Mounted volumes:"
-            echo "${MOUNTED}" | sed "s|^|    |"
-            echo "  Unmount with: diskutil unmountDisk ${CURRENT_DISK}"
-            echo "  Or run: task device:unmount-disk${TOTAL_DISKS:+" -- ${TOTAL_DISKS}"}"
-            MOUNTED_DISKS+=("${CURRENT_DISK}")
-          fi
-          
-          # Also check if disk exists
-          if [ ! -e "${CURRENT_DISK}" ]; then
-            echo "✗ Error: ${CURRENT_DISK} does not exist!"
-            exit 1
-          fi
-        done
-        
-        if [ ${#MOUNTED_DISKS[@]} -gt 0 ]; then
-          echo ""
-          echo "Cannot proceed: ${#MOUNTED_DISKS[@]} disk(s) are mounted. Please unmount them first."
-          exit 1
-        fi
-        echo ""
-        
-        # Start writing to all disks in parallel
-        for ((i=0; i<TOTAL_DISKS; i++)); do
-          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
-          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
-          LOG_FILE="/tmp/dd_${CURRENT_DISK_NUM}.log"
-          
-          DISKS+=("${CURRENT_DISK}")
-          LOG_FILES+=("${LOG_FILE}")
-          
-          # Clear/create log file
-          > "${LOG_FILE}"
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  🚀 STARTING WRITE: ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          # Start dd in background - use jobs to track instead of $!
-          (
-            echo "[${CURRENT_DISK}] Starting write process at $(date)" >> "${LOG_FILE}" 2>&1
-            echo "[${CURRENT_DISK}] Image: ${RAW_FILE} (${IMAGE_SIZE} bytes)" >> "${LOG_FILE}" 2>&1
-            echo "[${CURRENT_DISK}] Target: ${CURRENT_DISK}" >> "${LOG_FILE}" 2>&1
-            
-            # Verify disk exists and is a block device
-            if [ ! -b "${CURRENT_DISK}" ] && [ ! -c "${CURRENT_DISK}" ]; then
-              echo "[${CURRENT_DISK}] Error: ${CURRENT_DISK} is not a block device" >> "${LOG_FILE}" 2>&1
-              echo "[${CURRENT_DISK}] Check that the disk exists and is not mounted" >> "${LOG_FILE}" 2>&1
-              exit 1
-            fi
-            
-            echo "[${CURRENT_DISK}] Disk device verified, starting image write..." >> "${LOG_FILE}" 2>&1
-            
-            # Verify sudo access
-            if ! sudo -n true 2>/dev/null; then
-              echo "[${CURRENT_DISK}] Warning: sudo may prompt for password" >> "${LOG_FILE}" 2>&1
-            fi
-            
-            # Verify we can actually write to the disk (check permissions)
-            if ! sudo test -w "${CURRENT_DISK}" 2>>"${LOG_FILE}"; then
-              echo "[${CURRENT_DISK}] Error: Cannot write to ${CURRENT_DISK} - check permissions" >> "${LOG_FILE}" 2>&1
-              exit 1
-            fi
-            
-            echo "[${CURRENT_DISK}] Starting dd command..." >> "${LOG_FILE}" 2>&1
-            # Use status=progress to show real-time progress, and bs=4M for better performance
-            # Run dd and capture output
-            set +e  # Temporarily disable -e to capture exit code
-            sudo dd if="${RAW_FILE}" of="${CURRENT_DISK}" bs=4M conv=fsync status=progress 2>&1 | tee -a "${LOG_FILE}"
-            PIPE_EXIT=$?
-            set -e  # Re-enable -e
-            
-            # Determine actual exit code by checking the log for success patterns
-            # The pipe exit code is from tee, not dd, so we check the log instead
-            EXIT_CODE=1  # Default to failure
-            if grep -qE "[0-9]+\+[0-9]+ records in" "${LOG_FILE}" 2>/dev/null && \
-               grep -qE "[0-9]+\+[0-9]+ records out" "${LOG_FILE}" 2>/dev/null && \
-               grep -qE "[0-9]+ bytes transferred in" "${LOG_FILE}" 2>/dev/null; then
-              # We see the success patterns, so dd completed successfully
-              EXIT_CODE=0
-            elif [ ${PIPE_EXIT} -eq 0 ] && grep -qE "[0-9]+ bytes transferred" "${LOG_FILE}" 2>/dev/null; then
-              # Pipe succeeded and we see bytes transferred, assume success
-              EXIT_CODE=0
-            fi
-            
-            echo "[${CURRENT_DISK}] dd completed at $(date) with exit code: ${EXIT_CODE}" >> "${LOG_FILE}" 2>&1
-            
-            # Verify the write actually happened by checking disk can be read
-            if [ "${EXIT_CODE}" -eq 0 ]; then
-              echo "[${CURRENT_DISK}] Verifying write..." >> "${LOG_FILE}" 2>&1
-              # Check that we can read from the disk (verifies write happened)
-              if sudo dd if="${CURRENT_DISK}" of=/dev/null bs=1M count=1 2>/dev/null >/dev/null 2>&1; then
-                echo "[${CURRENT_DISK}] Write completed and verified successfully" >> "${LOG_FILE}" 2>&1
-              else
-                echo "[${CURRENT_DISK}] Write reported success but verification failed" >> "${LOG_FILE}" 2>&1
-                EXIT_CODE=1
-              fi
-            else
-              echo "[${CURRENT_DISK}] Write failed with exit code ${EXIT_CODE}" >> "${LOG_FILE}" 2>&1
-            fi
-            exit ${EXIT_CODE}
-          ) &
-          
-          # Track by log file instead of PID (since $! doesn't work reliably in Taskfile)
-          # We'll wait for log files to show completion
-          echo "  ✓ Process started for ${CURRENT_DISK}"
-          echo ""
-        done
-        
-        # Re-enable -u for error checking
-        set -u
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  ✅ ALL WRITE PROCESSES STARTED"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "  Note: This may take 15-30 minutes depending on disk speed and image size."
-        echo ""
-        
-        # Wait a moment for log files to be created
-        sleep 2
-        
-        # Wait for all background processes and collect results
-        set +u  # Temporarily disable -u for array access
-        FAILED=0
-        
-        # Note: We monitor logs programmatically, so we don't need tail processes
-        # This keeps the output clean and focused
-        TAIL_PIDS=()
-        
-        # Wait for all write processes by monitoring log files in parallel
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  📊 MONITORING ALL ${#DISKS[@]} DISK(S) IN PARALLEL"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "  Monitoring progress for:"
-        for ((j=0; j<${#DISKS[@]}; j++)); do
-          echo "    • ${DISKS[$j]}"
-        done
-        echo ""
-        
-        # Initialize completion tracking arrays
-        declare -a COMPLETED=()
-        declare -a EXIT_CODES=()
-        declare -a START_TIMES=()
-        
-        for ((i=0; i<${#DISKS[@]}; i++)); do
-          COMPLETED+=("0")
-          EXIT_CODES+=("1")
-          START_TIMES+=($(date +%s))
-        done
-        
-        # Wait for all disks to complete (check all in parallel)
-        # Calculate max wait based on image size (allow ~30 minutes for 2.3GB at slow speeds)
-        MAX_WAIT=1800  # 30 minutes max (writes can take 20+ minutes on slow USB)
-        ELAPSED=0
-        LAST_PROGRESS=0
-        
-        while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
-          ALL_DONE=1
-          
-          # Check each disk's log file
-          for ((i=0; i<${#DISKS[@]}; i++)); do
-            if [ "${COMPLETED[$i]}" = "0" ]; then
-              DISK=${DISKS[$i]}
-              LOG_FILE=${LOG_FILES[$i]}
-              
-              if [ -f "${LOG_FILE}" ]; then
-                # Check for completion - look for multiple indicators
-                COMPLETED_FLAG=0
-                
-                # Method 1: Check for "dd completed" message (most reliable - has actual exit code)
-                if grep -q "dd completed" "${LOG_FILE}" 2>/dev/null; then
-                  COMPLETED_FLAG=1
-                  EXIT_LINE=$(grep "dd completed.*exit code" "${LOG_FILE}" | tail -n 1)
-                  # Extract exit code from line like "exit code: 0" or "exit code: 1"
-                  if [ -n "${EXIT_LINE}" ]; then
-                    EXIT_CODE_VAL=$(echo "${EXIT_LINE}" | grep -oE "exit code: [0-9]+" | grep -oE "[0-9]+" || echo "1")
-                    if [ "${EXIT_CODE_VAL}" = "0" ]; then
-                      EXIT_CODES[$i]=0
-                    else
-                      EXIT_CODES[$i]=1
-                    fi
-                  else
-                    # If we can't extract exit code, assume failure
-                    EXIT_CODES[$i]=1
-                  fi
-                # Method 2: Check for final dd output (records in + records out + bytes transferred)
-                elif grep -qE "[0-9]+\+[0-9]+ records in" "${LOG_FILE}" 2>/dev/null && \
-                     grep -qE "[0-9]+\+[0-9]+ records out" "${LOG_FILE}" 2>/dev/null && \
-                     grep -qE "[0-9]+ bytes transferred in" "${LOG_FILE}" 2>/dev/null; then
-                  # Give the background process a moment to write the exit code line
-                  sleep 0.5
-                  # Check if we can find the actual exit code in the log
-                  EXIT_LINE=$(grep "dd completed.*exit code" "${LOG_FILE}" | tail -n 1)
-                  if [ -n "${EXIT_LINE}" ]; then
-                    COMPLETED_FLAG=1
-                    EXIT_CODE_VAL=$(echo "${EXIT_LINE}" | grep -oE "exit code: [0-9]+" | grep -oE "[0-9]+" || echo "1")
-                    if [ "${EXIT_CODE_VAL}" = "0" ]; then
-                      EXIT_CODES[$i]=0
-                    else
-                      EXIT_CODES[$i]=1
-                    fi
-                  else
-                    # If we see dd output but no exit code line after waiting, assume success
-                    # (dd clearly completed based on the output patterns)
-                    COMPLETED_FLAG=1
-                    EXIT_CODES[$i]=0
-                  fi
-                # Method 3: Check for just the final "bytes transferred" line (most reliable)
-                elif grep -qE "[0-9]+ bytes transferred in [0-9]+\.[0-9]+ secs" "${LOG_FILE}" 2>/dev/null; then
-                  # Give the background process a moment to write the exit code line
-                  sleep 0.5
-                  # Check if we can find the actual exit code in the log
-                  EXIT_LINE=$(grep "dd completed.*exit code" "${LOG_FILE}" | tail -n 1)
-                  if [ -n "${EXIT_LINE}" ]; then
-                    COMPLETED_FLAG=1
-                    EXIT_CODE_VAL=$(echo "${EXIT_LINE}" | grep -oE "exit code: [0-9]+" | grep -oE "[0-9]+" || echo "1")
-                    if [ "${EXIT_CODE_VAL}" = "0" ]; then
-                      EXIT_CODES[$i]=0
-                    else
-                      EXIT_CODES[$i]=1
-                    fi
-                  else
-                    # If we see dd output but no exit code line after waiting, assume success
-                    # (dd clearly completed based on the output patterns)
-                    COMPLETED_FLAG=1
-                    EXIT_CODES[$i]=0
-                  fi
-                # Method 4: Check for records in/out pattern (backup method)
-                elif grep -qE "[0-9]+\+[0-9]+ records in" "${LOG_FILE}" 2>/dev/null && \
-                     grep -qE "[0-9]+\+[0-9]+ records out" "${LOG_FILE}" 2>/dev/null; then
-                  # Give the background process a moment to write the exit code line
-                  sleep 0.5
-                  # Check if we can find the actual exit code in the log
-                  EXIT_LINE=$(grep "dd completed.*exit code" "${LOG_FILE}" | tail -n 1)
-                  if [ -n "${EXIT_LINE}" ]; then
-                    COMPLETED_FLAG=1
-                    EXIT_CODE_VAL=$(echo "${EXIT_LINE}" | grep -oE "exit code: [0-9]+" | grep -oE "[0-9]+" || echo "1")
-                    if [ "${EXIT_CODE_VAL}" = "0" ]; then
-                      EXIT_CODES[$i]=0
-                    else
-                      EXIT_CODES[$i]=1
-                    fi
-                  else
-                    # If we see dd output but no exit code line after waiting, assume success
-                    # (dd clearly completed based on the output patterns)
-                    COMPLETED_FLAG=1
-                    EXIT_CODES[$i]=0
-                  fi
-                fi
-                
-                if [ ${COMPLETED_FLAG} -eq 1 ]; then
-                  COMPLETED[$i]="1"
-                  DURATION=$(( $(date +%s) - ${START_TIMES[$i]} ))
-                  DURATION_MIN=$((DURATION / 60))
-                  DURATION_SEC=$((DURATION % 60))
-                  
-                  if [ ${EXIT_CODES[$i]} -eq 0 ]; then
-                    echo ""
-                    echo "  ✅ [${DISK}] WRITE COMPLETED SUCCESSFULLY!"
-                    echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                    echo ""
-                  else
-                    echo ""
-                    echo "  ⚠️  [${DISK}] WRITE COMPLETED WITH ERRORS"
-                    echo "     Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-                    echo "     Exit code: ${EXIT_CODES[$i]}"
-                    echo ""
-                  fi
-                fi
-              fi
-              
-              if [ "${COMPLETED[$i]}" = "0" ]; then
-                ALL_DONE=0
-              fi
-            fi
-          done
-          
-          if [ ${ALL_DONE} -eq 1 ]; then
-            break
-          fi
-          
-          sleep 2
-          ELAPSED=$((ELAPSED + 2))
-          
-          # Show progress every 30 seconds for all incomplete disks
-          if [ $((ELAPSED - LAST_PROGRESS)) -ge 30 ]; then
-            INCOMPLETE=""
-            COMPLETED_COUNT=0
-            for ((j=0; j<${#DISKS[@]}; j++)); do
-              if [ "${COMPLETED[$j]}" = "0" ]; then
-                INCOMPLETE="${INCOMPLETE} ${DISKS[$j]}"
-              else
-                COMPLETED_COUNT=$((COMPLETED_COUNT + 1))
-              fi
-            done
-            if [ -n "${INCOMPLETE}" ]; then
-              ELAPSED_MIN=$((ELAPSED / 60))
-              ELAPSED_SEC=$((ELAPSED % 60))
-              echo "  ⏳ Progress: ${COMPLETED_COUNT}/${#DISKS[@]} completed | Still writing:${INCOMPLETE} | Elapsed: ${ELAPSED_MIN}m ${ELAPSED_SEC}s"
-            fi
-            LAST_PROGRESS=${ELAPSED}
-          fi
-        done
-        
-        echo ""
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  📋 PROCESSING RESULTS FOR ALL DISKS"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        
-        # Process results for each disk
-        for ((i=0; i<${#DISKS[@]}; i++)); do
-          DISK=${DISKS[$i]}
-          LOG_FILE=${LOG_FILES[$i]}
-          EXIT_CODE=${EXIT_CODES[$i]}
-          START_TIME=${START_TIMES[$i]}
-          END_TIME=$(date +%s)
-          DURATION=$((END_TIME - START_TIME))
-          DURATION_MIN=$((DURATION / 60))
-          DURATION_SEC=$((DURATION % 60))
-          
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "  📦 DISK: ${DISK}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          
-          if [ "${COMPLETED[$i]}" = "0" ]; then
-            echo "  ⚠️  STATUS: Timeout - process may still be running"
-            echo "  ⏱️  Duration: ${DURATION_MIN}m ${DURATION_SEC}s (timed out)"
-            EXIT_CODE=1
-          else
-            if [ ${EXIT_CODE} -eq 0 ]; then
-              echo "  ✅ STATUS: Write completed successfully"
-            else
-              echo "  ❌ STATUS: Write completed with errors"
-            fi
-            echo "  ⏱️  Duration: ${DURATION_MIN}m ${DURATION_SEC}s"
-          fi
-          echo ""
-          
-          # Check if log shows actual progress/bytes written
-          BYTES_WRITTEN=""
-          if [ -f "${LOG_FILE}" ]; then
-            # Look for dd progress output (e.g., "2355101696 bytes (2.4 GB, 2.2 GiB) copied")
-            BYTES_WRITTEN=$(grep -oE '[0-9]+ bytes.*copied' "${LOG_FILE}" | tail -n 1 || echo "")
-            
-            if [ -z "${BYTES_WRITTEN}" ]; then
-              # Try to find any progress line
-              BYTES_WRITTEN=$(grep -iE '(bytes|MB|GB|MiB|GiB).*(copied|transferred)' "${LOG_FILE}" | tail -n 1 || echo "")
-            fi
-            
-            if [ -n "${BYTES_WRITTEN}" ]; then
-              echo "  [${DISK}] dd reported: ${BYTES_WRITTEN}"
-            else
-              echo "  [${DISK}] Warning: No progress output found in log - dd may not have written data"
-              echo "  [${DISK}] Full log contents:"
-              cat "${LOG_FILE}" | sed "s|^|    [${DISK}] |"
-            fi
-          fi
-          
-          # If it completed in less than 10 seconds, it probably didn't actually write
-          if [ ${DURATION} -lt 10 ] && [ ${EXIT_CODE} -eq 0 ]; then
-            echo "  ⚠ [${DISK}] Warning: Write completed in ${DURATION} seconds - this seems too fast!"
-            echo "    Expected duration: ~$((IMAGE_SIZE / 10000000)) seconds at 10MB/s"
-            echo "    This may indicate the write did not actually occur"
-          fi
-          
-          # Kill the corresponding tail process
-          if [ -n "${TAIL_PIDS[$i]}" ]; then
-            kill ${TAIL_PIDS[$i]} 2>/dev/null || true
-            wait ${TAIL_PIDS[$i]} 2>/dev/null || true
-          fi
-          
-          echo "  🔍 VERIFICATION"
-          echo "  ──────────────────────────────────────────────────────────────────────────"
-          
-          if [ ${EXIT_CODE} -eq 0 ]; then
-            # Verify the write actually happened by comparing disk contents with image
-            echo "  Step 1: Checking if dd reported success..."
-            
-            # Check log for final dd output
-            DD_FINAL=$(grep -iE '(bytes.*copied|records.*in|records.*out|bytes transferred)' "${LOG_FILE}" 2>/dev/null | tail -n 1 || echo "")
-            if [ -n "${DD_FINAL}" ]; then
-              echo "    ✓ dd reported: ${DD_FINAL}"
-            else
-              echo "    ⚠ No final dd output found in log"
-            fi
-            
-            echo ""
-            echo "  Step 2: Comparing disk contents with source image..."
-            IMAGE_SIZE=$(stat -f%z "${RAW_FILE}" 2>/dev/null || stat -c%s "${RAW_FILE}" 2>/dev/null || echo "0")
-            
-            if [ "${IMAGE_SIZE}" = "0" ]; then
-              echo "    ❌ Cannot verify: Could not determine image size"
-              FAILED=1
-            else
-              IMAGE_SIZE_HUMAN=$(numfmt --to=iec-i --suffix=B ${IMAGE_SIZE} 2>/dev/null || echo "${IMAGE_SIZE} bytes")
-              echo "    📏 Image size: ${IMAGE_SIZE_HUMAN}"
-              echo ""
-              
-              # Read first 1MB from both image and disk and compare
-              echo "    🔄 Reading first 1MB from image..."
-              IMAGE_SAMPLE=$(sudo dd if="${RAW_FILE}" bs=1M count=1 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1 || echo "")
-              
-              echo "    🔄 Reading first 1MB from disk..."
-              DISK_SAMPLE=$(sudo dd if="${DISK}" bs=1M count=1 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1 || echo "")
-              
-              if [ -z "${IMAGE_SAMPLE}" ] || [ -z "${DISK_SAMPLE}" ]; then
-                echo ""
-                echo "    ⚠️  Verification warning: Could not read samples for comparison"
-                echo "       Image sample: ${IMAGE_SAMPLE:-"<empty>"}"
-                echo "       Disk sample:  ${DISK_SAMPLE:-"<empty>"}"
-                echo "       Note: Write appears to have succeeded based on dd output, but verification could not be completed"
-                # Don't fail the task - dd output shows success, verification is just a bonus check
-              elif [ "${IMAGE_SAMPLE}" = "${DISK_SAMPLE}" ]; then
-                echo "    ✅ First 1MB matches!"
-                echo ""
-                
-                # Also check a sample from the middle of the image
-                MIDDLE_OFFSET=$((IMAGE_SIZE / 2 / 1048576))
-                echo "    🔄 Reading middle section (offset ${MIDDLE_OFFSET}MB) from image..."
-                IMAGE_MIDDLE=$(sudo dd if="${RAW_FILE}" bs=1M skip=${MIDDLE_OFFSET} count=1 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1 || echo "")
-                
-                echo "    🔄 Reading middle section from disk..."
-                DISK_MIDDLE=$(sudo dd if="${DISK}" bs=1M skip=${MIDDLE_OFFSET} count=1 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1 || echo "")
-                
-                if [ "${IMAGE_MIDDLE}" = "${DISK_MIDDLE}" ]; then
-                  echo ""
-                  echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                  echo "  ✅✅✅ [${DISK}] WRITE VERIFIED SUCCESSFULLY! ✅✅✅"
-                  echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                  echo "     ✓ First 1MB matches source image"
-                  echo "     ✓ Middle section matches source image"
-                  echo "     ✓ Write is complete and correct"
-                  echo ""
-                  # Explicitly ensure FAILED stays 0 on success
-                  # (It should already be 0, but this makes it explicit)
-                else
-                  echo ""
-                  echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                  echo "  ⚠️  [${DISK}] VERIFICATION WARNING ⚠️"
-                  echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                  echo "     ⚠ First 1MB matches, but middle section differs"
-                  echo "     Image middle: ${IMAGE_MIDDLE:0:16}..."
-                  echo "     Disk middle:  ${DISK_MIDDLE:0:16}..."
-                  echo "     Note: Write appears to have succeeded based on dd output, but verification found a mismatch"
-                  echo ""
-                  # Don't fail the task - dd output shows success, this might be a timing/read issue
-                fi
-              else
-                echo ""
-                echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "  ⚠️  [${DISK}] VERIFICATION WARNING ⚠️"
-                echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "     ⚠ First 1MB does NOT match source image"
-                echo "     Image sample: ${IMAGE_SAMPLE:0:32}..."
-                echo "     Disk sample:  ${DISK_SAMPLE:0:32}..."
-                echo "     Note: Write appears to have succeeded based on dd output, but verification could not confirm"
-                echo ""
-                # Don't fail the task - dd output shows success, verification is just a bonus check
-              fi
-            fi
-          else
-            echo "  ❌ STATUS: Write failed"
-            echo "  📄 Exit code: ${EXIT_CODE}"
-            echo "  📋 Log file: ${LOG_FILE}"
-            if [ -f "${LOG_FILE}" ]; then
-              echo ""
-              echo "  Last 20 lines of log:"
-              tail -n 20 "${LOG_FILE}" | sed 's/^/     /'
-            fi
-            FAILED=1
-          fi
-          echo ""
-        done
-        
-        # Kill any remaining tail processes
-        for TAIL_PID in "${TAIL_PIDS[@]}"; do
-          kill ${TAIL_PID} 2>/dev/null || true
-        done
-        
-        set -u  # Re-enable -u
-        
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  📊 FINAL SUMMARY"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        
-        # Clean up log files on success
-        if [ ${FAILED} -eq 0 ]; then
-          for LOG_FILE in "${LOG_FILES[@]}"; do
-            rm -f "${LOG_FILE}"
-          done
-          echo "  ✅✅✅ ALL DISKS WRITTEN AND VERIFIED SUCCESSFULLY! ✅✅✅"
-          echo ""
-          echo "  Successfully wrote image to all ${TOTAL_DISKS} disk(s):"
-          for ((j=0; j<${#DISKS[@]}; j++)); do
-            echo "    • ${DISKS[$j]}"
-          done
-          echo ""
-        else
-          echo "  ❌❌❌ ONE OR MORE DISK WRITES FAILED ❌❌❌"
-          echo ""
-          echo "  Please review the verification results above for details."
-          echo "  Log files are available for inspection if needed."
-          echo ""
-          exit 1
-        fi
-    silent: true
-    
   unmount-disk:
     desc: Unmounts one or more USB disks
     cmds:
       - |
-        set -euo pipefail
-        
-        if [ -z "{{.USB_DISK}}" ]; then
-          echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
-          echo "Use 'task device:list-disks' to see available disks"
-          exit 1
-        fi
-        
-        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          eval set -- ${CLI_ARGS_STR}
-          DISK_COUNT="${1:-1}"
-          
-          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
-            echo "Error: disk_count must be a positive integer (minimum 1)"
-            echo "Usage: task device:unmount-disk [-- <disk_count>]"
-            exit 1
-          fi
-          # When argument provided, disk_count represents total number of disks
-          TOTAL_DISKS=${DISK_COUNT}
-        else
-          # No arguments provided, default to 1 disk (unmount only base disk)
-          TOTAL_DISKS=1
-        fi
-        
-        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
-        BASE_DISK="{{.USB_DISK}}"
-        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
-          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
-          echo "Current value: ${BASE_DISK}"
-          exit 1
-        fi
-        
-        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
-        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
-        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
-          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
-          exit 1
-        fi
-        DISK_PREFIX="/dev/disk"
-        
-        
-        echo "Unmounting ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
-        echo ""
-        
-        # Unmount each disk
-        for ((i=0; i<TOTAL_DISKS; i++)); do
-          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
-          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
-          
-          echo "Unmounting ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
-          diskutil unmountDisk "${CURRENT_DISK}" || {
-            echo "Warning: Failed to unmount ${CURRENT_DISK} (may already be unmounted)"
-          }
-          echo ""
-        done
-        
-        echo "Unmounting completed for ${TOTAL_DISKS} disk(s)"
-        # if on rpi, stop the automount service
-        # sudo systemctl stop udisks2 
-        # sudo umount /dev/sdb
-    silent: true
-    
-  eject-disk:
-    desc: Ejects one or more USB disks
-    depends:
-      - unmount-disk
-    cmds:
-      - |
-        set -euo pipefail
-        
-        if [ -z "{{.USB_DISK}}" ]; then
-          echo "Error: USB_DISK variable is not defined"
-          echo "USB_DISK should specify the first disk device (e.g., /dev/disk4)"
-          echo "Use 'task device:list-disks' to see available disks"
-          exit 1
-        fi
-        
-        # Parse disk_count from CLI_ARGS (optional, defaults to 1 for single disk)
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          eval set -- ${CLI_ARGS_STR}
-          DISK_COUNT="${1:-1}"
-          
-          if ! [[ "${DISK_COUNT}" =~ ^[0-9]+$ ]] || [ "${DISK_COUNT}" -lt 1 ]; then
-            echo "Error: disk_count must be a positive integer (minimum 1)"
-            echo "Usage: task device:eject-disk [-- <disk_count>]"
-            exit 1
-          fi
-          # When argument provided, disk_count represents total number of disks
-          TOTAL_DISKS=${DISK_COUNT}
-        else
-          # No arguments provided, default to 1 disk (eject only base disk)
-          TOTAL_DISKS=1
-        fi
-        
-        # Extract disk number from USB_DISK (e.g., "4" from "/dev/disk4")
-        BASE_DISK="{{.USB_DISK}}"
-        if [[ ! "${BASE_DISK}" =~ ^/dev/disk[0-9]+$ ]]; then
-          echo "Error: USB_DISK must be in format /dev/disk<N> (e.g., /dev/disk4)"
-          echo "Current value: ${BASE_DISK}"
-          exit 1
-        fi
-        
-        # Extract disk number using parameter expansion (more reliable than BASH_REMATCH)
-        BASE_DISK_NUM="${BASE_DISK#/dev/disk}"
-        if [ -z "${BASE_DISK_NUM}" ] || ! [[ "${BASE_DISK_NUM}" =~ ^[0-9]+$ ]]; then
-          echo "Error: Failed to extract valid disk number from USB_DISK: ${BASE_DISK}"
-          exit 1
-        fi
-        DISK_PREFIX="/dev/disk"
-        
-        
-        echo "Ejecting ${TOTAL_DISKS} disk(s) starting from ${BASE_DISK}..."
-        echo ""
-        
-        # Eject each disk
-        for ((i=0; i<TOTAL_DISKS; i++)); do
-          CURRENT_DISK_NUM=$((BASE_DISK_NUM + i))
-          CURRENT_DISK="${DISK_PREFIX}${CURRENT_DISK_NUM}"
-          
-          echo "Ejecting ${CURRENT_DISK} ($((i+1))/${TOTAL_DISKS})..."
-          diskutil eject "${CURRENT_DISK}" || {
-            echo "Warning: Failed to eject ${CURRENT_DISK}"
-          }
-          echo ""
-        done
-        
-        echo "Ejection completed for ${TOTAL_DISKS} disk(s)"
-        # sudo eject /dev/sdb
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/unmount-disk.sh" "{{.CLI_ARGS}}"
     silent: true
 
-  get-disks:
-    desc: Gets the disks
+  eject-disk:
+    desc: Ejects one or more USB disks (unmounts first)
     cmds:
       - |
-        talosctl get disks --insecure --nodes {{.CLI_ARGS}}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/eject-disk.sh" "{{.CLI_ARGS}}"
+    silent: true
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Talos cluster
+  #-----------------------------------------------------------------------------------------------------------------------
+
+  get-disks:
+    desc: Gets the disks from a Talos node
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/get-disks.sh" {{.CLI_ARGS}}
     silent: true
 
   generate-talosconfig:
     desc: Generates the Talos configuration
     cmds:
       - |
-        mkdir -p contexts/{{.WINDSOR_CONTEXT}}/.talos
-        mkdir -p contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
-        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
-        talosctl gen config {{.CLUSTER_NAME}} https://{{.CONTROL_PLANE_IP}}:6443 --install-disk {{.CLI_ARGS}}
-        mv talosconfig ${TALOSCONFIG}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/generate-talosconfig.sh" {{.CLI_ARGS}}
     silent: true
 
   apply-configuration:
     desc: Applies the Talos configuration
     cmds:
       - |
-        set -euo pipefail
-        
-        # Parse IP addresses from CLI_ARGS
-        CLI_ARGS_STR="{{.CLI_ARGS}}"
-        if [ -z "${CLI_ARGS_STR}" ]; then
-          echo "Error: At least one IP address is required (control-plane-ip)"
-          echo "Usage: task device:apply-configuration -- <control-plane-ip> [<worker-ip1> <worker-ip2> ...]"
-          echo "Example: task device:apply-configuration -- 192.168.2.31 192.168.2.111 192.168.2.125"
-          exit 1
-        fi
-        
-        # Parse arguments: first is control plane, rest are workers
-        eval set -- ${CLI_ARGS_STR}
-        CONTROL_PLANE_IP="${1}"
-        
-        # Validate control plane IP format
-        if [[ ! "${CONTROL_PLANE_IP}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-          echo "Error: Invalid control plane IP address format: ${CONTROL_PLANE_IP}"
-          exit 1
-        fi
-                
-        # Verify node is reachable first
-        echo "Checking if node ${CONTROL_PLANE_IP} is reachable..."
-        if ! ping -c 1 -W 2 "${CONTROL_PLANE_IP}" >/dev/null 2>&1; then
-          echo "Warning: Node ${CONTROL_PLANE_IP} is not reachable via ping"
-          echo "Make sure the node has booted and is on the network"
-        fi
-        
-        # Apply configuration to control plane
-        echo "Applying control plane configuration to: ${CONTROL_PLANE_IP}"
-        echo "Note: Nodes must be running Talos (booted from the image) for this to work"
-        talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${CONTROL_PLANE_IP}" --file {{.WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/controlplane.yaml
-        
-        # Apply configuration to worker nodes (if any)
-        shift  # Remove control plane IP from arguments
-        if [ $# -gt 0 ]; then
-          echo ""
-          echo "Applying worker configurations..."
-          for ip in "$@"; do
-            # Validate worker IP format
-            if [[ ! "${ip}" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-              echo "Error: Invalid worker IP address format: ${ip}"
-              exit 1
-            fi
-            
-            # Verify worker node is reachable
-            echo "Checking if worker node ${ip} is reachable..."
-            if ! ping -c 1 -W 2 "${ip}" >/dev/null 2>&1; then
-              echo "Warning: Worker node ${ip} is not reachable via ping"
-              echo "Make sure the node has booted and is on the network"
-            fi
-            
-            echo "Applying config to worker node: ${ip}"
-            talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${ip}" --file {{.WINDSOR_PROJECT_ROOT}}/contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}/worker.yaml
-          done
-        else
-          echo "No worker nodes specified"
-        fi
-        
-        echo ""
-        echo "Configuration applied successfully"
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/apply-configuration.sh" "{{.CLI_ARGS}}"
     silent: true
 
   set-endpoints:
-    desc: Sets the endpoints
+    desc: Sets the Talos API endpoints
     cmds:
       - |
-        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
-        talosctl config endpoints {{.CLI_ARGS}}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/set-endpoints.sh" {{.CLI_ARGS}}
     silent: true
 
-  bootstrap-etc-cluster:    
+  bootstrap-etc-cluster:
     desc: Bootstraps the etcd cluster
     cmds:
       - |
-        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
-        talosctl bootstrap --nodes {{.CLI_ARGS}}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/bootstrap-etc-cluster.sh" {{.CLI_ARGS}}
     silent: true
 
   retrieve-kubeconfig:
     desc: Retrieves the kubeconfig
     cmds:
       - |
-        cd contexts/{{.WINDSOR_CONTEXT}}/clusters/{{.CLUSTER_NAME}}
-        talosctl kubeconfig {{.KUBECONFIG_FILE}} --nodes {{.CLI_ARGS}}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/retrieve-kubeconfig.sh" {{.CLI_ARGS}}
     silent: true
+
+  #-----------------------------------------------------------------------------------------------------------------------
+  # Cluster management
+  #-----------------------------------------------------------------------------------------------------------------------
 
   cluster-health:
     desc: Checks the cluster health
     cmds:
       - |
-        talosctl health --nodes {{.CLI_ARGS}}
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/cluster-health.sh" {{.CLI_ARGS}}
     silent: true
 
   talos-dashboard:
     desc: Runs the Talos dashboard
     cmds:
       - |
-        talosctl dashboard --nodes {{.CLI_ARGS}}
-    silent: true
-
-  format-xfs:
-    desc: Formats the USB disk (Requires Linux)
-    cmds:
-      - echo "Unmount the USB drives in ubuntu"
-      - sudo mkfs.xfs /dev/sda
-      - sudo mkfs.ext4 /dev/sda
-      - sudo apt-get install xfsprogs
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/device/scripts"
+        "${SCRIPT_DIR}/talos-dashboard.sh" {{.CLI_ARGS}}
     silent: true
 
   help:
-    desc: Device releated commands
+    desc: Device-related commands
     cmds:
       - |
         echo "Device"
         echo ""
-        echo "    task device:download-image"
+        echo "Download images:"
+        echo "    task device:download-talos-image"
+        echo "    task device:prepare-incus-image"
+        echo "    task device:download-ubuntu-img"
+        echo ""
+        echo "BIOS update (Intel NUC):"
+        echo "    task device:prepare-bios"
+        echo "    task device:write-bios-disk"
+        echo ""
+        echo "Disks:"
         echo "    task device:list-disks"
-        echo "    task device:write-disk [-- <disk_count>]"
+        echo "    task device:write-talos-disk [-- <disk_count>]"
+        echo "    task device:write-ubuntu-img [-- <disk_count>]"
+        echo "    task device:write-incus-disk [-- <disk_count>]"
         echo "    task device:unmount-disk [-- <disk_count>]"
         echo "    task device:eject-disk [-- <disk_count>]"
-        echo "    task device:get-disks -- <control-plane-ip>"
         echo ""
+        echo "Talos cluster:"
+        echo "    task device:get-disks -- <control-plane-ip>"
         echo "    task device:generate-talosconfig -- <install-disk>"
-        echo "    task device:apply-configuration -- <control-plane-ip> <worker-ip1> <worker-ip2> ..."
+        echo "    task device:apply-configuration -- <control-plane-ip> [<worker-ip1> <worker-ip2> ...]"
         echo "    task device:set-endpoints -- <control-plane-ip>"
         echo "    task device:bootstrap-etc-cluster -- <control-plane-ip>"
         echo "    task device:retrieve-kubeconfig -- <control-plane-ip>"
         echo ""
+        echo "Cluster management:"
         echo "    task device:cluster-health -- <control-plane-ip>"
         echo "    task device:talos-dashboard -- <control-plane-ip>"
     silent: true

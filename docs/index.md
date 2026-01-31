@@ -71,7 +71,7 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 
 - **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
 - **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
-- **[IncusOS Server](./runbooks/incusos/server.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
+- **[IncusOS Server](./runbooks/bootstrapping/nuc-incusos.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
 - **[Ubuntu Virtual Machines](./runbooks/incusos/vm.md)**: Create and manage Ubuntu VMs for development, CI/CD runners, or any workload
 - **[Talos Kubernetes Cluster](./runbooks/incusos/tc.md)**: Deploy a Talos Kubernetes cluster using VMs on IncusOS with Terraform Infrastructure as Code
 - **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
@@ -95,7 +95,7 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 
 ### Taskfile Organization
 
-Tasks are organized into namespaces using the `namespace:task` syntax (e.g., `task sops:decrypt -- <file>` or `task device:write-disk`). Use `task <namespace>:help` to view available tasks, `task help` to open documentation, or `task <namespace>:<task> --dry` to preview commands without executing.
+Tasks are organized into namespaces using the `namespace:task` syntax (e.g., `task sops:decrypt -- <file>` or `task device:write-talos-disk`). Use `task <namespace>:help` to view available tasks, `task help` to open documentation, or `task <namespace>:<task> --dry` to preview commands without executing.
 
 ## How Taskfiles Enhance Runbooks
 
@@ -128,7 +128,7 @@ Many infrastructure tasks involve multiple steps, conditional logic, and error h
 All handled by a single command:
 
 ```bash
-task device:write-disk -- 3  # Write to 3 disks in parallel
+task device:write-talos-disk -- 3  # Write to 3 disks in parallel
 ```
 
 **4. Context-Aware Execution**
@@ -175,7 +175,7 @@ task device:help
 The `--dry` flag shows exactly what commands will be executed without running them. For example:
 
 ```bash
-task device:write-disk --dry
+task device:write-talos-disk --dry
 ```
 
 The `--dry` flag is particularly valuable for learning and adoption. It shows exactly what commands will be executed at the tool level, revealing the underlying operations without actually running them. This transparency helps users understand how taskfiles work, learn the underlying commands, and build confidence before executing tasks in production environments.
@@ -200,14 +200,14 @@ Here's how a runbook step and its corresponding taskfile work together:
 Write the Talos image to your USB memory device:
 
 ```bash
-task device:write-disk
+task device:write-talos-disk
 ```
 
 This will write the image to the disk specified in `USB_DISK` environment variable.
 
 **In the Taskfile**:
 ```yaml
-write-disk:
+write-talos-disk:
   desc: Writes the Talos image to one or more USB drives
   cmds:
     - |
@@ -233,4 +233,4 @@ This integration provides several advantages:
 - **Cross-platform**: Same commands work on macOS, Linux, and other platforms
 - **Reproducible**: Anyone following the runbook gets the same results
 
-Runbooks leverage taskfiles extensively, so you'll see commands like `task device:write-disk` throughout the documentation. These taskfile commands encapsulate complex operations, making the runbooks easier to follow while ensuring consistent, reliable execution.
+Runbooks leverage taskfiles extensively, so you'll see commands like `task device:write-talos-disk` throughout the documentation. These taskfile commands encapsulate complex operations, making the runbooks easier to follow while ensuring consistent, reliable execution.

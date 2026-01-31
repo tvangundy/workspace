@@ -35,20 +35,20 @@ Device management for preparing physical devices, managing disk images, and conf
 
 **Image Management:**
 
-- `task device:download-image` - Download the Talos image
-- `task device:decompress-image` - Decompress the Talos image
-- `task device:download-incus-image` - Download or move IncusOS image to the devices folder
-- `task device:download-ubuntu-iso` - Download or move Ubuntu ISO to the devices folder
+- `task device:download-talos-image` - Download the Talos image
+- `task device:prepare-incus-image` - Copy IncusOS image from Downloads to the devices folder
+- `task device:download-ubuntu-img` - Download or move Ubuntu image to the devices folder
+- `task device:prepare-bios` - Copy BIOS update files to the devices folder
+- `task device:write-bios-disk` - Format USB as FAT32 and copy BIOS files (for Intel NUC BIOS updates)
 
 **Disk Operations:**
 
 - `task device:list-disks` - List available USB disks/SD cards
-- `task device:write-disk [-- <disk_count>]` - Write the Talos image to one or more USB drives
-- `task device:write-ubuntu-iso` - Write the Ubuntu ISO to one or more USB drives
+- `task device:write-talos-disk [-- <disk_count>]` - Write the Talos image to one or more USB drives
+- `task device:write-ubuntu-img` - Write the Ubuntu image to one or more USB drives
 - `task device:write-incus-disk` - Write the IncusOS image to one or more USB drives
 - `task device:unmount-disk [-- <disk_count>]` - Unmount one or more USB disks
 - `task device:eject-disk [-- <disk_count>]` - Eject one or more USB disks
-- `task device:format-xfs` - Format USB disk as XFS (requires Linux)
 - `task device:get-disks -- <control-plane-ip>` - Get disk information from a Talos node
 
 **Talos Configuration:**
