@@ -107,6 +107,25 @@ task runner:destroy -- <runner-name>
 
 This stops the runner service, unregisters it from GitHub, and destroys the VM. Use `runner:destroy` (not only `vm:destroy`) so the runner is removed from GitHub.
 
+## INCUS_TRUST_TOKEN (for runners that run Incus VM tests)
+
+When this runner executes workflows that create VMs and configure Incus remotes (e.g., Incus VM Tests), store the Incus trust token in the runner's environment so the action gets it from the device it's running on.
+
+**Generate the token** on the Incus server (or from a host with Incus access):
+
+```bash
+incus config trust add <client-name>
+# Copy the token from the output
+```
+
+**Set on the runner** (choose one):
+
+- **systemd service**: Add `Environment="INCUS_TRUST_TOKEN=<token>"` to the runner's service file
+- **Runner .env**: Add `INCUS_TRUST_TOKEN=<token>` to `.env` in the runner directory (if your runner loads it)
+- **GitHub secret**: Add `INCUS_TRUST_TOKEN` as a repo secret; the workflow passes `secrets.INCUS_TRUST_TOKEN` to the action
+
+The script prefers `INCUS_TRUST_TOKEN` from the environment over generating a token at runtime.
+
 ## Troubleshooting
 
 - **Runner not in GitHub**: Check token is correct and not expired; check logs: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo journalctl -u actions.runner.*.service -n 50`
@@ -117,4 +136,4 @@ This stops the runner service, unregisters it from GitHub, and destroys the VM. 
 
 - [IncusOS Server](../../bootstrapping/nuc-incusos.md)
 - [Ubuntu VMs](../../incusos/vm.md)
-- [Runner Taskfile](../../../taskfiles/runner/README.md)
+- [VM Taskfile](../../../taskfiles/vm/README.md) (includes `--runner` and `instantiate:add-runner-if-requested`)

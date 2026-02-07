@@ -7,7 +7,7 @@ tasks:
 
   instantiate:
     silent: true
-    desc: "Create and bootstrap a Talos cluster on Incus. Usage: task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]"
+    desc: "Create and bootstrap a Talos cluster on Incus. Usage: task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
     cmds:
       - task: instantiate:parse-args
       - task: instantiate:initialize-context
@@ -113,7 +113,7 @@ tasks:
 
   instantiate:cleanup-if-needed:
     silent: true
-    desc: "Destroy cluster unless --keep was set"
+    desc: "Destroy cluster if --destroy was set"
     cmds:
       - |
         SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/tc/scripts"
@@ -244,18 +244,19 @@ tasks:
         echo "Talos Cluster (Incus)"
         echo ""
         echo "Create cluster:"
-        echo "    task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]"
+        echo "    task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
         echo "      Creates and bootstraps a Talos cluster."
         echo "      Arguments:"
         echo "        <remote-name>          Required: Name of the Incus remote"
+        echo "        <remote-ip>            Required: IP address of the Incus remote"
         echo "        <cluster-name>         Optional: Name for the cluster (default: 'talos-test-cluster')"
         echo "      Options:"
-        echo "        --keep, --no-cleanup    Keep cluster running (default: destroy after bootstrap)"
+        echo "        --destroy               Destroy cluster at end (default: keep cluster running)"
         echo ""
         echo "Examples:"
-        echo "    task tc:instantiate -- nuc"
-        echo "    task tc:instantiate -- nuc my-cluster"
-        echo "    task tc:instantiate -- nuc my-cluster --keep"
+        echo "    task tc:instantiate -- nuc 192.168.2.101"
+        echo "    task tc:instantiate -- nuc 192.168.2.101 my-cluster"
+        echo "    task tc:instantiate -- nuc 192.168.2.101 my-cluster --destroy"
         echo ""
         echo "List clusters:"
         echo "    task tc:list"

@@ -1,33 +1,44 @@
 #!/usr/bin/env bash
-# Parse CLI arguments for tc:instantiate. Exports TEST_REMOTE_NAME, SKIP_CLEANUP, CLUSTER_NAME.
-# Source this script to inherit exports. Writes .tc-instantiate.env for other scripts.
+# Parse CLI arguments for tc:instantiate. Exports TEST_REMOTE_NAME, INCUS_REMOTE_IP, SKIP_CLEANUP, CLUSTER_NAME.
+# Source this script to inherit exports. Writes .workspace/.tc-instantiate.env for other scripts.
 set -euo pipefail
 
 CLI_ARGS_STR="${1:-}"
 
 if [ -z "${CLI_ARGS_STR}" ]; then
-  echo "Error: Remote name is required"
-  echo "Usage: task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]"
+  echo "Error: INCUS_REMOTE_NAME and INCUS_REMOTE_IP are required"
+  echo "Usage: task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
   echo ""
   echo "Arguments:"
   echo "  <remote-name>          Required: Name of the Incus remote"
+  echo "  <remote-ip>            Required: IP address of the Incus remote"
   echo "  <cluster-name>         Optional: Name for the cluster (default: 'talos-test-cluster')"
   echo ""
   echo "Options:"
-  echo "  --keep, --no-cleanup    Keep cluster running (default: destroy after bootstrap)"
+  echo "  --destroy               Destroy cluster at end of instantiate (default: keep cluster)"
   echo ""
   echo "Examples:"
-  echo "  task tc:instantiate -- nuc"
-  echo "  task tc:instantiate -- nuc my-cluster"
-  echo "  task tc:instantiate -- nuc my-cluster --keep"
+  echo "  task tc:instantiate -- nuc 192.168.2.101"
+  echo "  task tc:instantiate -- nuc 192.168.2.101 my-cluster"
+  echo "  task tc:instantiate -- nuc 192.168.2.101 my-cluster --destroy"
   exit 1
 fi
 
-SKIP_CLEANUP=false
+# Default: keep cluster (skip cleanup). --destroy sets SKIP_CLEANUP=false to run cleanup.
+SKIP_CLEANUP=true
 CLUSTER_NAME_ARG=""
 
 eval set -- ${CLI_ARGS_STR}
 TEST_REMOTE_NAME="${1}"
+shift || true
+
+# Remote IP is required (second positional argument)
+if [ $# -eq 0 ] || [[ "${1}" =~ ^-- ]]; then
+  echo "Error: <remote-ip> is required"
+  echo "Usage: task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
+  exit 1
+fi
+INCUS_REMOTE_IP_ARG="${1}"
 shift || true
 
 # Check for cluster name (if next arg is not a flag, it's the cluster name)
@@ -38,8 +49,8 @@ fi
 
 while [ $# -gt 0 ]; do
   case "${1}" in
-    --keep|--no-cleanup)
-      SKIP_CLEANUP=true
+    --destroy)
+      SKIP_CLEANUP=false
       shift
       ;;
     *)
@@ -78,15 +89,18 @@ else
 fi
 
 export TEST_REMOTE_NAME
+export INCUS_REMOTE_IP="${INCUS_REMOTE_IP_ARG}"
 export SKIP_CLEANUP
 export INCUS_REMOTE_NAME="${TEST_REMOTE_NAME}"
 export CLUSTER_NAME
 
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.tc-instantiate.env"
+mkdir -p "${PROJECT_ROOT}/.workspace"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.tc-instantiate.env"
 {
+  echo "export CLUSTER_NAME='${CLUSTER_NAME}'"
+  echo "export INCUS_REMOTE_IP='${INCUS_REMOTE_IP}'"
+  echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
   echo "export TEST_REMOTE_NAME='${TEST_REMOTE_NAME}'"
   echo "export SKIP_CLEANUP='${SKIP_CLEANUP}'"
-  echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
-  echo "export CLUSTER_NAME='${CLUSTER_NAME}'"
 } > "${ENV_FILE}"

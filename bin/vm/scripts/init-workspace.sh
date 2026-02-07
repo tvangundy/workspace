@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
@@ -16,16 +16,16 @@ TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
 if [ "${SKIP_WORKSPACE:-false}" = "true" ]; then
   VM_INIT_WORKSPACE="false"
 else
-  VM_INIT_WORKSPACE="${VM_INIT_WORKSPACE:-true}"
+  VM_INIT_WORKSPACE="${VM_INIT_WORKSPACE:-false}"
 fi
 
-# Skip if workspace initialization is disabled
+# Skip if workspace initialization is disabled (only run when --workspace was passed)
 if [ "${VM_INIT_WORKSPACE}" != "true" ]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Step: Workspace Initialization (skipped)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Workspace initialization is disabled (--no-workspace flag was set)"
+  echo "  Workspace initialization is disabled (pass --workspace to enable)"
   exit 0
 fi
 
@@ -68,6 +68,9 @@ set +e  # Temporarily disable exit on error
 # Create tar archive excluding common directories
 cd "${PROJECT_ROOT}"
 tar --exclude='.git' \
+    --exclude='.volumes' \
+    --exclude='.windsor' \
+    --exclude='.workspace' \
     --exclude='node_modules' \
     --exclude='.terraform' \
     --exclude='.terraform.tfstate*' \
@@ -196,7 +199,7 @@ else
     echo "  INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
     echo "  VM_INIT_WORKSPACE: ${VM_INIT_WORKSPACE}"
     echo "  VM_INSTANCE_NAME: ${VM_NAME}"
-    echo "  VM_IMAGE: ${VM_IMAGE:-ubuntu/24.04}"
+    echo "  VM_IMAGE: ${VM_IMAGE:-ubuntu/25.04}"
     echo "  VM_MEMORY: ${VM_MEMORY:-16GB}"
     echo "  VM_CPU: ${VM_CPU:-4}"
     echo "  VM_DISK_SIZE: ${VM_DISK_SIZE:-100GB}"

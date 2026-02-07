@@ -10,7 +10,7 @@ load_tc_env
 
 # Get project root and set ENV_FILE
 PROJECT_ROOT=$(get_windsor_project_root)
-ENV_FILE="${PROJECT_ROOT}/.tc-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.tc-instantiate.env"
 
 log_step "Initializing Windsor context and creating cluster configuration"
 
@@ -42,21 +42,14 @@ WORKER_1_MAC="${WORKER_1_MAC:-10:66:6a:32:10:2f}"
 
 CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
 
-# Determine which context directory to use
-# If there's an active context, use that directory; otherwise use CLUSTER_NAME
-ACTIVE_CONTEXT=""
-if command -v windsor > /dev/null 2>&1; then
+# Context directory: WINDSOR_CONTEXT takes precedence over CLUSTER_NAME
+ACTIVE_CONTEXT="${WINDSOR_CONTEXT:-}"
+if [ -z "${ACTIVE_CONTEXT}" ] && command -v windsor >/dev/null 2>&1; then
   ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-  fi
 fi
-
 if [ -n "${ACTIVE_CONTEXT}" ]; then
-  # Use active context directory
   TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}"
 else
-  # No active context, use CLUSTER_NAME
   TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${CLUSTER_NAME}"
 fi
 
@@ -242,42 +235,17 @@ else
   } > "${TEST_WINDSOR_YAML}"
 fi
 
-# Only initialize Windsor context if it doesn't already exist
-# Don't switch contexts - keep the active context if one exists
+# Ensure Windsor context exists for the cluster (don't switch active context)
 if command -v windsor > /dev/null 2>&1; then
-  # Check if there's an active context
-  ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-  fi
-  
-  if [ -n "${ACTIVE_CONTEXT}" ]; then
-    # Active context exists - keep it active, don't switch
-    log_info "Using active Windsor context '${ACTIVE_CONTEXT}' (cluster will be named '${CLUSTER_NAME}')"
-    # If windsor.yaml exists in the context directory, the context is effectively initialized
-    # Only check Windsor's context list if windsor.yaml doesn't exist
-    if [ ! -f "${TEST_WINDSOR_YAML}" ]; then
-      # windsor.yaml doesn't exist - check if context is registered with Windsor
-      if ! windsor context list --format csv 2>/dev/null | grep -q "^${ACTIVE_CONTEXT},"; then
-        log_info "Initializing Windsor context '${ACTIVE_CONTEXT}'..."
-        windsor init --context "${ACTIVE_CONTEXT}" --backend local --config-dir "${CONTEXTS_DIR}/${ACTIVE_CONTEXT}" > /dev/null 2>&1 || true
-      fi
-    fi
-    # If windsor.yaml exists, context is valid regardless of Windsor's list
-  else
-    # No active context - check if context exists for cluster name, or create one
-    if windsor context list --format csv 2>/dev/null | grep -q "^${CLUSTER_NAME},"; then
-      log_info "Windsor context '${CLUSTER_NAME}' already exists, setting as active"
-      windsor context set "${CLUSTER_NAME}" > /dev/null 2>&1 || true
-    else
-      log_info "Initializing new Windsor context '${CLUSTER_NAME}'"
-      windsor init --context "${CLUSTER_NAME}" --backend local --config-dir "${TEST_CONTEXT_DIR}" > /dev/null 2>&1 || \
-      windsor context set "${CLUSTER_NAME}" > /dev/null 2>&1 || true
+  if [ ! -f "${TEST_WINDSOR_YAML}" ]; then
+    if ! windsor context list --format csv 2>/dev/null | grep -q "^${CLUSTER_NAME},"; then
+      log_info "Initializing Windsor context '${CLUSTER_NAME}'"
+      windsor init --context "${CLUSTER_NAME}" --backend local --config-dir "${TEST_CONTEXT_DIR}" > /dev/null 2>&1 || true
     fi
   fi
 fi
 
-# Update .tc-instantiate.env with context vars for later scripts
+# Update .workspace/.tc-instantiate.env with context vars for later scripts
 # Remove old VM name exports first to avoid conflicts, then append new values
 if [ -f "${ENV_FILE}" ]; then
   # Remove old VM name exports if they exist
@@ -286,13 +254,13 @@ if [ -f "${ENV_FILE}" ]; then
   rm -f "${ENV_FILE}.bak" 2>/dev/null || true
 fi
 
-# Determine context name for export (use active context if available, otherwise CLUSTER_NAME)
+# Context for export: use WINDSOR_CONTEXT when set, else CLUSTER_NAME
 CONTEXT_NAME_FOR_EXPORT="${ACTIVE_CONTEXT:-${CLUSTER_NAME}}"
 
-# Append context vars to .tc-instantiate.env for later scripts
+# Append context vars to .workspace/.tc-instantiate.env for later scripts
+# Note: WINDSOR_CONTEXT is defined by Windsor, not exported here
 {
   echo "export CLUSTER_NAME='${CLUSTER_NAME}'"
-  echo "export WINDSOR_CONTEXT='${CONTEXT_NAME_FOR_EXPORT}'"
   echo "export CONTROL_PLANE_VM='${CONTROL_PLANE_VM}'"
   echo "export WORKER_0_VM='${WORKER_0_VM}'"
   echo "export WORKER_1_VM='${WORKER_1_VM}'"
@@ -317,8 +285,8 @@ CONTEXT_NAME_FOR_EXPORT="${ACTIVE_CONTEXT:-${CLUSTER_NAME}}"
   echo "export WORKER_1_MAC='${WORKER_1_MAC}'"
 } >> "${ENV_FILE}"
 
-# Determine context name for message
-CONTEXT_NAME_FOR_MSG="${ACTIVE_CONTEXT:-${CLUSTER_NAME}}"
+# Context name for message
+CONTEXT_NAME_FOR_MSG="${CONTEXT_NAME_FOR_EXPORT}"
 if [ -f "${TEST_WINDSOR_YAML}" ]; then
   echo "✅ Updated ${TEST_WINDSOR_YAML} in context '${CONTEXT_NAME_FOR_MSG}'"
 else

@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
@@ -462,10 +462,28 @@ install_windsor() {
       echo \"  ✅ windsorcli/cli tapped successfully\"
       
       echo \"  Installing windsor...\"
-      if ! brew install windsor; then
-        echo \"❌ Failed to install Windsor via Homebrew\"
-        exit 1
-      fi
+      # Write to file to avoid broken pipe when streaming through incus exec (common with large formulae)
+      WINDSOR_LOG=\"/tmp/windsor-install.log\"
+      MAX_RETRIES=2
+      RETRY=0
+      while [ \${RETRY} -le \${MAX_RETRIES} ]; do
+        if brew install windsor > \"\${WINDSOR_LOG}\" 2>&1; then
+          break
+        fi
+        RETRY=\$((RETRY + 1))
+        if [ \${RETRY} -le \${MAX_RETRIES} ]; then
+          echo \"  ⚠️  Windsor install failed (attempt \${RETRY}/\${MAX_RETRIES}), retrying in 10s...\"
+          tail -15 \"\${WINDSOR_LOG}\" || true
+          sleep 10
+        else
+          echo \"❌ Failed to install Windsor via Homebrew after \${MAX_RETRIES} retries\"
+          echo \"   Last 30 lines of log:\"
+          tail -30 \"\${WINDSOR_LOG}\" || true
+          rm -f \"\${WINDSOR_LOG}\"
+          exit 1
+        fi
+      done
+      rm -f \"\${WINDSOR_LOG}\"
       echo \"  ✅ Windsor package installed successfully\"
       
       # Verify installation - ensure windsor binary actually exists

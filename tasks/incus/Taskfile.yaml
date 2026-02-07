@@ -10,11 +10,11 @@ tasks:
       - |
         # Open Incus web UI in browser
         if [[ "$(uname)" == "Darwin" ]]; then
-          open https://{{.INCUS_REMOTE_IP_0}}:8443/
+          open https://{{.INCUS_REMOTE_IP}}:8443/
         elif [[ "$(uname)" == "Linux" ]]; then
-          xdg-open https://{{.INCUS_REMOTE_IP_0}}:8443/ 2>/dev/null || sensible-browser https://{{.INCUS_REMOTE_IP_0}}:8443/ 2>/dev/null || echo "Please open https://{{.INCUS_REMOTE_IP_0}}:8443/ in your browser"
+          xdg-open https://{{.INCUS_REMOTE_IP}}:8443/ 2>/dev/null || sensible-browser https://{{.INCUS_REMOTE_IP}}:8443/ 2>/dev/null || echo "Please open https://{{.INCUS_REMOTE_IP}}:8443/ in your browser"
         else
-          echo "Please open https://{{.INCUS_REMOTE_IP_0}}:8443/ in your browser"
+          echo "Please open https://{{.INCUS_REMOTE_IP}}:8443/ in your browser"
         fi
 
   create-instance:
@@ -39,7 +39,7 @@ tasks:
         fi
         
         echo "Creating Incus instance: ${INSTANCE_NAME}"
-        incus launch images:ubuntu/24.04 "${INSTANCE_NAME}"
+        incus launch images:ubuntu/25.04 "${INSTANCE_NAME}"
         
   delete-instance:
     desc: Deletes an Incus instance (defaults to UBUNTU_GITHUB_RUNNER_0_NAME if no name provided)

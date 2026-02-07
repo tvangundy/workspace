@@ -43,14 +43,15 @@ Create and bootstrap a three-node Talos Kubernetes cluster using Terraform. This
 **Usage:**
 
 ```bash
-task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
+task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]
 ```
 
 **Parameters:**
 
 - `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<remote-ip>` (required): IP address of the Incus remote
 - `<cluster-name>` (optional): Name for the cluster (default: `talos-test-cluster`)
-- `--keep`, `--no-cleanup` (optional): Keep cluster running after creation (default: destroy cluster if used in test context)
+- `--destroy` (optional): Destroy cluster at end of instantiate (default: keep cluster)
 
 **What it does:**
 
@@ -66,19 +67,19 @@ task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
 10. Regenerates `terraform.tfvars` with IPs and applies Talos configuration
 11. Retrieves kubeconfig from the cluster
 12. Displays final summary with cluster information
-13. Optionally cleans up cluster (unless `--keep` is used)
+13. Optionally cleans up cluster (when `--destroy` is used)
 
 **Examples:**
 
 ```bash
 # Create a cluster on remote 'nuc' with default name
-task tc:instantiate -- nuc
+task tc:instantiate -- nuc 192.168.2.101
 
 # Create a cluster with custom name
-task tc:instantiate -- nuc my-cluster
+task tc:instantiate -- nuc 192.168.2.101 my-cluster
 
-# Create a cluster and keep it running
-task tc:instantiate -- nuc my-cluster --keep
+# Create a cluster and destroy it at the end (e.g. for CI)
+task tc:instantiate -- nuc 192.168.2.101 my-cluster --destroy
 ```
 
 **Note:** The `instantiate` task handles the complete cluster creation and bootstrapping process automatically, including IP address detection and Talos configuration.
@@ -246,6 +247,7 @@ task tc:delete [-- <cluster-name>]
 The following environment variables can be set in your `contexts/<context>/windsor.yaml` configuration:
 
 - `INCUS_REMOTE_NAME`: Incus remote name (required). Examples: `local`, `nuc`, `remote-server`
+- `INCUS_REMOTE_IP`: Incus remote IP address (required; passed as CLI argument)
 - `CLUSTER_NAME`: Cluster name. Default: `talos-cluster`
 - `CONTROL_PLANE_VM`: Control plane VM name. Default: `talos-cp`
 - `WORKER_0_VM`: Worker 0 VM name. Default: `talos-worker-0`

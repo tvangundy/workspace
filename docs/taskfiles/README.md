@@ -11,7 +11,7 @@ Tasks are organized into namespaces, each focusing on a specific area of infrast
 
 For example, to create a virtual machine:
 ```bash
-task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
+task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--workspace] [--windsor-up]
 ```
 
 ## Namespace Overview
@@ -22,8 +22,7 @@ task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--wi
 - **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
 - **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
 - **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
-- **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments
-- **`runner:`** - GitHub Actions runner management for creating and managing self-hosted runners on Incus VMs
+- **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners (`--runner`)
 - **`vhs:`** - Terminal session recording and GIF generation for documentation
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
 
@@ -169,7 +168,7 @@ Talos Linux cluster health checks and management.
 Talos Kubernetes cluster management for creating and managing three-node Talos Linux clusters on Incus using Terraform.
 
 **Cluster Creation:**
-- `task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]` - Create and bootstrap a three-node Talos Kubernetes cluster using Terraform
+- `task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]` - Create and bootstrap a three-node Talos Kubernetes cluster using Terraform
 
 **Cluster Management:**
 - `task tc:list` - List all cluster VMs
@@ -186,7 +185,7 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform.
 
 **Instance Creation:**
-- `task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]` - Create an Ubuntu VM instance using Terraform with complete developer environment setup
+- `task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--workspace] [--windsor-up]` - Create an Ubuntu VM instance using Terraform with complete developer environment setup
 
 **Terraform Operations:**
 - `task vm:generate-tfvars` - Generate terraform.tfvars from environment variables
@@ -204,20 +203,6 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 - `task vm:help` - Show all vm commands
 
 **Note:** VM start/stop/restart, info, shell, and exec are done via the **Incus** CLI: `incus start/stop/restart/info/exec $INCUS_REMOTE_NAME:<instance-name>`.
-
-### 🏃 GitHub Actions Runner (`runner:`)
-
-GitHub Actions runner management for creating and managing self-hosted runners on Incus VMs.
-
-**Runner Creation:**
-- `task runner:instantiate -- <remote-name> [<runner-name>] [--keep]` - Create a GitHub Actions runner VM with complete setup
-
-**Runner Management:**
-- `task runner:status [-- <runner-name>]` - Check status of GitHub Actions runner service
-- `task runner:destroy [-- <runner-name>]` - Destroy runner VM and remove it from GitHub repository
-
-**Help:**
-- `task runner:help` - Show all runner commands
 
 ### 🎬 VHS (`vhs:`)
 
@@ -241,7 +226,8 @@ Workspace initialization and management.
 
 **Operations:**
 
-- `task workspace:initialize -- <workspace-name> <workspace-global-path>` - Initialize a new workspace by cloning the workspace repository
+- `task workspace:instantiate -- <workspace-name> <workspace-path>` - Instantiate a new workspace by cloning the workspace repository
+- `task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>` - Overwrite `tasks/` and `bin/` in destination with contents from source
 - `task workspace:clean` - Clean up Docker images and containers
 
 **Help:**
@@ -273,9 +259,9 @@ Many tasks support default values from environment variables. For example:
 **Task Arguments:**
 Tasks accept arguments using the `--` separator:
 ```bash
-task vm:instantiate -- nuc my-vm --keep
-task runner:instantiate -- nuc my-runner
-task tc:instantiate -- nuc my-cluster --keep
+task vm:instantiate -- nuc 192.168.2.100 my-vm --runner
+task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace --windsor-up
+task tc:instantiate -- nuc 192.168.2.101 my-cluster
 task device:apply-configuration -- 192.168.1.100 192.168.1.101 192.168.1.102
 ```
 
@@ -289,8 +275,7 @@ All task definitions are located in the `tasks/` directory, organized by namespa
 - `tasks/sops/Taskfile.yaml`
 - `tasks/talos/Taskfile.yaml`
 - `tasks/tc/Taskfile.yaml` (Talos Kubernetes cluster management)
-- `tasks/vm/Taskfile.yaml` (VM management and development environments)
-- `tasks/runner/Taskfile.yaml` (GitHub Actions runner management)
+- `tasks/vm/Taskfile.yaml` (VM management, development environments, and `--runner` GitHub Actions runner setup)
 - `tasks/vhs/Taskfile.yaml`
 - `tasks/workspace/Taskfile.yaml`
 

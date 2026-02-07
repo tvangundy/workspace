@@ -41,6 +41,7 @@ Add to `contexts/<context>/windsor.yaml`:
 ```yaml
 environment:
   INCUS_REMOTE_NAME: "nuc"
+  INCUS_SERVER_IP: 192.168.2.101
   CLUSTER_NAME: "talos-vm-cluster"
   CONTROL_PLANE_VM: "talos-cp"
   WORKER_0_VM: "talos-worker-0"

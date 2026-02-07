@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
@@ -13,8 +13,11 @@ VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"
 VM_NAME="${VM_NAME:-vm}"
 TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
 
+# TERRAFORM_PATH: subdir under terraform/ (e.g. vm). From first arg or env, default "vm"
+TERRAFORM_PATH="${1:-${TERRAFORM_PATH:-vm}}"
+
 # Check Terraform state first to see if there's a VM managed by Terraform with a different name
-TERRAFORM_DIR="${PROJECT_ROOT}/terraform/vm"
+TERRAFORM_DIR="${PROJECT_ROOT}/terraform/${TERRAFORM_PATH}"
 TERRAFORM_STATE_VM_NAME=""
 
 if [ -d "${TERRAFORM_DIR}" ]; then
@@ -32,18 +35,17 @@ if [ -d "${TERRAFORM_DIR}" ]; then
         NAME_LINE=$(terraform state show incus_instance.vm 2>/dev/null | grep -E '^\s+name\s*=' | head -1)
         if [ -n "${NAME_LINE}" ]; then
           # Extract value - handle both quoted and unquoted formats
-          # First try to extract quoted value: name = "runner"
-          TERRAFORM_STATE_VM_NAME=$(echo "${NAME_LINE}" | sed -E 's/.*name\s*=\s*"([^"]*)".*/\1/')
-          # If that didn't work (no quotes found), try unquoted: name = runner
+          # terraform state show can output: name = "dev-runner" or name = "dev-runner (no closing quote on same line)
+          TERRAFORM_STATE_VM_NAME=$(echo "${NAME_LINE}" | sed -E 's/.*name[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/')
+          # If that didn't work (no matching quotes), take everything after = and clean it
           if [ -z "${TERRAFORM_STATE_VM_NAME}" ] || [ "${TERRAFORM_STATE_VM_NAME}" = "${NAME_LINE}" ]; then
-            TERRAFORM_STATE_VM_NAME=$(echo "${NAME_LINE}" | sed -E 's/.*name\s*=\s*([^[:space:]]+).*/\1/')
+            TERRAFORM_STATE_VM_NAME=$(echo "${NAME_LINE}" | sed -E 's/.*name[[:space:]]*=[[:space:]]*(.+)/\1/' | tr -d '[:space:]')
           fi
-          # Clean up any remaining quotes, special characters, and whitespace
-          TERRAFORM_STATE_VM_NAME=$(echo "${TERRAFORM_STATE_VM_NAME}" | sed 's/^[[:space:]]*"//;s/"[[:space:]]*$//' | sed "s/^[[:space:]]*'//;s/'[[:space:]]*$//" | tr -d '[:space:]')
-          # Additional safety check: if it still contains "name=", something went wrong
+          # Strip all leading/trailing quotes and whitespace (handles "dev-runner, "dev-runner", etc.)
+          TERRAFORM_STATE_VM_NAME=$(echo "${TERRAFORM_STATE_VM_NAME}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed -e 's/^["'\'']*//' -e 's/["'\'']*$//' | tr -d '[:space:]')
+          # If it still contains "name=" or looks like the raw line, try to pluck a quoted substring
           if echo "${TERRAFORM_STATE_VM_NAME}" | grep -q "name="; then
-            # Try a more aggressive extraction
-            TERRAFORM_STATE_VM_NAME=$(echo "${TERRAFORM_STATE_VM_NAME}" | sed -E 's/.*"([^"]+)".*/\1/' | sed -E 's/.*=([^[:space:]]+).*/\1/' | tr -d '[:space:]')
+            TERRAFORM_STATE_VM_NAME=$(echo "${TERRAFORM_STATE_VM_NAME}" | sed -E 's/.*"([^"]+)".*/\1/' | sed -e 's/^["'\'']*//' -e 's/["'\'']*$//' | tr -d '[:space:]')
           fi
         fi
       fi
@@ -59,12 +61,16 @@ if incus list "${TEST_REMOTE_NAME}:${VM_NAME}" --format csv -c n 2>/dev/null | g
   VM_EXISTS_IN_INCUS=true
 fi
 
-# If Terraform state has the same VM name, we can reuse it - skip destroy and continue
+# If Terraform state has the same VM name, only skip creation when the VM actually exists in Incus
 if [ -n "${TERRAFORM_STATE_VM_NAME}" ] && [ "${TERRAFORM_STATE_VM_NAME}" = "${VM_NAME}" ]; then
-  echo "ℹ️  Terraform state already has VM '${VM_NAME}' - reusing existing VM"
-  echo "   Skipping VM creation, continuing with setup..."
-  # Skip the terraform apply step - VM already exists
-  SKIP_TERRAFORM_APPLY=true
+  if [ "${VM_EXISTS_IN_INCUS}" = "true" ]; then
+    echo "ℹ️  Terraform state already has VM '${VM_NAME}' - reusing existing VM"
+    echo "   Skipping VM creation, continuing with setup..."
+    SKIP_TERRAFORM_APPLY=true
+  else
+    echo "ℹ️  Terraform state references VM '${VM_NAME}' but it does not exist in Incus - creating it"
+    SKIP_TERRAFORM_APPLY=false
+  fi
 elif [ -n "${TERRAFORM_STATE_VM_NAME}" ] && [ "${TERRAFORM_STATE_VM_NAME}" != "${VM_NAME}" ]; then
   # Validate that TERRAFORM_STATE_VM_NAME is a clean value (no special characters that would break commands)
   if [[ ! "${TERRAFORM_STATE_VM_NAME}" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
@@ -122,6 +128,9 @@ if [ "${VM_EXISTS_IN_INCUS}" = "true" ] && [ "${SKIP_TERRAFORM_APPLY:-false}" !=
   task vm:destroy -- ${VM_NAME} || true
   sleep 5
 fi
+
+# Export WINDSOR_PROJECT_ROOT so terraform:init (and other tasks) can resolve {{.WINDSOR_PROJECT_ROOT}}
+export WINDSOR_PROJECT_ROOT="${PROJECT_ROOT}"
 
 # Generate terraform.tfvars
 task vm:generate-tfvars

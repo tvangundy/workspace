@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi

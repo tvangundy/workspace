@@ -613,3 +613,4 @@ else
   echo "  Log files are available for inspection if needed."
   echo ""
   exit 1
+fi

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cleanup Talos cluster if --keep flag was not set.
+# Cleanup Talos cluster if --destroy flag was set.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,7 +19,7 @@ if [ "${SKIP_CLEANUP}" = "true" ]; then
   echo "Cluster cleanup (skipped)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "  Cluster '${CLUSTER_NAME}' on remote '${TEST_REMOTE_NAME}' has been left running."
-  echo "  To destroy later: cd terraform/cluster && terraform destroy -auto-approve"
+  echo "  To destroy later: task tc:destroy"
   exit 0
 fi
 

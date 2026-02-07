@@ -4,23 +4,34 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.runner-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
 
 # Load Windsor environment if available (with decryption for SOPS secrets)
+# Filter out Windsor error placeholders (e.g. <ERROR: secret not found: X>) to avoid eval syntax errors
 if command -v windsor > /dev/null 2>&1; then
   set +e
   WINDSOR_ENV_OUTPUT=$(windsor env --decrypt 2>/dev/null || echo "")
   set -e
   if [ -n "${WINDSOR_ENV_OUTPUT}" ]; then
-    eval "${WINDSOR_ENV_OUTPUT}" || true
+    # Only eval lines that look like valid assignments and don't contain Windsor error placeholders
+    while IFS= read -r line; do
+      # Skip lines with <ERROR (Windsor placeholder when decryption fails)
+      case "${line}" in *"<ERROR"*) continue ;; esac
+      # Require VAR=value format
+      if [[ "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+        eval "export ${line}" 2>/dev/null || true
+      fi
+    done <<< "${WINDSOR_ENV_OUTPUT}"
   fi
 fi
 
-RUNNER_NAME="${RUNNER_NAME:-runner}"
-TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
+# CLI remote overrides windsor.yaml (windsor env may have overwritten INCUS_REMOTE_NAME)
+TEST_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}}"
+INCUS_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${INCUS_REMOTE_NAME}}"
+VM_INSTANCE_NAME="${VM_INSTANCE_NAME:-${VM_NAME:-runner}}"
 RUNNER_USER="${RUNNER_USER:-runner}"
 RUNNER_HOME="/home/${RUNNER_USER}"
 
@@ -32,9 +43,29 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Set up paths for secrets file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
-ACTIVE_CONTEXT="${WINDSOR_CONTEXT:-${RUNNER_NAME}}"
+ACTIVE_CONTEXT="${WINDSOR_CONTEXT:-${VM_INSTANCE_NAME}}"
 SECRETS_YAML="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}/secrets.yaml"
 ENC_SECRETS_YAML="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}/secrets.enc.yaml"
+
+# Fallback: load from plaintext secrets.yaml if Windsor decrypt failed and vars are empty or contain error placeholders
+_is_error() { case "${1:-}" in *"<ERROR"*) return 0 ;; *) return 1 ;; esac; }
+if ( [ -z "${GITHUB_RUNNER_REPO_URL:-}" ] || _is_error "${GITHUB_RUNNER_REPO_URL}" ) && [ -f "${SECRETS_YAML}" ]; then
+  _url=$(grep -E '^GITHUB_RUNNER_REPO_URL:' "${SECRETS_YAML}" 2>/dev/null | sed 's/^GITHUB_RUNNER_REPO_URL:[[:space:]]*//;s/[[:space:]]*$//')
+  if [ -n "${_url}" ] && [[ "${_url}" =~ ^https:// ]]; then
+    export GITHUB_RUNNER_REPO_URL="${_url}"
+  elif _is_error "${GITHUB_RUNNER_REPO_URL}"; then
+    unset GITHUB_RUNNER_REPO_URL
+  fi
+fi
+if ( [ -z "${GITHUB_RUNNER_TOKEN:-}" ] || _is_error "${GITHUB_RUNNER_TOKEN}" ) && [ -f "${SECRETS_YAML}" ]; then
+  _tok=$(grep -E '^GITHUB_RUNNER_TOKEN:' "${SECRETS_YAML}" 2>/dev/null | sed 's/^GITHUB_RUNNER_TOKEN:[[:space:]]*//;s/[[:space:]]*$//')
+  if [ -n "${_tok}" ]; then
+    export GITHUB_RUNNER_TOKEN="${_tok}"
+  elif _is_error "${GITHUB_RUNNER_TOKEN}"; then
+    unset GITHUB_RUNNER_TOKEN
+  fi
+fi
+unset -f _is_error 2>/dev/null || true
 
 # Track which values were queried interactively (so we can save them)
 QUERIED_VALUES=()
@@ -108,11 +139,8 @@ set -e  # Re-enable exit on error
 if [ "${HTTP_CODE}" = "200" ]; then
   echo "  ✅ Token is valid and has access to repository"
 elif [ "${HTTP_CODE}" = "401" ] || [ "${HTTP_CODE}" = "403" ]; then
-  echo "  ❌ Error: Token is invalid or expired (HTTP ${HTTP_CODE})"
-  echo ""
-  echo "  Registration tokens expire after ~1 hour and are single-use."
-  echo "  Please get a new token from:"
-  echo "  https://github.com/${REPO_PATH}/settings/actions/runners/new"
+  echo "  ✋ Token expired (registration tokens expire after ~1 hour and are single-use)"
+  echo "  Get a new token: https://github.com/${REPO_PATH}/settings/actions/runners/new"
   echo ""
   read -p "  Enter new token (or press Enter to exit): " NEW_TOKEN
   if [ -z "${NEW_TOKEN}" ]; then
@@ -204,7 +232,11 @@ echo ""
 echo "  Repository: ${REPO_URL}"
 echo "  Runner version: ${RUNNER_VERSION}"
 echo "  Architecture: ${RUNNER_ARCH}"
-echo "  Installing on: ${TEST_REMOTE_NAME}:${RUNNER_NAME} as user ${RUNNER_USER}"
+echo "  Installing on: ${TEST_REMOTE_NAME}:${VM_INSTANCE_NAME} as user ${RUNNER_USER}"
+
+# Runner name matches VM name (VM_INSTANCE_NAME is unique per deployment)
+RUNNER_NAME="${VM_INSTANCE_NAME}"
+echo "  Runner name (GitHub): ${RUNNER_NAME}"
 
 # Create a temporary script file to avoid quoting issues
 INSTALL_SCRIPT=$(mktemp)
@@ -270,10 +302,10 @@ if [ -f ./config.sh ] && [ -f .runner ]; then
   echo "  ✅ Existing local runner configuration removed"
 fi
 
-# Configure runner as runner user
+# Configure runner as runner user (--name ensures uniqueness when multiple VMs exist on different remotes)
 echo "  Configuring runner..."
 set +e  # Temporarily disable exit on error to catch configuration failures
-CONFIG_OUTPUT=$(sudo -u "${RUNNER_USER}" ./config.sh --url "${REPO_URL}" --token "${TOKEN}" --unattended 2>&1)
+CONFIG_OUTPUT=$(sudo -u "${RUNNER_USER}" ./config.sh --url "${REPO_URL}" --token "${TOKEN}" --name "${RUNNER_NAME}" --unattended 2>&1)
 CONFIG_EXIT=$?
 set -e  # Re-enable exit on error
 
@@ -331,6 +363,23 @@ if [ ${CONFIG_EXIT} -ne 0 ]; then
   fi
 fi
 
+# Create .env with INCUS vars for GitHub Actions jobs (runner loads this on start)
+# Read from /etc/environment (set by set-incus-remote-env during vm:instantiate)
+if [ -f /etc/environment ]; then
+  {
+    grep -E "^INCUS_REMOTE_NAME=|^INCUS_REMOTE_IP=|^INCUS_REMOTE_TOKEN=" /etc/environment 2>/dev/null || true
+    TOKEN_LINE=$(grep "^INCUS_REMOTE_TOKEN=" /etc/environment 2>/dev/null)
+    if [ -n "${TOKEN_LINE}" ]; then
+      echo "${TOKEN_LINE}" | sed 's/INCUS_REMOTE_TOKEN/INCUS_TRUST_TOKEN/'
+    fi
+  } > .env
+  if [ -s .env ]; then
+    chown "${RUNNER_USER}:${RUNNER_GID}" .env 2>/dev/null || chown "${RUNNER_USER}:${RUNNER_USER}" .env 2>/dev/null || true
+    chmod 600 .env
+    echo "  ✅ Created .env with INCUS_REMOTE_NAME, INCUS_REMOTE_IP, INCUS_REMOTE_TOKEN, INCUS_TRUST_TOKEN for runner jobs"
+  fi
+fi
+
 # Install as systemd service (runs as runner user)
 echo "  Installing runner service..."
 sudo ./svc.sh install "${RUNNER_USER}"
@@ -345,10 +394,10 @@ SCRIPT_PATH=""
 for try_path in "/tmp/install-runner.sh" "/root/tmp/install-runner.sh" "${RUNNER_HOME}/install-runner.sh"; do
   # Create directory if needed
   dir_path=$(dirname "${try_path}")
-  incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- mkdir -p "${dir_path}" 2>/dev/null || true
+  incus exec "${TEST_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- mkdir -p "${dir_path}" 2>/dev/null || true
   
   # Try to push the file
-  if incus file push "${INSTALL_SCRIPT}" "${TEST_REMOTE_NAME}:${RUNNER_NAME}${try_path}" --mode=0755 2>/dev/null; then
+  if incus file push "${INSTALL_SCRIPT}" "${TEST_REMOTE_NAME}:${VM_INSTANCE_NAME}${try_path}" --mode=0755 2>/dev/null; then
     SCRIPT_PATH="${try_path}"
     break
   fi
@@ -359,18 +408,19 @@ if [ -z "${SCRIPT_PATH}" ]; then
   echo "     Tried: /tmp, /root/tmp, and ${RUNNER_HOME}"
   exit 1
 fi
-incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- env \
+incus exec "${TEST_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- env \
   TOKEN="${TOKEN}" \
   REPO_URL="${REPO_URL}" \
   RUNNER_USER="${RUNNER_USER}" \
   RUNNER_HOME="${RUNNER_HOME}" \
   RUNNER_ARCH="${RUNNER_ARCH}" \
   RUNNER_VERSION="${RUNNER_VERSION}" \
+  RUNNER_NAME="${RUNNER_NAME}" \
   bash "${SCRIPT_PATH}"
 
 # Clean up
 rm -f "${INSTALL_SCRIPT}"
-incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- rm -f "${SCRIPT_PATH}"
+incus exec "${TEST_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- rm -f "${SCRIPT_PATH}"
 
 # Update windsor.yaml to add secrets section and runner environment variables
 echo ""
@@ -380,7 +430,7 @@ TEST_WINDSOR_YAML="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}/windsor.yaml"
 
 if [ ! -f "${TEST_WINDSOR_YAML}" ]; then
   echo "  ⚠️  Warning: windsor.yaml not found at ${TEST_WINDSOR_YAML}"
-  echo "     This should have been created by initialize-context.sh"
+  echo "     Create the context (e.g. contexts/${ACTIVE_CONTEXT}/windsor.yaml) or run vm:instantiate --runner first."
   exit 1
 fi
 
@@ -539,8 +589,8 @@ echo "✅ GitHub Actions runner installation complete"
 echo ""
 echo "  The runner is now running as a systemd service"
 echo "  You can check its status or destroy it with:"
-echo "    task runner:status [-- <runner-name>]"
-echo "    task runner:destroy [-- <runner-name>]"
+echo "    task vm:runner:status [-- <runner-name>]"
+echo "    task vm:destroy [-- <runner-name>]"
 echo ""
 if [ -f "${ENC_SECRETS_YAML}" ]; then
   echo "  ✅ Secrets are encrypted in: ${ENC_SECRETS_YAML}"

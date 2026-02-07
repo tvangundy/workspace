@@ -4,13 +4,15 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.runner-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
 
-RUNNER_NAME="${RUNNER_NAME:-runner}"
-TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
+# Use INCUS_REMOTE_NAME and INCUS_REMOTE_IP from .runner-instantiate.env (set by parse-args from CLI)
+INCUS_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}}"
+INCUS_REMOTE_IP="${INCUS_REMOTE_IP:-}"
+VM_INSTANCE_NAME="${VM_INSTANCE_NAME:-${VM_NAME:-runner}}"
 RUNNER_USER="${RUNNER_USER:-runner}"
 RUNNER_HOME="/home/${RUNNER_USER}"
 
@@ -26,7 +28,7 @@ echo "Step: Setup Runner User"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Creating user '${RUNNER_USER}' with same privileges as '${CURRENT_USER}'"
 
-incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- bash -c "
+incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
 set -euo pipefail
 
 # Check if runner user already exists
@@ -95,8 +97,8 @@ SSH_KEYS_COPIED=0
 for key_type in rsa ed25519 ecdsa; do
   if [ -f "${CURRENT_HOME}/.ssh/id_${key_type}" ]; then
     echo "  Copying ${key_type} private key..."
-    incus file push "${CURRENT_HOME}/.ssh/id_${key_type}" "${TEST_REMOTE_NAME}:${RUNNER_NAME}/tmp/id_${key_type}"
-    incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- bash -c "
+    incus file push "${CURRENT_HOME}/.ssh/id_${key_type}" "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}/tmp/id_${key_type}"
+    incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
       mv /tmp/id_${key_type} ${RUNNER_HOME}/.ssh/id_${key_type}
       chmod 600 ${RUNNER_HOME}/.ssh/id_${key_type}
       chown ${CURRENT_UID}:${CURRENT_GID} ${RUNNER_HOME}/.ssh/id_${key_type} 2>/dev/null || \
@@ -106,8 +108,8 @@ for key_type in rsa ed25519 ecdsa; do
   fi
   if [ -f "${CURRENT_HOME}/.ssh/id_${key_type}.pub" ]; then
     echo "  Copying ${key_type} public key..."
-    incus file push "${CURRENT_HOME}/.ssh/id_${key_type}.pub" "${TEST_REMOTE_NAME}:${RUNNER_NAME}/tmp/id_${key_type}.pub"
-    incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- bash -c "
+    incus file push "${CURRENT_HOME}/.ssh/id_${key_type}.pub" "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}/tmp/id_${key_type}.pub"
+    incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
       mv /tmp/id_${key_type}.pub ${RUNNER_HOME}/.ssh/id_${key_type}.pub
       chmod 644 ${RUNNER_HOME}/.ssh/id_${key_type}.pub
       chown ${CURRENT_UID}:${CURRENT_GID} ${RUNNER_HOME}/.ssh/id_${key_type}.pub 2>/dev/null || \
@@ -117,7 +119,7 @@ for key_type in rsa ed25519 ecdsa; do
 done
 
 # Set up authorized_keys with all public keys
-incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- bash -c "
+incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
 set -euo pipefail
 
 # Clear existing authorized_keys and add all public keys
@@ -145,7 +147,7 @@ chown ${CURRENT_UID}:${CURRENT_GID} ${RUNNER_HOME}/.ssh 2>/dev/null || \
 if [ ${SSH_KEYS_COPIED} -eq 0 ]; then
   echo "⚠️  Warning: No SSH keys found in ${CURRENT_HOME}/.ssh/"
   echo "   You may need to add your SSH key manually:"
-  echo "     incus exec ${TEST_REMOTE_NAME}:${RUNNER_NAME} -- bash -c 'echo \"<your-public-key>\" >> ${RUNNER_HOME}/.ssh/authorized_keys'"
+  echo "     incus exec ${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME} -- bash -c 'echo \"<your-public-key>\" >> ${RUNNER_HOME}/.ssh/authorized_keys'"
 else
   echo "✅ SSH keys copied to ${RUNNER_USER} user"
 fi
@@ -153,46 +155,48 @@ fi
 # Get VM IP address for display
 VM_IP=""
 if command -v jq >/dev/null 2>&1; then
-  VM_IP=$(incus list "${TEST_REMOTE_NAME}:${RUNNER_NAME}" --format json 2>/dev/null | \
+  VM_IP=$(incus list "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" --format json 2>/dev/null | \
     jq -r '.[0].state.network | to_entries[] | .value.addresses[]? | select(.family=="inet" and .address != "127.0.0.1") | .address' 2>/dev/null | \
     grep -E '^192\.168\.' | head -1 || echo "")
 fi
 
 if [ -z "${VM_IP}" ]; then
-  VM_IP=$(incus list "${TEST_REMOTE_NAME}:${RUNNER_NAME}" --format csv -c n,IPv4 2>/dev/null | \
-    grep "^${RUNNER_NAME}," | cut -d',' -f3 | awk '{print $1}' | \
+  VM_IP=$(incus list "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" --format csv -c n,IPv4 2>/dev/null | \
+    grep "^${VM_INSTANCE_NAME}," | cut -d',' -f3 | awk '{print $1}' | \
     grep -E '^192\.168\.' | head -1 || echo "")
 fi
 
 # Configure Incus remote for runner user (if not local)
-if [ "${TEST_REMOTE_NAME}" != "local" ]; then
+if [ "${INCUS_REMOTE_NAME}" != "local" ]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Step: Configure Incus Remote for Runner User"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   
-  # Get Incus server IP (default to common IP or use environment variable)
-  if [ -n "${INCUS_SERVER_IP:-}" ]; then
-    INCUS_SERVER_IP="${INCUS_SERVER_IP}"
-  elif [ -n "${INCUS_REMOTE_IP_0:-}" ]; then
-    INCUS_SERVER_IP="${INCUS_REMOTE_IP_0}"
-  else
-    INCUS_SERVER_IP="192.168.2.101"
+  if [ -z "${INCUS_REMOTE_IP}" ]; then
+    echo "Error: INCUS_REMOTE_IP is required to configure the Incus remote for the runner user." >&2
+    exit 1
   fi
-  
-  INCUS_REMOTE_NAME="${TEST_REMOTE_NAME}"
-  INCUS_REMOTE_URL="https://${INCUS_SERVER_IP}:8443"
-  CLIENT_NAME="${RUNNER_NAME}-${RUNNER_USER}"
+  INCUS_REMOTE_URL="https://${INCUS_REMOTE_IP}:8443"
+  # Token client name must match the user running incus remote add (runner)
+  CLIENT_NAME="${VM_INSTANCE_NAME}-${RUNNER_USER}"
   
   echo "  Configuring remote '${INCUS_REMOTE_NAME}' for user '${RUNNER_USER}'..."
-  echo "  Server IP: ${INCUS_SERVER_IP}"
+  echo "  Remote IP: ${INCUS_REMOTE_IP}"
   echo "  Remote URL: ${INCUS_REMOTE_URL}"
   
-  # Generate trust token on server
+  # Generate trust token on server (must be on same remote as VM to avoid "No matching certificate add operation found")
   echo "  Generating trust token on server..."
+  PREV_REMOTE=""
   set +e
-  TRUST_OUTPUT=$(incus config trust add "${CLIENT_NAME}" --remote "${INCUS_REMOTE_NAME}" 2>&1 || \
-                 incus config trust add "${CLIENT_NAME}" 2>&1 || echo "")
+  if incus remote list --format csv -c n 2>/dev/null | grep -q "^${INCUS_REMOTE_NAME}$"; then
+    PREV_REMOTE=$(incus remote get-default 2>/dev/null || echo "")
+    incus remote switch "${INCUS_REMOTE_NAME}" 2>/dev/null || true
+  fi
+  TRUST_OUTPUT=$(incus config trust add "${CLIENT_NAME}" 2>&1 || echo "")
+  if [ -n "${PREV_REMOTE}" ] && [ "${PREV_REMOTE}" != "${INCUS_REMOTE_NAME}" ]; then
+    incus remote switch "${PREV_REMOTE}" 2>/dev/null || true
+  fi
   TRUST_TOKEN=$(echo "${TRUST_OUTPUT}" | awk '/token:/ {getline; print}' | head -1 | tr -d '[:space:]' || echo "")
   if [ -z "${TRUST_TOKEN}" ] || [ ${#TRUST_TOKEN} -lt 64 ]; then
     TRUST_TOKEN=$(echo "${TRUST_OUTPUT}" | grep -oE '[a-zA-Z0-9_-]{64,}' | head -1 || echo "")
@@ -206,7 +210,7 @@ if [ "${TEST_REMOTE_NAME}" != "local" ]; then
     TRUST_TOKEN_ESCAPED=$(printf '%s\n' "${TRUST_TOKEN}" | sed "s/'/'\\\\''/g")
     
     # Configure remote for runner user
-    incus exec "${TEST_REMOTE_NAME}:${RUNNER_NAME}" -- bash -c "
+    incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
       set -euo pipefail
       
       INCUS_REMOTE_NAME=\"${INCUS_REMOTE_NAME}\"
@@ -262,26 +266,11 @@ if [ "${TEST_REMOTE_NAME}" != "local" ]; then
       if [ \"\${REMOTE_EXISTS}\" = \"false\" ]; then
         echo \"  Adding remote \${INCUS_REMOTE_NAME}...\"
         
-        # Try to add remote with trust token (non-interactive)
+        # Add remote with trust token (pass token as argument; more reliable than --token - with pipe)
         set +e
-        ADD_OUTPUT=\$(echo \"\${TRUST_TOKEN}\" | sudo -u \${RUNNER_USER} incus remote add \${INCUS_REMOTE_NAME} \${INCUS_REMOTE_URL} --token - 2>&1)
+        ADD_OUTPUT=\$(sudo -u \${RUNNER_USER} incus remote add \"\${INCUS_REMOTE_NAME}\" \"\${INCUS_REMOTE_URL}\" --accept-certificate --token \"\${TRUST_TOKEN}\" 2>&1)
         ADD_RESULT=\$?
         set -e
-        
-        # Check if we need to accept certificate fingerprint
-        if [ \${ADD_RESULT} -ne 0 ] || echo \"\${ADD_OUTPUT}\" | grep -q \"fingerprint\\|ok (y/n\"; then
-          # Extract fingerprint from output
-          FINGERPRINT=\$(echo \"\${ADD_OUTPUT}\" | grep -oE '[a-f0-9]{64}' | head -1 || echo \"\")
-          
-          if [ -n \"\${FINGERPRINT}\" ]; then
-            echo \"  Accepting certificate fingerprint: \${FINGERPRINT}\"
-            # Use the fingerprint to accept the certificate non-interactively
-            set +e
-            echo \"\${FINGERPRINT}\" | sudo -u \${RUNNER_USER} incus remote add \${INCUS_REMOTE_NAME} \${INCUS_REMOTE_URL} --token \"\${TRUST_TOKEN}\" 2>&1
-            ADD_RESULT=\$?
-            set -e
-          fi
-        fi
         
         # Verify remote was added
         if [ \${ADD_RESULT} -eq 0 ]; then
@@ -300,10 +289,9 @@ if [ "${TEST_REMOTE_NAME}" != "local" ]; then
               echo \"  ⚠️  Warning: Remote exists but connection failed\"
             fi
           else
-            echo \"  ⚠️  Warning: Failed to add remote\"
-            echo \"     Error: \${ADD_OUTPUT}\"
-            echo \"     You may need to add it manually:\"
-            echo \"       sudo -u \${RUNNER_USER} incus remote add \${INCUS_REMOTE_NAME} \${INCUS_REMOTE_URL}\"
+            echo \"  ℹ️  Could not add remote (token may have been created on wrong server - retry instantiation)\"
+            echo \"     \${ADD_OUTPUT}\"
+            echo \"     To add manually: sudo -u \${RUNNER_USER} incus remote add \${INCUS_REMOTE_NAME} \${INCUS_REMOTE_URL}\"
           fi
         fi
       fi

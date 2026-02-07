@@ -48,7 +48,7 @@ if [ -z "${CLUSTER_VM_NAMES}" ]; then
   echo "No Talos clusters found."
   echo ""
   echo "To create a cluster:"
-  echo "  task tc:instantiate -- <remote-name> [<cluster-name>]"
+  echo "  task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
   exit 0
 fi
 

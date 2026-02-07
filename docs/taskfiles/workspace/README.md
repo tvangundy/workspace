@@ -14,29 +14,30 @@ The `workspace:` namespace provides tools for initializing and managing workspac
 
 | Task | Description |
 |------|-------------|
-| [`initialize`](#initialize) | Initialize a new workspace by cloning the workspace repository |
+| [`instantiate`](#instantiate) | Instantiate a new workspace by cloning the workspace repository |
+| [`overwrite`](#overwrite) | Overwrite `tasks/` and `bin/` in a destination workspace with contents from a source workspace |
 | [`clean`](#clean) | Clean up Docker images and containers (convenience task) |
 
 ## Tasks
 
-### `initialize`
+### `instantiate`
 
-Initialize a new workspace by cloning the workspace repository.
+Instantiate a new workspace by cloning the workspace repository.
 
 **Usage:**
 
 ```bash
-task workspace:initialize [-- <workspace-name> <workspace-global-path>]
+task workspace:instantiate -- <workspace-name> <workspace-path>
 ```
 
 **Parameters:**
 
-- `<workspace-name>` (optional): Name for the workspace. Default: `test-workspace`
-- `<workspace-global-path>` (optional): Global path where workspace should be created. Default: `../<workspace-name>`
+- `<workspace-name>` (required): Name for the workspace
+- `<workspace-path>` (required): Path where workspace should be created
 
 **What it does:**
 
-1. Parses workspace name and path from arguments or uses defaults
+1. Parses workspace name and path from required arguments
 2. Creates the workspace directory if it doesn't exist
 3. If directory exists and is a git repository:
    - Pulls latest changes using `git pull --ff-only`
@@ -48,19 +49,51 @@ task workspace:initialize [-- <workspace-name> <workspace-global-path>]
 **Example:**
 
 ```bash
-# Use defaults (test-workspace in ../test-workspace)
-task workspace:initialize
+# Specify workspace name and path (both required)
+task workspace:instantiate -- my-workspace ~/workspaces/my-workspace
 
-# Specify custom name and path
-task workspace:initialize -- my-workspace ~/workspaces/my-workspace
-
-# Initialize in current directory's parent
-task workspace:initialize -- my-project ..
+# Instantiate in current directory's parent
+task workspace:instantiate -- my-project ..
 ```
 
 **Output:** Shows initialization status and workspace location.
 
-**Note:** This clones the public workspace repository. For private workspace setups, you may need to modify the repository URL in the Taskfile.
+**Note:** This clones the public workspace repository (`https://github.com/tvangundy/workspace.git`). For private workspace setups, you may need to modify the repository URL in the Taskfile.
+
+### `overwrite`
+
+Overwrite `tasks/` and `bin/` in a destination workspace with contents from a source workspace. Use this to sync task definitions and scripts from one workspace (e.g. a template or upstream) into another.
+
+**Usage:**
+
+```bash
+task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>
+```
+
+**Parameters:**
+
+- `<src-workspace-path>` (required): Path to the source workspace (must contain `tasks/` and `bin/` directories)
+- `<dst-workspace-path>` (required): Path to the destination workspace where `tasks/` and `bin/` will be replaced
+
+**What it does:**
+
+1. Resolves paths (supports `.` for current directory)
+2. Verifies source contains `tasks/` and `bin/` directories
+3. Ensures source and destination are different paths
+4. Removes existing `tasks/` and `bin/` in destination
+5. Copies `tasks/` and `bin/` from source to destination
+
+**Examples:**
+
+```bash
+# Overwrite from current directory into another workspace
+task workspace:overwrite -- . ~/workspaces/my-workspace
+
+# Overwrite from one workspace into another
+task workspace:overwrite -- ~/forest-shadows ~/my-project
+```
+
+**Warning:** This destructively replaces `tasks/` and `bin/` in the destination. Any local changes in those directories will be lost.
 
 ### `clean`
 
@@ -98,12 +131,17 @@ task workspace:clean
 
 ## Prerequisites
 
-### For `initialize`:
+### For `instantiate`:
 
 - Git installed
 - Network access to GitHub
 - Write permissions to the target directory
 - For existing repositories: Git credentials configured
+
+### For `overwrite`:
+
+- Source workspace must contain `tasks/` and `bin/` directories
+- Write permissions to the destination workspace
 
 ### For `clean`:
 
@@ -115,13 +153,16 @@ task workspace:clean
 Typical workspace setup:
 
 ```bash
-# 1. Initialize workspace
-task workspace:initialize -- my-project ~/projects/my-project
+# 1. Instantiate workspace
+task workspace:instantiate -- my-project ~/projects/my-project
 
 # 2. Change to workspace directory
 cd ~/projects/my-project
 
-# 3. Follow workspace-specific setup instructions
+# 3. (Optional) Overwrite tasks/bin from another workspace
+task workspace:overwrite -- ~/forest-shadows ~/projects/my-project
+
+# 4. Follow workspace-specific setup instructions
 # (Usually found in the workspace's README.md)
 ```
 

@@ -47,20 +47,20 @@ Before initializing a new workspace, ensure that:
 
 Initializing a workspace involves these steps:
 
-1. **Create the workspace structure** using the `workspace:initialize` task
+1. **Create the workspace structure** using the `workspace:instantiate` task
 2. **Populate the workspace** using Windsor CLI's `init` command
 
 ## Step 1: Initialize Workspace Structure
 
-Use the `workspace:initialize` task to create the initial workspace structure. This task takes two arguments:
+Use the `workspace:instantiate` task to create the initial workspace structure. This task takes two arguments:
 
 - `<workspace-name>`: The name of your workspace
-- `<workspace-global-path>`: The full path where the workspace should be created
+- `<workspace-path>`: The full path where the workspace should be created
 
 ### Command Syntax
 
 ```bash
-task workspace:initialize -- <workspace-name> <workspace-global-path>
+task workspace:instantiate -- <workspace-name> <workspace-path>
 ```
 
 This command creates the workspace structure at the specified path.
@@ -72,7 +72,7 @@ Once you're in the workspace directory, use Windsor CLI to populate the folder w
 ### Command Syntax
 
 ```bash
-cd <workspace-global-path>
+cd <workspace-path>
 windsor init <context>
 ```
 

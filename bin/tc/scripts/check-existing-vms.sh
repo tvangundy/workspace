@@ -94,42 +94,16 @@ for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
 done
 
 if [ ${EXISTING} -gt 0 ]; then
-  # Check if Terraform workspace exists for this cluster name
-  WORKSPACE_EXISTS=false
-  if command -v terraform >/dev/null 2>&1 && [ -d "${TERRAFORM_DIR}" ]; then
-    cd "${TERRAFORM_DIR}"
-    if terraform workspace list 2>/dev/null | grep -q "^[[:space:]]*${CLUSTER_NAME}$"; then
-      WORKSPACE_EXISTS=true
-    fi
-    cd - >/dev/null
-  fi
-  
-  # If Terraform workspace exists for this cluster, the cluster is already fully created
-  if [ "${WORKSPACE_EXISTS}" = "true" ]; then
-    echo "❌ Cluster '${CLUSTER_NAME}' already exists (Terraform workspace found)"
-    echo "   ${EXISTING} VM(s) exist:${EXISTING_VMS}"
-    echo "   To recreate the cluster, destroy it first:"
-    echo "     task tc:destroy"
-    exit 1
-  fi
-  
-  # VMs exist but no Terraform workspace for this cluster - these are orphaned VMs
-  # from a previous failed creation attempt. Destroy them automatically.
-  echo "⚠️  Found ${EXISTING} orphaned VM(s) from a previous failed creation:${EXISTING_VMS}"
-  echo "   These VMs don't have a matching Terraform workspace for cluster '${CLUSTER_NAME}'"
-  echo "   Destroying orphaned VMs..."
-  
-  for VM in ${EXISTING_VMS}; do
-    if incus delete "${TEST_REMOTE_NAME}:${VM}" --force >/dev/null 2>&1; then
-      echo "   ✅ Destroyed ${VM}"
-    else
-      echo "   ❌ Failed to destroy ${VM}"
-      exit 1
-    fi
-  done
-  
-  echo "✅ Orphaned VMs destroyed, proceeding with cluster creation"
-else
-  echo "✅ No existing cluster VMs found"
+  echo "❌ Cluster VMs already exist for '${CLUSTER_NAME}'"
+  echo "   Found ${EXISTING} VM(s):${EXISTING_VMS}"
+  echo ""
+  echo "   Instantiate requires a clean slate. Destroy the cluster first:"
+  echo "     task tc:destroy [-- <cluster-name>]"
+  echo ""
+  echo "   Then run instantiate again:"
+  echo "     task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]"
+  exit 1
 fi
+
+echo "✅ No existing cluster VMs found"
 

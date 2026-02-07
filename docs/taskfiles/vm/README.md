@@ -8,7 +8,7 @@ Ubuntu virtual machine management for creating and managing VMs on Incus using T
 
 ## Overview
 
-The `vm:` namespace provides tasks for creating and managing Ubuntu VMs on Incus. Use `task vm:instantiate` to create a VM; use the **Incus** CLI for start/stop/restart, info, exec, and SSH (e.g. `incus exec $INCUS_REMOTE_NAME:<instance-name> -- bash`).
+The `vm:` namespace provides tasks for creating and managing Ubuntu VMs on Incus. Use `task vm:instantiate` to create a VM; use the **Incus** CLI for start/stop/restart, info, exec, and SSH (e.g. `incus exec $INCUS_REMOTE_NAME:<instance-name> -- bash`). Use `--runner` to create a VM with a GitHub Actions self-hosted runner for CI workflows.
 
 ## Task Reference
 
@@ -20,7 +20,9 @@ The `vm:` namespace provides tasks for creating and managing Ubuntu VMs on Incus
 | [`instantiate:verify-remote`](#instantiateverify-remote) | Verify remote connection exists |
 | [`instantiate:check-vm-image`](#instantiatecheck-vm-image) | Ensure VM image is available on remote |
 | [`instantiate:create-vm`](#instantiatecreate-vm) | Create VM using Terraform and setup developer environment |
+| [`instantiate:set-incus-remote-env`](#instantiateset-incus-remote-env) | Set INCUS_REMOTE_NAME, INCUS_REMOTE_IP, INCUS_REMOTE_TOKEN on VM (/etc/environment) |
 | [`instantiate:setup-incus`](#instantiatesetup-incus) | Setup Incus client on the VM and configure remote connection |
+| [`instantiate:add-runner-if-requested`](#instantiateadd-runner-if-requested) | If `--runner`, setup runner user and install GitHub Actions runner |
 | [`instantiate:validate-vm`](#instantiatevalidate-vm) | Validate VM setup and functionality |
 | [`instantiate:setup-ssh`](#instantiatesetup-ssh) | Setup SSH access for the user on the VM |
 | [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if VM_INIT_WORKSPACE is true |
@@ -47,16 +49,18 @@ Create an Ubuntu virtual machine instance using Terraform with complete develope
 **Usage:**
 
 ```bash
-task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
+task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner]
 ```
 
 **Parameters:**
 
 - `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
+- `<remote-ip>` (required): IP address of the Incus remote (set on VM as `INCUS_REMOTE_IP` for Incus client config)
 - `<vm-name>` (optional): Name for the VM (default: `vm`)
-- `--keep`, `--no-cleanup` (optional): Keep VM running after creation (default: delete VM if used in test context)
-- `--no-workspace` (optional): Skip workspace initialization (default: initialize workspace if `VM_INIT_WORKSPACE=true`)
+- `--destroy` (optional): Destroy VM at end of instantiate (default: keep VM)
 - `--windsor-up` (optional): Run `windsor init` and `windsor up` after workspace setup
+- `--workspace` (optional): Copy and initialize workspace on the VM (default: skip workspace init)
+- `--runner` (optional): Add a GitHub Actions runner to the VM (runner user, Incus config, and `.env` with INCUS vars for test workflows)
 
 **What it does:**
 
@@ -70,25 +74,25 @@ task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--wi
 8. Installs developer tools (jq, Homebrew, Aqua, Docker, Windsor CLI)
 9. Optionally initializes workspace contents
 10. Validates VM setup and functionality
-11. Optionally cleans up VM (unless `--keep` is used)
+11. Optionally cleans up VM (when `--destroy` is used)
 
 **Examples:**
 
 ```bash
 # Create a VM on remote 'nuc' with default name 'vm'
-task vm:instantiate -- nuc
+task vm:instantiate -- nuc 192.168.2.100
 
 # Create a VM with custom name
-task vm:instantiate -- nuc my-vm
+task vm:instantiate -- nuc 192.168.2.100 my-vm
 
-# Create a VM and keep it running
-task vm:instantiate -- nuc my-vm --keep
+# Create a VM with GitHub Actions runner (includes INCUS env vars in runner .env)
+task vm:instantiate -- nuc 192.168.2.100 my-runner --runner
 
-# Create a VM without workspace initialization
-task vm:instantiate -- nuc my-vm --no-workspace
+# Create a VM with workspace and run windsor up
+task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace --windsor-up
 
-# Create a VM and run windsor up after workspace setup
-task vm:instantiate -- nuc my-vm --windsor-up
+# Create a VM and destroy it at the end (e.g. for CI)
+task vm:instantiate -- nuc 192.168.2.100 my-vm --destroy
 ```
 
 **Note:** Environment setup (developer tools, Docker, etc.) is only performed for remote deployments (`INCUS_REMOTE_NAME != local`).
@@ -157,6 +161,16 @@ Setup SSH access for the user on the VM. Creates user matching host user, copies
 task vm:instantiate:setup-ssh
 ```
 
+### `instantiate:set-incus-remote-env`
+
+Set INCUS_REMOTE_NAME, INCUS_REMOTE_IP, and INCUS_REMOTE_TOKEN on the VM (writes to `/etc/environment`). Required for VM to configure Incus remote and for runner `.env` when `--runner` is used.
+
+**Usage:**
+
+```bash
+task vm:instantiate:set-incus-remote-env
+```
+
 ### `instantiate:setup-incus`
 
 Setup Incus client on the VM and configure remote connection. This allows the VM to manage other VMs on the remote Incus server.
@@ -166,6 +180,24 @@ Setup Incus client on the VM and configure remote connection. This allows the VM
 ```bash
 task vm:instantiate:setup-incus
 ```
+
+### `instantiate:add-runner-if-requested`
+
+When `--runner` was passed to `vm:instantiate`, sets up the runner user and installs the GitHub Actions runner. Invokes `bin/vm/scripts/add-runner-if-requested.sh` → `setup-runner-user.sh` and `install-github-runner.sh`.
+
+**What it does:**
+
+1. **Setup runner user** (`setup-runner-user.sh`): Creates `runner` user, copies SSH keys, adds to sudo/docker/incus groups, configures Incus remote for the runner user
+2. **Install GitHub Actions runner** (`install-github-runner.sh`): Prompts for repository URL and registration token (if not in secrets), downloads runner binary, configures and installs as systemd service
+3. **Creates `~runner/actions-runner/.env`** with INCUS_REMOTE_NAME, INCUS_REMOTE_IP, INCUS_REMOTE_TOKEN, and INCUS_TRUST_TOKEN (from `/etc/environment`). The runner process loads this file, making INCUS vars available to all CI jobs (required by Incus test workflows)
+
+**Usage:**
+
+```bash
+task vm:instantiate:add-runner-if-requested
+```
+
+**First-run prompt:** You will be prompted for GitHub repository URL and registration token (from repository Settings → Actions → Runners). Values are saved to `secrets.yaml` and encrypted with SOPS.
 
 ### `instantiate:install-tools`
 
@@ -312,6 +344,7 @@ task vm:delete [-- <instance-name>]
 The following environment variables can be set in your `contexts/<context>/windsor.yaml` configuration:
 
 - `INCUS_REMOTE_NAME`: Incus remote name (required). Examples: `local`, `nuc`, `remote-server`
+- `INCUS_REMOTE_IP`: Incus remote IP address (required; passed as CLI argument; set on VM for Incus client)
 - `VM_INSTANCE_NAME`: Default instance name. Default: `VM`
 - `VM_IMAGE`: Default image. Default: `ubuntu/24.04`
 - `VM_MEMORY`: Memory allocation for the VM (e.g., `8GB`, `16GB`). Default: `8GB`
@@ -322,6 +355,16 @@ The following environment variables can be set in your `contexts/<context>/winds
 - `VM_AUTOSTART`: Whether to start the VM automatically on host boot. Default: `false`
 - `VM_INIT_WORKSPACE`: Whether to initialize workspace contents during creation. Default: `false` (or `true` in test task)
 - `DOCKER_HOST`: Docker socket path. Default: `unix:///var/run/docker.sock`
+
+**Runner-specific** (when using `--runner`):
+
+- `RUNNER_NAME`: Runner VM name. Default: `runner`
+- `VM_AUTOSTART`: Default: `true` for runner VMs (start on host boot)
+
+**Runner secrets** (in `contexts/<context>/secrets.yaml`, encrypted with SOPS):
+
+- `GITHUB_RUNNER_REPO_URL`: GitHub repository URL (e.g., `https://github.com/owner/repo`)
+- `GITHUB_RUNNER_TOKEN`: GitHub Actions runner registration token
 
 ## Prerequisites
 
@@ -346,5 +389,7 @@ Task definitions are located in `tasks/vm/Taskfile.yaml`.
 ## Related Documentation
 
 - [VM Runbook](../../runbooks/incusos/vm.md) - Complete guide for creating and managing VMs
+- [VM Runner Setup Runbook](../../runbooks/apps/runners/vm-runner-setup.md) - Complete guide for GitHub Actions runners on Incus VMs
 - [Terraform VM Configuration](../../../terraform/vm/) - Terraform module for VMs
+- [Secrets Management](../../runbooks/secrets/secrets.md) - Guide for managing secrets with SOPS
 

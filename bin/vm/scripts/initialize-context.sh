@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
@@ -45,11 +45,19 @@ TEST_WINDSOR_YAML="${TEST_CONTEXT_DIR}/windsor.yaml"
 
 mkdir -p "${TEST_CONTEXT_DIR}"
 
-# Get default values for environment variables
-VM_IMAGE="${VM_IMAGE:-ubuntu/24.04}"
-VM_MEMORY="${VM_MEMORY:-16GB}"
-VM_CPU="${VM_CPU:-4}"
-VM_DISK_SIZE="${VM_DISK_SIZE:-100GB}"
+# Preserve values from existing windsor.yaml when updating (don't overwrite user's VM_IMAGE etc.)
+if [ -f "${TEST_WINDSOR_YAML}" ]; then
+  EXISTING_VM_IMAGE=$(grep -E '^\s+VM_IMAGE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_IMAGE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
+  EXISTING_VM_MEMORY=$(grep -E '^\s+VM_MEMORY:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_MEMORY:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
+  EXISTING_VM_CPU=$(grep -E '^\s+VM_CPU:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_CPU:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
+  EXISTING_VM_DISK_SIZE=$(grep -E '^\s+VM_DISK_SIZE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_DISK_SIZE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
+fi
+
+# Get default values for environment variables (preserve existing from windsor.yaml when updating)
+VM_IMAGE="${VM_IMAGE:-${EXISTING_VM_IMAGE:-ubuntu/25.04}}"
+VM_MEMORY="${VM_MEMORY:-${EXISTING_VM_MEMORY:-16GB}}"
+VM_CPU="${VM_CPU:-${EXISTING_VM_CPU:-4}}"
+VM_DISK_SIZE="${VM_DISK_SIZE:-${EXISTING_VM_DISK_SIZE:-100GB}}"
 
 # Function to ensure physical network is configured
 ensure_physical_network() {
@@ -192,11 +200,11 @@ fi
 VM_STORAGE_POOL="${VM_STORAGE_POOL:-local}"
 VM_AUTOSTART="${VM_AUTOSTART:-false}"
 
-# Set workspace initialization based on flag
+# Set workspace initialization based on flag (default: skip unless --workspace was passed)
 if [ "${SKIP_WORKSPACE:-false}" = "true" ]; then
   VM_INIT_WORKSPACE="false"
 else
-  VM_INIT_WORKSPACE="true"
+  VM_INIT_WORKSPACE="${VM_INIT_WORKSPACE:-false}"
 fi
 
 # Check if windsor.yaml already exists
@@ -314,6 +322,14 @@ else
     echo "  VM_AUTOSTART: ${VM_AUTOSTART}"
     echo "  DOCKER_HOST: unix:///var/run/docker.sock"
   } > "${TEST_WINDSOR_YAML}"
+fi
+
+# Write VM_IMAGE to .workspace/.vm-instantiate.env so check-vm-image and other scripts get it
+# (parse-args creates the file but doesn't include VM_IMAGE; each task runs in a new shell)
+mkdir -p "${PROJECT_ROOT}/.workspace"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
+if [ -f "${ENV_FILE}" ]; then
+  echo "export VM_IMAGE='${VM_IMAGE}'" >> "${ENV_FILE}"
 fi
 
 # Export environment variables

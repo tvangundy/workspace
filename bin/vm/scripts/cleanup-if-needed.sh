@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Cleanup VM if --keep flag was not set
+# Cleanup (destroy) VM only if --destroy was set; default is to keep the VM.
 set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   # Source the file to load variables
   set +u  # Temporarily allow unset variables while sourcing
@@ -14,8 +14,8 @@ fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"
 VM_NAME="${VM_NAME:-vm}"
-# Default to false if not set, and check for true (string comparison)
-SKIP_CLEANUP="${SKIP_CLEANUP:-false}"
+# Default to true (keep VM); only destroy when --destroy was passed (SKIP_CLEANUP=false)
+SKIP_CLEANUP="${SKIP_CLEANUP:-true}"
 
 # Debug: show what we're checking (can be removed later)
 if [ "${DEBUG:-false}" = "true" ]; then
@@ -29,8 +29,7 @@ if [ "${SKIP_CLEANUP}" = "true" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "VM Cleanup (skipped)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  VM '${VM_NAME}' is being kept (--keep flag was set)"
-  echo "  To destroy it later, run: task vm:destroy -- ${VM_NAME}"
+  echo "  VM '${VM_NAME}' is being kept (default). To destroy it later, run: task vm:destroy -- ${VM_NAME}"
   exit 0
 fi
 

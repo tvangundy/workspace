@@ -83,21 +83,8 @@ else
     echo ""
     echo "✅ Destroyed ${VMS_DESTROYED} cluster VM(s) via Incus"
     
-    # Clean up config files - try active context directory first, then cluster name directory
-    CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
-    ACTIVE_CONTEXT=""
-    if command -v windsor > /dev/null 2>&1; then
-      ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-      if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-        ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-      fi
-    fi
-    
-    if [ -n "${ACTIVE_CONTEXT}" ]; then
-      TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}"
-    else
-      TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${CLUSTER_NAME}"
-    fi
+    # Clean up config files in context directory (WINDSOR_CONTEXT takes precedence)
+    TEST_CONTEXT_DIR=$(get_tc_context_dir "${PROJECT_ROOT}" "${CLUSTER_NAME}")
     
     TALOSCONFIG_PATH="${TEST_CONTEXT_DIR}/.talos/talosconfig"
     KUBECONFIG_FILE_PATH="${TEST_CONTEXT_DIR}/.kube/config"
@@ -137,21 +124,8 @@ if terraform destroy -auto-approve; then
   echo ""
   echo "✅ Cluster destroyed successfully"
   
-  # Clean up config files - try active context directory first, then cluster name directory
-  CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
-  ACTIVE_CONTEXT=""
-  if command -v windsor > /dev/null 2>&1; then
-    ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-    if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-      ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-    fi
-  fi
-  
-  if [ -n "${ACTIVE_CONTEXT}" ]; then
-    TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}"
-  else
-    TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${CLUSTER_NAME}"
-  fi
+  # Clean up config files in context directory (WINDSOR_CONTEXT takes precedence)
+  TEST_CONTEXT_DIR=$(get_tc_context_dir "${PROJECT_ROOT}" "${CLUSTER_NAME}")
   
   TALOSCONFIG_PATH="${TEST_CONTEXT_DIR}/.talos/talosconfig"
   KUBECONFIG_FILE_PATH="${TEST_CONTEXT_DIR}/.kube/config"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Get IPs from Terraform outputs, update windsor.yaml, append to .tc-instantiate.env.
+# Get IPs from Terraform outputs, update windsor.yaml, append to .workspace/.tc-instantiate.env.
 # Note: With MAC addresses set in windsor.yaml, IPs should match if DHCP reservations are configured.
 set -euo pipefail
 
@@ -11,25 +11,10 @@ load_tc_env
 
 # Set additional variables needed by this script
 PROJECT_ROOT=$(get_windsor_project_root)
-ENV_FILE="${PROJECT_ROOT}/.tc-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.tc-instantiate.env"
 
-# Determine which context directory to use (same logic as initialize-context.sh)
-CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
-ACTIVE_CONTEXT=""
-if command -v windsor > /dev/null 2>&1; then
-  ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-  fi
-fi
-
-if [ -n "${ACTIVE_CONTEXT}" ]; then
-  # Use active context directory
-  TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}"
-else
-  # No active context, use CLUSTER_NAME
-  TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${CLUSTER_NAME}"
-fi
+# Context directory: WINDSOR_CONTEXT takes precedence over CLUSTER_NAME
+TEST_CONTEXT_DIR=$(get_tc_context_dir "${PROJECT_ROOT}" "${CLUSTER_NAME}")
 
 TEST_WINDSOR_YAML="${TEST_CONTEXT_DIR}/windsor.yaml"
 

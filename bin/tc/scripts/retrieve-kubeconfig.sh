@@ -11,23 +11,8 @@ load_tc_env
 # Set additional variables needed by this script
 PROJECT_ROOT=$(get_windsor_project_root)
 
-# Determine which context directory to use (same logic as initialize-context.sh)
-CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
-ACTIVE_CONTEXT=""
-if command -v windsor > /dev/null 2>&1; then
-  ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-  fi
-fi
-
-if [ -n "${ACTIVE_CONTEXT}" ]; then
-  # Use active context directory
-  TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${ACTIVE_CONTEXT}"
-else
-  # No active context, use CLUSTER_NAME
-  TEST_CONTEXT_DIR="${CONTEXTS_DIR}/${CLUSTER_NAME}"
-fi
+# Context directory: WINDSOR_CONTEXT takes precedence over CLUSTER_NAME
+TEST_CONTEXT_DIR=$(get_tc_context_dir "${PROJECT_ROOT}" "${CLUSTER_NAME}")
 
 TALOSCONFIG_PATH="${TEST_CONTEXT_DIR}/.talos/talosconfig"
 KUBECONFIG_FILE_PATH="${TEST_CONTEXT_DIR}/.kube/config"
@@ -55,193 +40,53 @@ fi
 [ ! -f "${TALOSCONFIG_PATH}" ] && echo "❌ talosconfig not found at ${TALOSCONFIG_PATH}" && exit 1
 mkdir -p "$(dirname "${KUBECONFIG_FILE_PATH}")"
 
-# First, wait for Talos API to be accessible
-echo "Waiting for Talos API to be accessible on ${CONTROL_PLANE_IP}..."
-MAX_API_WAIT=180  # 3 minutes - usually ready quickly after VM boot
-API_ELAPSED=0
-API_READY=false
+# Retrieve kubeconfig - talosctl succeeds as soon as the cluster is ready
+# Use timeout so failed attempts fail fast and we retry sooner
+echo "Retrieving kubeconfig from ${CONTROL_PLANE_IP}..."
+MAX_WAIT=300  # 5 minutes for slow bootstrap
+TRY_TIMEOUT=15  # seconds per attempt - fail fast so we retry sooner
 
-while [ ${API_ELAPSED} -lt ${MAX_API_WAIT} ]; do
-  # Check if Talos API port is accessible
-  if nc -z "${CONTROL_PLANE_IP}" 50000 2>/dev/null; then
-    # Try to get version to confirm API is responding
-    if talosctl --talosconfig "${TALOSCONFIG_PATH}" --nodes "${CONTROL_PLANE_IP}" version >/dev/null 2>&1; then
-      API_READY=true
-      break
-    fi
-  fi
-  sleep 10
-  API_ELAPSED=$((API_ELAPSED + 10))
-  printf "\r  Waiting for Talos API... (%ds/%ds)" "${API_ELAPSED}" "${MAX_API_WAIT}"
-done
-echo ""
-
-if [ "${API_READY}" != "true" ]; then
-  echo "⚠️  Warning: Talos API not accessible after ${MAX_API_WAIT}s"
-  echo "   Skipping Kubernetes API server wait - will try to retrieve kubeconfig directly"
-  echo "   (Cluster may still be ready - check web UI console for status)"
+# Use timeout if available (GNU coreutils, or gtimeout on macOS with coreutils)
+TALOSCTL_CMD=(talosctl kubeconfig "${KUBECONFIG_FILE_PATH}" --talosconfig "${TALOSCONFIG_PATH}" --nodes "${CONTROL_PLANE_IP}")
+if command -v timeout >/dev/null 2>&1; then
+  RUN_CMD=(timeout ${TRY_TIMEOUT} "${TALOSCTL_CMD[@]}")
+elif command -v gtimeout >/dev/null 2>&1; then
+  RUN_CMD=(gtimeout ${TRY_TIMEOUT} "${TALOSCTL_CMD[@]}")
 else
-  # Only wait for Kubernetes API server if Talos API is accessible
-  echo "Waiting for Kubernetes API server to be ready..."
-  MAX_API_SERVER_WAIT=300  # 5 minutes - usually ready within 2-3 minutes after bootstrap
-  API_SERVER_ELAPSED=0
-  API_SERVER_READY=false
-
-  while [ ${API_SERVER_ELAPSED} -lt ${MAX_API_SERVER_WAIT} ]; do
-    # Try to connect to the API server health endpoint
-    if command -v curl >/dev/null 2>&1; then
-      if curl -k -m 5 "https://${CONTROL_PLANE_IP}:6443/healthz" >/dev/null 2>&1; then
-        API_SERVER_READY=true
-        break
-      fi
-    else
-      # Fallback: try with nc to check if port is open
-      if nc -z "${CONTROL_PLANE_IP}" 6443 2>/dev/null; then
-        API_SERVER_READY=true
-        break
-      fi
-    fi
-    sleep 10
-    API_SERVER_ELAPSED=$((API_SERVER_ELAPSED + 10))
-    printf "\r  Waiting for API server... (%ds/%ds)" "${API_SERVER_ELAPSED}" "${MAX_API_SERVER_WAIT}"
-  done
-  echo ""
-
-  if [ "${API_SERVER_READY}" != "true" ]; then
-    echo "⚠️  Warning: Kubernetes API server not ready after ${MAX_API_SERVER_WAIT}s"
-    echo "   This may indicate the cluster is still bootstrapping"
-    echo "   Continuing to try retrieving kubeconfig..."
-  fi
+  RUN_CMD=("${TALOSCTL_CMD[@]}")
 fi
 
-# If Talos API wasn't accessible, check Kubernetes API first before trying kubeconfig
-# This avoids wasting time on kubeconfig retrieval if Talos API isn't working
-if [ "${API_READY}" != "true" ]; then
-  echo "Checking if Kubernetes API is accessible (cluster may be ready even if Talos API isn't)..."
-  K8S_API_ACCESSIBLE=false
-  
-  if command -v curl >/dev/null 2>&1; then
-    if curl -k -m 5 "https://${CONTROL_PLANE_IP}:6443/healthz" >/dev/null 2>&1; then
-      K8S_API_ACCESSIBLE=true
-    fi
-  else
-    # Fallback: try with nc to check if port is open
-    if nc -z "${CONTROL_PLANE_IP}" 6443 2>/dev/null; then
-      K8S_API_ACCESSIBLE=true
-    fi
-  fi
-  
-  if [ "${K8S_API_ACCESSIBLE}" = "true" ]; then
-    echo "✅ Kubernetes API is accessible - cluster appears ready"
-    echo "   Talos API is not accessible, but cluster is functional"
-    echo "   You may need to retrieve kubeconfig manually later:"
-    echo "     talosctl kubeconfig ${KUBECONFIG_FILE_PATH} \\"
-    echo "       --talosconfig ${TALOSCONFIG_PATH} \\"
-    echo "       --nodes ${CONTROL_PLANE_IP}"
-    echo ""
-    echo "   Or check the web UI console for cluster status"
-    # Exit successfully - cluster is ready, just can't get kubeconfig via Talos API right now
-    exit 0
-  else
-    echo "⚠️  Kubernetes API is also not accessible"
-    echo "   Cluster may still be bootstrapping"
-    echo "   Will attempt to retrieve kubeconfig anyway (with shorter timeout)..."
-  fi
-fi
-
-# Now try to retrieve kubeconfig
-echo "Retrieving kubeconfig..."
-MAX_WAIT=300
-ELAPSED=0
-KUBECONFIG_RETRIEVED=false
-INSECURE_FLAG=""
-
-# If Talos API wasn't accessible, try with --insecure flag and shorter timeout
-# This handles cases where the API is accessible but has certificate issues
-if [ "${API_READY}" != "true" ]; then
-  MAX_WAIT=60  # Only wait 1 minute if Talos API wasn't accessible
-  INSECURE_FLAG="--insecure"
-  echo "   (Talos API was not accessible - using --insecure flag and shorter timeout)"
-fi
-
-while [ ${ELAPSED} -lt ${MAX_WAIT} ]; do
-  if talosctl kubeconfig "${KUBECONFIG_FILE_PATH}" \
-    --talosconfig "${TALOSCONFIG_PATH}" \
-    --nodes "${CONTROL_PLANE_IP}" \
-    ${INSECURE_FLAG} > /tmp/tc_kubeconfig.log 2>&1; then
-    KUBECONFIG_RETRIEVED=true
+START_TS=$(date +%s)
+while true; do
+  if "${RUN_CMD[@]}" > /tmp/tc_kubeconfig.log 2>&1; then
     break
   fi
-  sleep 10
-  ELAPSED=$((ELAPSED + 10))
-  printf "\r  Waiting for kubeconfig... (%ds/%ds)" "${ELAPSED}" "${MAX_WAIT}"
+  ELAPSED=$(($(date +%s) - START_TS))
+  [ ${ELAPSED} -ge ${MAX_WAIT} ] && break
+  sleep 3
+  ELAPSED=$(($(date +%s) - START_TS))
+  printf "\r  Waiting for cluster... (%ds/%ds)" "${ELAPSED}" "${MAX_WAIT}"
 done
 echo ""
 
 if [ ! -f "${KUBECONFIG_FILE_PATH}" ]; then
-  # If kubeconfig retrieval failed, check if Kubernetes API is accessible directly
-  # This can happen if Talos API is not responding but cluster is actually ready
-  echo "⚠️  Could not retrieve kubeconfig via Talos API"
-  
-  # Check if Kubernetes API is accessible (re-check in case it became available)
-  K8S_API_ACCESSIBLE=false
-  if command -v curl >/dev/null 2>&1; then
-    if curl -k -m 5 "https://${CONTROL_PLANE_IP}:6443/healthz" >/dev/null 2>&1; then
-      K8S_API_ACCESSIBLE=true
-    fi
-  else
-    # Fallback: try with nc to check if port is open
-    if nc -z "${CONTROL_PLANE_IP}" 6443 2>/dev/null; then
-      K8S_API_ACCESSIBLE=true
-    fi
+  echo "⚠️  Could not retrieve kubeconfig"
+  if [ -f /tmp/tc_kubeconfig.log ]; then
+    echo "   Error output:"
+    head -20 /tmp/tc_kubeconfig.log | sed 's/^/     /'
   fi
-  
-  if [ "${K8S_API_ACCESSIBLE}" = "true" ]; then
-    # Kubernetes API is accessible - try one more time with --insecure flag
-    # if we haven't already tried it
-    if [ -z "${INSECURE_FLAG}" ]; then
-      echo "   Kubernetes API is accessible - retrying kubeconfig retrieval with --insecure flag..."
-      if talosctl kubeconfig "${KUBECONFIG_FILE_PATH}" \
-        --talosconfig "${TALOSCONFIG_PATH}" \
-        --nodes "${CONTROL_PLANE_IP}" \
-        --insecure > /tmp/tc_kubeconfig.log 2>&1; then
-        echo "✅ Successfully retrieved kubeconfig with --insecure flag"
-        KUBECONFIG_RETRIEVED=true
-      else
-        echo "   Still failed, but cluster appears ready (Kubernetes API is accessible)"
-        echo "   You can retrieve kubeconfig manually with:"
-        echo "     talosctl kubeconfig ${KUBECONFIG_FILE_PATH} \\"
-        echo "       --talosconfig ${TALOSCONFIG_PATH} \\"
-        echo "       --nodes ${CONTROL_PLANE_IP} \\"
-        echo "       --insecure"
-        echo ""
-        echo "   Or check the web UI console for cluster status"
-        # Exit successfully - cluster is ready, just can't get kubeconfig via API
-        exit 0
-      fi
-    else
-      # We already tried with --insecure, but Kubernetes API is accessible
-      echo "✅ Kubernetes API is accessible - cluster appears ready"
-      echo "   Talos API had certificate issues, but cluster is functional"
-      echo "   You can retrieve kubeconfig manually with:"
-      echo "     talosctl kubeconfig ${KUBECONFIG_FILE_PATH} \\"
-      echo "       --talosconfig ${TALOSCONFIG_PATH} \\"
-      echo "       --nodes ${CONTROL_PLANE_IP} \\"
-      echo "       --insecure"
-      echo ""
-      echo "   Or check the web UI console for cluster status"
-      # Exit successfully - cluster is ready, just can't get kubeconfig via API
-      exit 0
-    fi
-  else
-    # If we get here, neither Talos API nor Kubernetes API is accessible
-    echo "   Cluster may still be bootstrapping"
-    if [ -f /tmp/tc_kubeconfig.log ]; then
-      echo "   Last error:"
-      tail -5 /tmp/tc_kubeconfig.log | sed 's/^/     /'
-    fi
-    exit 1
+  echo ""
+  echo "   Try manually (must use -n with a single control plane IP):"
+  echo "     talosctl kubeconfig ${KUBECONFIG_FILE_PATH} \\"
+  echo "       --talosconfig ${TALOSCONFIG_PATH} \\"
+  echo "       -n ${CONTROL_PLANE_IP}"
+  echo ""
+  if [ -f /tmp/tc_kubeconfig.log ] && grep -q "unknown authority\|certificate signed" /tmp/tc_kubeconfig.log 2>/dev/null; then
+    echo "   TLS/certificate error: talosconfig may not match the cluster's certificates."
+    echo "   This can happen after orphaned VMs were destroyed and recreated."
+    echo "   Fix: Run 'task tc:destroy' to fully tear down, then 'task instantiate:dev-cluster' to recreate."
   fi
+  exit 1
 fi
 
 if [[ "$(uname)" = "Darwin" ]]; then

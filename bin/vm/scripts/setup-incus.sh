@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Load environment variables from file if it exists
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.vm-instantiate.env"
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
 fi
@@ -55,10 +55,9 @@ if [ "${TEST_REMOTE_NAME}" != "local" ]; then
     exit 1
   fi
   
-  # Setup Incus on the VM
-  # The runner:setup-incus task uses TARGET_INCUS_SERVER_NAME to determine the remote name
-  # We need to set this to match TEST_REMOTE_NAME so the VM can connect back to the server
-  export TARGET_INCUS_SERVER_NAME="${TEST_REMOTE_NAME}"
+  # Setup Incus on the VM; INCUS_REMOTE_NAME and INCUS_REMOTE_IP come from vm:instantiate CLI (.workspace/.vm-instantiate.env)
+  export INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}"
+  export INCUS_REMOTE_IP="${INCUS_REMOTE_IP:-}"
   
   # Export CURRENT_USER as RUNNER_USER so setup-incus-runner.sh can add the correct user to incus group
   export RUNNER_USER="${CURRENT_USER}"

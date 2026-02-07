@@ -7,6 +7,8 @@ tasks:
   generate-tfvars:
     silent: true
     desc: "Generate terraform.tfvars from environment variables"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         set -euo pipefail
@@ -31,7 +33,7 @@ tasks:
         VM_NAME="{{.VM_INSTANCE_NAME}}"
         VM_NAME="${VM_NAME:-vm}"
         VM_IMAGE="{{.VM_IMAGE}}"
-        VM_IMAGE="${VM_IMAGE:-ubuntu/24.04}"
+        VM_IMAGE="${VM_IMAGE:-ubuntu/25.04}"
         VM_MEMORY="{{.VM_MEMORY}}"
         VM_MEMORY="${VM_MEMORY:-8GB}"
         VM_CPU="{{.VM_CPU}}"
@@ -44,8 +46,8 @@ tasks:
         STORAGE_POOL="{{.VM_STORAGE_POOL}}"
         STORAGE_POOL="${STORAGE_POOL:-local}"
         
-        # Create terraform/vm directory if it doesn't exist
-        TFVARS_DIR="terraform/vm"
+        # Create terraform/<TERRAFORM_PATH> directory if it doesn't exist
+        TFVARS_DIR="terraform/{{.TERRAFORM_PATH}}"
         mkdir -p "${TFVARS_DIR}"
         TFVARS_FILE="${TFVARS_DIR}/terraform.tfvars"
         
@@ -89,6 +91,8 @@ tasks:
   terraform:init:
     silent: true
     desc: "Initialize Terraform for the VM"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         set -euo pipefail
@@ -99,7 +103,7 @@ tasks:
           exit 1
         fi
         
-        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/vm"
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/{{.TERRAFORM_PATH}}"
         
         if [ ! -d "${TERRAFORM_DIR}" ]; then
           echo "Error: Terraform directory not found: ${TERRAFORM_DIR}"
@@ -117,34 +121,40 @@ tasks:
   terraform:plan:
     silent: true
     desc: "Show Terraform plan for the VM"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - task: terraform:init
       - |
         set -euo pipefail
         
-        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/vm"
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/{{.TERRAFORM_PATH}}"
         cd "${TERRAFORM_DIR}"
         terraform plan
 
   terraform:apply:
     silent: true
     desc: "Apply Terraform configuration to create VM"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         set -euo pipefail
         
-        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/vm"
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/{{.TERRAFORM_PATH}}"
         cd "${TERRAFORM_DIR}"
         terraform apply -auto-approve
 
   terraform:destroy:
     silent: true
     desc: "Destroy the VM using Terraform"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         set -euo pipefail
         
-        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/vm"
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/{{.TERRAFORM_PATH}}"
         
         if [ ! -d "${TERRAFORM_DIR}" ]; then
           echo "Error: Terraform directory not found: ${TERRAFORM_DIR}"
@@ -162,12 +172,14 @@ tasks:
 
   destroy:
     silent: true
-    desc: "Destroy the VM using Terraform. Optionally specify VM name: task vm:destroy [-- <vm-name>]"
+    desc: "Destroy the VM using Terraform. Optionally specify VM name: task vm:destroy [-- <vm-name>]. Use TERRAFORM_PATH for runner: TERRAFORM_PATH=runner task vm:destroy -- dev-runner"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         set -euo pipefail
         
-        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/vm"
+        TERRAFORM_DIR="{{.WINDSOR_PROJECT_ROOT}}/terraform/{{.TERRAFORM_PATH}}"
         TFVARS_FILE="${TERRAFORM_DIR}/terraform.tfvars"
         REMOTE="{{.INCUS_REMOTE_NAME}}"
         
@@ -206,6 +218,14 @@ tasks:
         VM_EXISTS=false
         if incus list "${REMOTE}:${INSTANCE_NAME_ARG}" --format csv -c n 2>/dev/null | grep -q "^${INSTANCE_NAME_ARG}$"; then
           VM_EXISTS=true
+        fi
+        
+        # If VM exists, unregister GitHub Actions runner first (if installed)
+        if [ "${VM_EXISTS}" = "true" ]; then
+          RUNNER_SCRIPTS="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts/runner"
+          if [ -x "${RUNNER_SCRIPTS}/unregister-from-github.sh" ]; then
+            REMOTE="${REMOTE}" VM_NAME="${INSTANCE_NAME_ARG}" "${RUNNER_SCRIPTS}/unregister-from-github.sh" 2>/dev/null || true
+          fi
         fi
         
         # Try Terraform destroy first
@@ -333,7 +353,7 @@ tasks:
 
   instantiate:
     silent: true
-    desc: "Primary way to create a new Ubuntu VM. Sets up the complete VM environment including Incus client, developer tools, and optionally workspace initialization. Usage: task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]"
+    desc: "Primary way to create a new Ubuntu VM. Sets up the complete VM environment including Incus client and developer tools. Use --workspace to copy/init workspace. Usage: task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner]"
     cmds:
       - task: instantiate:parse-args
       - task: instantiate:initialize-context
@@ -341,10 +361,12 @@ tasks:
       - task: instantiate:check-vm-image
       - task: instantiate:create-vm
       - task: instantiate:setup-ssh
+      - task: instantiate:set-incus-remote-env
       - task: instantiate:setup-incus
       - task: instantiate:install-tools
       - task: instantiate:init-workspace
       - task: instantiate:validate-vm
+      - task: instantiate:add-runner-if-requested
       - task: instantiate:cleanup-if-needed
 
   instantiate:parse-args:
@@ -392,10 +414,12 @@ tasks:
   instantiate:create-vm:
     silent: true
     desc: "Create VM using Terraform and setup developer environment"
+    vars:
+      TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
         SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
-        "${SCRIPT_DIR}/create-vm.sh"
+        "${SCRIPT_DIR}/create-vm.sh" "{{.TERRAFORM_PATH}}"
 
   instantiate:setup-incus:
     silent: true
@@ -421,6 +445,14 @@ tasks:
         SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
         "${SCRIPT_DIR}/setup-ssh.sh"
 
+  instantiate:set-incus-remote-env:
+    silent: true
+    desc: "Set INCUS_REMOTE_NAME and INCUS_REMOTE_IP on the VM (system-wide, all users)"
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        bash "${SCRIPT_DIR}/set-incus-remote-env.sh"
+
   instantiate:init-workspace:
     silent: true
     desc: "Initialize workspace on the VM if VM_INIT_WORKSPACE is true"
@@ -429,21 +461,92 @@ tasks:
         SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
         "${SCRIPT_DIR}/init-workspace.sh"
 
+  instantiate:add-runner-if-requested:
+    silent: true
+    desc: "If --runner was set, add GitHub Actions runner user and install runner on the VM"
+    cmds:
+      - |
+        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        "${SCRIPT_DIR}/add-runner-if-requested.sh"
+
   instantiate:cleanup-if-needed:
     silent: true
-    desc: "Cleanup VM if --keep flag was not set"
+    desc: "Cleanup VM only when --destroy was set (default: keep VM)"
     cmds:
       - |
         SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
         "${SCRIPT_DIR}/cleanup-if-needed.sh"
 
-  runner:setup-incus:
+  runner:status:
     silent: true
-    desc: "Sets up Incus client on the VM and configures the nuc remote with trust token"
+    desc: "Check status of GitHub Actions runner. Usage: task vm:runner:status [-- <vm-instance-name>]"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
-        "${SCRIPT_DIR}/setup-incus-runner.sh" "{{.CLI_ARGS}}"
+        set -euo pipefail
+        PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        VM_INSTANCE_NAME_ARG="{{.CLI_ARGS}}"
+        VM_INSTANCE_NAME_VAL=""
+        if [ -n "${VM_INSTANCE_NAME_ARG}" ]; then
+          VM_INSTANCE_NAME_VAL="${VM_INSTANCE_NAME_ARG}"
+        else
+          # Use active Windsor context to resolve VM instance name (e.g. dev-runner from contexts/dev-runner/windsor.yaml)
+          ACTIVE_CONTEXT=""
+          if command -v windsor > /dev/null 2>&1; then
+            ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
+            [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ] && ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
+          fi
+          if [ -n "${ACTIVE_CONTEXT}" ]; then
+            WINDSOR_YAML="${PROJECT_ROOT}/contexts/${ACTIVE_CONTEXT}/windsor.yaml"
+            if [ -f "${WINDSOR_YAML}" ]; then
+              VM_INSTANCE_NAME_VAL=$(grep -E '^\s+VM_INSTANCE_NAME:' "${WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_INSTANCE_NAME:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ' || true)
+              TEST_REMOTE_NAME=$(grep -E '^\s+INCUS_REMOTE_NAME:' "${WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*INCUS_REMOTE_NAME:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ' || true)
+            fi
+            [ -z "${VM_INSTANCE_NAME_VAL}" ] && VM_INSTANCE_NAME_VAL="${ACTIVE_CONTEXT}"
+          fi
+          if [ -z "${VM_INSTANCE_NAME_VAL}" ]; then
+            ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
+            if [ -f "${ENV_FILE}" ]; then
+              VM_INSTANCE_NAME_VAL=$(grep -E '^export VM_INSTANCE_NAME=' "${ENV_FILE}" 2>/dev/null | head -1 | sed "s/^export VM_INSTANCE_NAME='\\(.*\\)'/\1/" | sed 's/^export VM_INSTANCE_NAME=//;s/^"//;s/"$//' || true)
+              [ -z "${TEST_REMOTE_NAME:-}" ] && TEST_REMOTE_NAME=$(grep -E '^export TEST_REMOTE_NAME=' "${ENV_FILE}" 2>/dev/null | head -1 | sed "s/^export TEST_REMOTE_NAME='\\(.*\\)'/\1/" || true)
+            fi
+          fi
+          VM_INSTANCE_NAME_VAL="${VM_INSTANCE_NAME_VAL:-runner}"
+          TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-}"
+        fi
+        export VM_INSTANCE_NAME="${VM_INSTANCE_NAME_VAL}"
+        export VM_NAME="${VM_INSTANCE_NAME_VAL}"
+        mkdir -p "${PROJECT_ROOT}/.workspace"
+        ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
+        {
+          echo "export VM_INSTANCE_NAME='${VM_INSTANCE_NAME_VAL}'"
+          echo "export VM_NAME='${VM_INSTANCE_NAME_VAL}'"
+          [ -n "${TEST_REMOTE_NAME:-}" ] && echo "export TEST_REMOTE_NAME='${TEST_REMOTE_NAME}'" && echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
+        } > "${ENV_FILE}"
+        SCRIPT_DIR="${PROJECT_ROOT}/bin/vm/scripts/runner"
+        "${SCRIPT_DIR}/status-github-runner.sh"
+
+  runner:help:
+    silent: true
+    desc: "Help for runner-related VM commands"
+    cmds:
+      - |
+        echo "GitHub Actions Runner (via VM)"
+        echo ""
+        echo "Create runner VM:"
+        echo "    task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--runner]"
+        echo "      Set a runner context first (e.g. windsor context set dev-runner), then run with --runner."
+        echo "      Examples:"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 dev-runner --runner"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 dev-runner --runner --destroy"
+        echo ""
+        echo "Check runner status:"
+        echo "    task vm:runner:status [-- <vm-instance-name>]"
+        echo "      Reports the GitHub Actions runner service status. VM instance name from CLI, active context windsor.yaml (VM_INSTANCE_NAME), or .runner-instantiate.env (default: runner)."
+        echo ""
+        echo "Destroy VM (including runner VMs):"
+        echo "    task vm:destroy [-- <vm-name>]"
+        echo "      Unregisters the runner from GitHub if present, then destroys the VM."
+        echo ""
 
   help:
     silent: true
@@ -453,19 +556,23 @@ tasks:
         echo "Ubuntu Virtual Machine (Incus)"
         echo ""
         echo "Create VM:"
-        echo "    task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]"
+        echo "    task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner]"
         echo "      Primary way to create and setup a new VM (includes Incus client setup)"
         echo "      Arguments:"
         echo "        <remote-name>          Required: Name of the Incus remote"
+        echo "        <remote-ip>            Required: IP address of the Incus remote (set on VM as INCUS_REMOTE_IP)"
         echo "        <vm-name>              Optional: Name for the VM (default: 'vm')"
         echo "      Options:"
-        echo "        --keep, --no-cleanup    Keep VM running (default: delete VM)"
-        echo "        --no-workspace          Skip workspace initialization (default: initialize workspace)"
+        echo "        --destroy               Destroy VM at end of instantiate (default: keep VM)"
         echo "        --windsor-up            Run windsor init and windsor up after workspace setup"
+        echo "        --workspace             Copy and initialize workspace on the VM (default: skip)"
+        echo "        --runner                Add a GitHub Actions runner to the VM at the end (setup-runner-user + install-github-runner)"
         echo "      Examples:"
-        echo "        task vm:instantiate -- nuc"
-        echo "        task vm:instantiate -- nuc my-vm"
-        echo "        task vm:instantiate -- nuc my-vm --keep"
+        echo "        task vm:instantiate -- nuc 192.168.2.100"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 my-vm"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 my-vm --destroy"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace"
+        echo "        task vm:instantiate -- nuc 192.168.2.100 my-vm --runner"
         echo ""
         echo "List VMs:"
         echo "    task vm:list"
@@ -479,7 +586,10 @@ tasks:
         echo "Destroy VM (Terraform):"
         echo "    task vm:destroy [-- <vm-name>]"
         echo "      Destroys the VM using Terraform (updates Terraform state)."
-        echo "      Falls back to Incus delete if VM is not in Terraform state."
-        echo "      If <vm-name> is not provided, uses the current context."
+        echo "      For runner VMs, unregisters from GitHub first. Falls back to Incus delete if not in Terraform state."
+        echo ""
+        echo "Runner status:"
+        echo "    task vm:runner:status [-- <runner-name>]"
+        echo "      Check GitHub Actions runner service status. See task vm:runner:help for more."
         echo ""
 

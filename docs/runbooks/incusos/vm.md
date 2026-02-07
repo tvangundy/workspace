@@ -33,6 +33,7 @@ Add to `contexts/<context>/windsor.yaml`:
 ```yaml
 environment:
   INCUS_REMOTE_NAME: your-remote-name
+  INCUS_SERVER_IP: 192.168.2.101
   VM_INSTANCE_NAME: vm
   VM_IMAGE: ubuntu/24.04
   VM_MEMORY: 8GB

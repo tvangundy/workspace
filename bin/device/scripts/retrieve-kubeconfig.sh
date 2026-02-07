@@ -9,5 +9,8 @@ load_device_env
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 CLI_ARGS="${1:-}"
 
+KUBECONFIG_FILE="${KUBECONFIG_FILE:-${KUBECONFIG:-${KUBE_CONFIG_PATH:-${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/.kube/config}}}"
+mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+
 cd "${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}"
 talosctl kubeconfig "${KUBECONFIG_FILE}" --nodes ${CLI_ARGS}

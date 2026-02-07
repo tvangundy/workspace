@@ -16,7 +16,7 @@ source "${LIB_DIR}/terraform.sh"
 load_tc_env() {
   local project_root
   project_root=$(get_windsor_project_root)
-  local env_file="${project_root}/.tc-instantiate.env"
+  local env_file="${project_root}/.workspace/.tc-instantiate.env"
   
   source_env_file "${env_file}"
   
@@ -36,4 +36,20 @@ load_tc_env() {
   
   export TEST_REMOTE_NAME REMOTE_NAME CLUSTER_NAME
   export CONTROL_PLANE_VM WORKER_0_VM WORKER_1_VM TERRAFORM_DIR
+}
+
+# Resolve context directory: WINDSOR_CONTEXT takes precedence over CLUSTER_NAME
+get_tc_context_dir() {
+  local project_root="${1:?project_root required}"
+  local cluster_name="${2:-}"
+  local contexts_dir="${project_root}/contexts"
+  local ctx="${WINDSOR_CONTEXT:-}"
+  if [ -z "${ctx}" ] && command -v windsor >/dev/null 2>&1; then
+    ctx=$(windsor context get 2>/dev/null || echo "")
+  fi
+  if [ -n "${ctx}" ]; then
+    echo "${contexts_dir}/${ctx}"
+  else
+    echo "${contexts_dir}/${cluster_name}"
+  fi
 }

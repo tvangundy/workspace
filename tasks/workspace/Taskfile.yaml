@@ -3,8 +3,52 @@
 version: '3'
 
 tasks:
-  initialize:
-    desc: Initialize the workspace
+  overwrite:
+    desc: Overwrite tasks/ and bin/ in dst-workspace with contents from src-workspace
+    cmds:
+      - |
+        set -euo pipefail
+
+        CLI_ARGS_STR="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: <src-workspace-path> and <dst-workspace-path> are required"
+          echo "Usage: task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
+          echo "Example: task workspace:overwrite -- . ~/workspaces/my-workspace"
+          echo "Example: task workspace:overwrite -- ~/forest-shadows ~/my-project"
+          exit 1
+        fi
+
+        eval set -- ${CLI_ARGS_STR}
+        SRC_PATH="${1:-}"
+        DST_PATH="${2:-}"
+
+        if [ -z "${SRC_PATH}" ] || [ -z "${DST_PATH}" ]; then
+          echo "Error: <src-workspace-path> and <dst-workspace-path> are required"
+          echo "Usage: task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
+          exit 1
+        fi
+
+        # Resolve . to absolute paths
+        SRC_ABS=$(cd "${SRC_PATH}" && pwd)
+        DST_ABS=$(cd "${DST_PATH}" && pwd)
+
+        if [ ! -d "${SRC_ABS}/tasks" ] || [ ! -d "${SRC_ABS}/bin" ]; then
+          echo "Error: src workspace must contain 'tasks' and 'bin' directories"
+          echo "  Source: ${SRC_ABS}"
+          exit 1
+        fi
+
+        if [ "${SRC_ABS}" = "${DST_ABS}" ]; then
+          echo "Error: src and dst paths are the same (${SRC_ABS})"
+          exit 1
+        fi
+
+        echo "Overwriting tasks/ and bin/ in ${DST_ABS} with contents from ${SRC_ABS}"
+        rm -rf "${DST_ABS}/tasks" "${DST_ABS}/bin"
+        cp -r "${SRC_ABS}/tasks" "${SRC_ABS}/bin" "${DST_ABS}/"
+        echo "✅ Done"
+  instantiate:
+    desc: Instantiate the workspace
     cmds:
       - | 
         set -euo pipefail
@@ -12,16 +56,23 @@ tasks:
         # Parse CLI_ARGS - use eval to properly handle quoted arguments
         CLI_ARGS_STR="{{.CLI_ARGS}}"
         
-        # Extract arguments from CLI_ARGS
-        if [ -n "${CLI_ARGS_STR}" ]; then
-          # Use eval to properly parse arguments (handles spaces and quotes)
-          eval set -- ${CLI_ARGS_STR}
-          WORKSPACE_NAME="${1:-test-workspace}"
-          WORKSPACE_PATH="${2:-../$WORKSPACE_NAME}"
-        else
-          # Use defaults if no CLI_ARGS provided
-          WORKSPACE_NAME="test-workspace"
-          WORKSPACE_PATH="../${WORKSPACE_NAME}"
+        # Both workspace-name and workspace-path are required
+        if [ -z "${CLI_ARGS_STR}" ]; then
+          echo "Error: <workspace-name> and <workspace-path> are required"
+          echo "Usage: task workspace:instantiate -- <workspace-name> <workspace-path>"
+          echo "Example: task workspace:instantiate -- my-workspace ~/workspaces/my-workspace"
+          exit 1
+        fi
+        
+        eval set -- ${CLI_ARGS_STR}
+        WORKSPACE_NAME="${1:-}"
+        WORKSPACE_PATH="${2:-}"
+        
+        if [ -z "${WORKSPACE_NAME}" ] || [ -z "${WORKSPACE_PATH}" ]; then
+          echo "Error: <workspace-name> and <workspace-path> are required"
+          echo "Usage: task workspace:instantiate -- <workspace-name> <workspace-path>"
+          echo "Example: task workspace:instantiate -- my-workspace ~/workspaces/my-workspace"
+          exit 1
         fi
         
         WORKSPACE_REPO_URL="https://github.com/tvangundy/workspace.git"
@@ -67,6 +118,9 @@ tasks:
       - |
         echo "Workspace"
         echo ""
-        echo "    task workspace:initialize -- <workspace-name> <workspace-global-path>"
+        echo "    task workspace:instantiate -- <workspace-name> <workspace-path>"
+        echo ""
+        echo "    task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
+        echo ""
         echo "    task workspace:clean"
     silent: true
