@@ -17,13 +17,9 @@ task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--works
 ## Namespace Overview
 
 - **`device:`** - Physical device preparation, disk image management, and Talos cluster configuration for bare-metal deployments
-- **`docker:`** - Docker container cleanup and system maintenance
-- **`incus:`** - Incus daemon management and instance operations, including Talos VM deployment
 - **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
-- **`talos:`** - Talos Linux cluster health monitoring and cluster lifecycle management
 - **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
 - **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners (`--runner`)
-- **`vhs:`** - Terminal session recording and GIF generation for documentation
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
 
 ## Task Namespaces
@@ -67,46 +63,6 @@ Device management for preparing physical devices, managing disk images, and conf
 
 - `task device:help` - Show all device-related commands
 
-### 🐳 Docker (`docker:`)
-
-Docker container management and cleanup.
-
-**Management:**
-
-- `task docker:clean` - Clean up Docker images and containers (kills all running containers and prunes system)
-
-**Help:**
-
-- `task docker:help` - Show Docker commands
-
-### 📦 Incus (`incus:`)
-
-Incus container and VM management, including Talos VM deployment.
-
-**Daemon Management:**
-
-- `task incus:start-daemon` - Start the Incus daemon (handles macOS/Colima, snap, systemd, and direct binary)
-- `task incus:stop-daemon` - Stop the Incus daemon
-
-**Instance Management:**
-
-- `task incus:create-instance [<instance-name>]` - Create an Incus instance (defaults to `UBUNTU_GITHUB_RUNNER_0_NAME` if no name provided)
-- `task incus:delete-instance [<instance-name>]` - Delete an Incus instance (defaults to `UBUNTU_GITHUB_RUNNER_0_NAME` if no name provided)
-
-**Talos VM Deployment:**
-
-- `task incus:download-talos-image` - Download the Talos cloud image for VMs
-- `task incus:create-physical-network` - Create a physical network for direct attachment to the host network
-- `task incus:launch-talos-vm -- <vm-name> <vm-ip>` - Launch a Talos VM on IncusOS
-
-**Utilities:**
-
-- `task incus:web-ui` - Open the Incus Web UI in your browser
-
-**Help:**
-
-- `task incus:help` - Show all Incus-related commands
-
 ### 🔐 SOPS (`sops:`)
 
 Secrets management using SOPS (Secrets Operations) with AWS KMS.
@@ -131,37 +87,6 @@ Secrets management using SOPS (Secrets Operations) with AWS KMS.
 **Help:**
 
 - `task sops:help` - Show all SOPS-related commands
-
-### ☸️ Talos (`talos:`)
-
-Talos Linux cluster health checks and management.
-
-**Health Checks:**
-
-- `task talos:health-controlplane` - Check control plane node health
-- `task talos:health-worker` - Check all worker nodes health
-- `task talos:health-worker-0` - Check worker-0 node health
-- `task talos:health-worker-1` - Check worker-1 node health
-- `task talos:fetch-node-server-certificate` - Fetch server certificate from control plane node
-
-**Cluster Management:**
-
-- `task talos:cleanup` - Destroy the entire Talos cluster and clean up resources (stops and deletes all VMs)
-
-**Help:**
-
-- `task talos:help` - Show all Talos-related commands
-
-**Environment Variables Used:**
-
-- `CONTROL_PLANE_IP` - Control plane node IP address
-- `WORKER_0_IP` - First worker node IP address
-- `WORKER_1_IP` - Second worker node IP address
-- `TALOSCONFIG` - Path to Talos configuration file
-- `INCUS_REMOTE_NAME` - Incus remote name
-- `CONTROL_PLANE_VM` - Control plane VM name
-- `WORKER_0_VM` - First worker VM name
-- `WORKER_1_VM` - Second worker VM name
 
 ### ☸️ Talos Cluster (`tc:`)
 
@@ -204,22 +129,6 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 
 **Note:** VM start/stop/restart, info, shell, and exec are done via the **Incus** CLI: `incus start/stop/restart/info/exec $INCUS_REMOTE_NAME:<instance-name>`.
 
-### 🎬 VHS (`vhs:`)
-
-Generate GIF animations from terminal session recordings using VHS (Video-to-Hardcopy-Software).
-
-**GIF Generation:**
-
-- `task vhs:make-windsor-init-gif` - Build Windsor init GIF
-- `task vhs:make-windsor-up-gif` - Build Windsor up GIF
-- `task vhs:make-port-forwarding-gif` - Build port forwarding GIF
-- `task vhs:make-windsor-down-gif` - Build Windsor down GIF
-- `task vhs:make-check-ha-pod-gif` - Build check HA pod GIF
-
-**Help:**
-
-- `task vhs:help` - Show all VHS-related commands
-
 ### 📁 Workspace (`workspace:`)
 
 Workspace initialization and management.
@@ -261,8 +170,6 @@ Tasks accept arguments using the `--` separator:
 ```bash
 task vm:instantiate -- nuc 192.168.2.100 my-vm --runner
 task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace --windsor-up
-task tc:instantiate -- nuc 192.168.2.101 my-cluster
-task device:apply-configuration -- 192.168.1.100 192.168.1.101 192.168.1.102
 ```
 
 ## Taskfile Location
