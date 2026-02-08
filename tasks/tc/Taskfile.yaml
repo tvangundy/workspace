@@ -151,7 +151,7 @@ tasks:
           if [ -n "{{.CLUSTER_NAME}}" ]; then
             CLUSTER_NAME_ARG="{{.CLUSTER_NAME}}"
           else
-            CLUSTER_NAME_ARG="talos-test-cluster"
+            CLUSTER_NAME_ARG="test-cluster"
           fi
         fi
         
@@ -249,7 +249,7 @@ tasks:
         echo "      Arguments:"
         echo "        <remote-name>          Required: Name of the Incus remote"
         echo "        <remote-ip>            Required: IP address of the Incus remote"
-        echo "        <cluster-name>         Optional: Name for the cluster (default: 'talos-test-cluster')"
+        echo "        <cluster-name>         Optional: Name for the cluster (default: 'test-cluster')"
         echo "      Options:"
         echo "        --destroy               Destroy cluster at end (default: keep cluster running)"
         echo ""

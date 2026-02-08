@@ -50,7 +50,7 @@ task tc:instantiate -- <remote-name> <remote-ip> [<cluster-name>] [--destroy]
 
 - `<remote-name>` (required): Name of the Incus remote (e.g., `nuc`, `local`)
 - `<remote-ip>` (required): IP address of the Incus remote
-- `<cluster-name>` (optional): Name for the cluster (default: `talos-test-cluster`)
+- `<cluster-name>` (optional): Name for the cluster (default: `test-cluster`)
 - `--destroy` (optional): Destroy cluster at end of instantiate (default: keep cluster)
 
 **What it does:**

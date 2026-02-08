@@ -12,7 +12,7 @@ if [ -z "${CLI_ARGS_STR}" ]; then
   echo "Arguments:"
   echo "  <remote-name>          Required: Name of the Incus remote"
   echo "  <remote-ip>            Required: IP address of the Incus remote"
-  echo "  <cluster-name>         Optional: Name for the cluster (default: 'talos-test-cluster')"
+  echo "  <cluster-name>         Optional: Name for the cluster (default: 'test-cluster')"
   echo ""
   echo "Options:"
   echo "  --destroy               Destroy cluster at end of instantiate (default: keep cluster)"
@@ -63,7 +63,7 @@ done
 # Determine CLUSTER_NAME:
 # 1. If explicitly provided as argument, use it (highest priority - overrides active context)
 # 2. Else, if there's an active Windsor context, use that
-# 3. Else, use existing CLUSTER_NAME from environment, or default to 'talos-test-cluster'
+# 3. Else, use existing CLUSTER_NAME from environment, or default to 'test-cluster'
 if [ -n "${CLUSTER_NAME_ARG}" ]; then
   # Parameter explicitly provided - use it (overrides active context)
   CLUSTER_NAME="${CLUSTER_NAME_ARG}"
@@ -84,7 +84,7 @@ else
     CLUSTER_NAME="${ACTIVE_CONTEXT}"
   else
     # No active context and no parameter - use environment or default
-    CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+    CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
   fi
 fi
 

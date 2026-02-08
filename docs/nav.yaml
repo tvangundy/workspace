@@ -25,13 +25,9 @@ nav:
           - Bare Metal Runner: runbooks/apps/runners/bare-metal-runner-setup.md
   - Taskfiles:
       - Introduction: taskfiles/README.md
-      - Device: taskfiles/device/README.md
-      - Docker: taskfiles/docker/README.md
-      - Incus: taskfiles/incus/README.md
-      - SOPS: taskfiles/sops/README.md
-      - Talos: taskfiles/talos/README.md
-      - TC: taskfiles/tc/README.md
-      - VHS: taskfiles/vhs/README.md
-      - VM: taskfiles/vm/README.md
-      - Workspace: taskfiles/workspace/README.md      
+      - device: taskfiles/device/README.md
+      - sops: taskfiles/sops/README.md
+      - tc: taskfiles/tc/README.md
+      - vm: taskfiles/vm/README.md
+      - workspace: taskfiles/workspace/README.md      
   - Troubleshooting: troubleshooting.md

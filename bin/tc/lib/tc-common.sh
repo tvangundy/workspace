@@ -23,7 +23,7 @@ load_tc_env() {
   # Set defaults
   TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-}"
   REMOTE_NAME="${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}"
-  CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+  CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
   
   # VM names default to cluster-specific names if not explicitly set
   # This prevents collisions between different clusters

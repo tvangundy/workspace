@@ -83,7 +83,7 @@ tasks:
         
         # Get cluster configuration from environment or use defaults
         CLUSTER_NAME="{{.CLUSTER_NAME}}"
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         CONTROL_PLANE_VM="{{.CONTROL_PLANE_VM}}"
         CONTROL_PLANE_VM="${CONTROL_PLANE_VM:-talos-cp}"
         WORKER_0_VM="{{.WORKER_0_VM}}"
@@ -312,7 +312,7 @@ tasks:
         # Ensure environment variables are loaded from Windsor for Taskfile template variables
         # Taskfile evaluates {{.VAR}} at parse time from environment variables
         # Get from environment (should be set by initialize-context or from tc:test)
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         WINDSOR_PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
         
         # Try to load from Windsor if available
@@ -564,7 +564,7 @@ tasks:
         fi
         
         # Calculate TEST_WINDSOR_YAML if not set
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         if [ -z "${TEST_WINDSOR_YAML:-}" ]; then
           TEST_WINDSOR_YAML="${PROJECT_ROOT}/contexts/${CLUSTER_NAME}/windsor.yaml"
         fi
@@ -679,7 +679,7 @@ tasks:
             PROJECT_ROOT="$(pwd)"
           fi
         fi
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         TALOSCONFIG_PATH="${TALOSCONFIG_PATH:-${PROJECT_ROOT}/contexts/${CLUSTER_NAME}/.talos/talosconfig}"
         KUBECONFIG_FILE_PATH="${KUBECONFIG_FILE_PATH:-${PROJECT_ROOT}/contexts/${CLUSTER_NAME}/.kube/config}"
         
@@ -808,7 +808,7 @@ tasks:
           fi
         fi
         
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-nuc}"
         if [ -z "${TALOSCONFIG_PATH:-}" ]; then
           TALOSCONFIG_PATH="${PROJECT_ROOT}/contexts/${CLUSTER_NAME}/.talos/talosconfig"
@@ -851,7 +851,7 @@ tasks:
           fi
         fi
         
-        CLUSTER_NAME="${CLUSTER_NAME:-talos-test-cluster}"
+        CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-nuc}"
         if [ -z "${TALOSCONFIG_PATH:-}" ]; then
           TALOSCONFIG_PATH="${PROJECT_ROOT}/contexts/${CLUSTER_NAME}/.talos/talosconfig"

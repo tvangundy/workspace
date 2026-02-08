@@ -85,7 +85,7 @@ task tc:instantiate -- <remote-name> [<cluster-name>] [--keep]
 ```
 
 - `<remote-name>` (required): Incus remote (e.g. `nuc`)
-- `<cluster-name>` (optional): Cluster name (default: `talos-test-cluster`)
+- `<cluster-name>` (optional): Cluster name (default: `test-cluster`)
 - `--keep`: Do not destroy cluster after creation (use for real deployments)
 
 Instantiate will: verify remote, check no existing cluster VMs, ensure image, generate tfvars, create 3 VMs, wait for them, get IPs from Terraform, update `windsor.yaml`, regenerate tfvars, apply Talos config, bootstrap etcd, and retrieve kubeconfig. This takes several minutes.

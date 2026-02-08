@@ -1,0 +1,138 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  list:
+    desc: "List GitHub Actions workflow runs for a repository (usage: task gh:list -- [owner/repo] [--limit N] [--status completed])"
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "Error: gh CLI not found. Install with: brew install gh"
+          exit 1
+        fi
+        REPO="{{.GITHUB_REPO}}"
+        CLI_ARGS="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS}" ]; then
+          FIRST_ARG=$(echo "${CLI_ARGS}" | awk '{print $1}')
+          case "${FIRST_ARG}" in
+            --*)
+              gh run list ${CLI_ARGS}
+              ;;
+            *)
+              REST=$(echo "${CLI_ARGS}" | sed 's/^[^[:space:]]*[[:space:]]*//')
+              gh run list --repo "${FIRST_ARG}" ${REST}
+              ;;
+          esac
+        elif [ -n "${REPO}" ]; then
+          gh run list --repo "${REPO}"
+        else
+          gh run list
+        fi
+
+  delete:
+    desc: "Delete GitHub Actions workflow run(s) (usage: task gh:delete -- [owner/repo] <run-id> [run-id2 ...])"
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "Error: gh CLI not found. Install with: brew install gh"
+          exit 1
+        fi
+        REPO="{{.GITHUB_REPO}}"
+        CLI_ARGS="{{.CLI_ARGS}}"
+        if [ -z "${CLI_ARGS}" ]; then
+          echo "Usage: task gh:delete -- [owner/repo] <run-id> [run-id2 ...]"
+          echo "Example: task gh:delete -- tvangundy/test 12345 12346"
+          echo "         task gh:delete -- 12345"
+          exit 1
+        fi
+        FIRST_ARG=$(echo "${CLI_ARGS}" | awk '{print $1}')
+        case "${FIRST_ARG}" in
+          */*)
+            REPO="${FIRST_ARG}"
+            RUN_IDS=$(echo "${CLI_ARGS}" | sed 's/^[^[:space:]]*[[:space:]]*//')
+            ;;
+          *)
+            REPO="${REPO:-}"
+            RUN_IDS="${CLI_ARGS}"
+            ;;
+        esac
+        for RUN_ID in ${RUN_IDS}; do
+          echo "Deleting run ${RUN_ID}..."
+          if [ -n "${REPO}" ]; then
+            gh run delete "${RUN_ID}" --repo "${REPO}"
+          else
+            gh run delete "${RUN_ID}"
+          fi
+        done
+        echo "✅ Done"
+
+  delete-all-runs:
+    desc: "Delete all workflow runs for a repository (usage: task gh:delete-all-runs -- [owner/repo])"
+    silent: true
+    cmds:
+      - |
+        set -euo pipefail
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "Error: gh CLI not found. Install with: brew install gh"
+          exit 1
+        fi
+        REPO="{{.GITHUB_REPO}}"
+        CLI_ARGS="{{.CLI_ARGS}}"
+        if [ -n "${CLI_ARGS}" ]; then
+          FIRST_ARG=$(echo "${CLI_ARGS}" | awk '{print $1}')
+          case "${FIRST_ARG}" in
+            */*)
+              REPO="${FIRST_ARG}"
+              ;;
+            *)
+              [ -z "${REPO}" ] && REPO="${FIRST_ARG}"
+              ;;
+          esac
+        fi
+        REPO_FLAG=""
+        [ -n "${REPO}" ] && REPO_FLAG="--repo ${REPO}"
+        echo "Fetching runs (limit 500)..."
+        RUN_IDS=$(gh run list ${REPO_FLAG} --limit 500 --json databaseId -q '.[].databaseId' 2>/dev/null || true)
+        if [ -z "${RUN_IDS}" ]; then
+          echo "No runs found."
+          exit 0
+        fi
+        COUNT=$(echo "${RUN_IDS}" | wc -w | tr -d ' ')
+        echo "Deleting ${COUNT} run(s)..."
+        for RUN_ID in ${RUN_IDS}; do
+          echo "Deleting run ${RUN_ID}..."
+          gh run delete "${RUN_ID}" ${REPO_FLAG}
+        done
+        echo "✅ Deleted ${COUNT} run(s)"
+
+  help:
+    silent: true
+    desc: "Show gh task help"
+    cmds:
+      - |
+        echo "GitHub Actions tasks (gh CLI)"
+        echo ""
+        echo "  task gh:list -- [owner/repo] [--limit N] [--status completed]"
+        echo "    List workflow runs. Omit repo to use current repository."
+        echo ""
+        echo "  task gh:delete -- [owner/repo] <run-id> [run-id2 ...]"
+        echo "    Delete workflow run(s) by ID."
+        echo ""
+        echo "  task gh:delete-all-runs -- [owner/repo]"
+        echo "    Delete all workflow runs for the repository (up to 500)."
+        echo ""
+        echo "Examples:"
+        echo "  task gh:list"
+        echo "  task gh:list -- tvangundy/test --limit 50"
+        echo "  task gh:list -- tvangundy/test --status completed"
+        echo "  task gh:delete -- tvangundy/test 12345"
+        echo "  task gh:delete -- 12345 12346 12347"
+        echo "  task gh:delete-all-runs"
+        echo "  task gh:delete-all-runs -- tvangundy/test"
+        echo ""
+        echo "Set GITHUB_REPO (e.g. owner/repo) to avoid passing repo each time."
