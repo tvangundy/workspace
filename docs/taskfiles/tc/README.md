@@ -164,6 +164,7 @@ Get IP addresses from Terraform outputs and update `windsor.yaml` with the actua
 task tc:instantiate:get-ip-addresses
 ```
 
+<a id="instantiate-regenerate-tfvars-with-ips"></a>
 ### `instantiate:regenerate-tfvars-with-ips`
 
 Regenerate terraform.tfvars with IP addresses and apply Talos configuration to the cluster.
@@ -291,5 +292,4 @@ Task definitions are located in `tasks/tc/Taskfile.yaml`.
 ## Related Documentation
 
 - [Talos Cluster Runbook](../../runbooks/incusos/tc.md) - Complete guide for creating and managing Talos clusters
-- [Terraform Cluster Configuration](../../../terraform/cluster/) - Terraform module for Talos clusters
 

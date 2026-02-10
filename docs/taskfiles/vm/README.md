@@ -390,6 +390,5 @@ Task definitions are located in `tasks/vm/Taskfile.yaml`.
 
 - [VM Runbook](../../runbooks/incusos/vm.md) - Complete guide for creating and managing VMs
 - [VM Runner Setup Runbook](../../runbooks/apps/runners/vm-runner-setup.md) - Complete guide for GitHub Actions runners on Incus VMs
-- [Terraform VM Configuration](../../../terraform/vm/) - Terraform module for VMs
 - [Secrets Management](../../runbooks/secrets/secrets.md) - Guide for managing secrets with SOPS
 
