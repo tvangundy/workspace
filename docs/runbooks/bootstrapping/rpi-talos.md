@@ -64,8 +64,6 @@ environment:
   WORKER_1_IP: "192.168.2.125"
 
   USB_DISK: "/dev/disk4"
-
-  TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
 ```
 
 ## Step 3: Download the Talos image

@@ -1,6 +1,6 @@
 ---
 title: "Workspace Tasks"
-description: "Workspace initialization and management tasks for setting up and cleaning workspace repositories"
+description: "Workspace initialization and management tasks for setting up workspace repositories"
 ---
 # Workspace Tasks (`workspace:`)
 
@@ -8,7 +8,7 @@ Workspace initialization and management.
 
 ## Overview
 
-The `workspace:` namespace provides tools for initializing and managing workspace repositories. These tasks handle cloning workspace repositories, pulling updates, and cleaning up Docker resources.
+The `workspace:` namespace provides tools for initializing and managing workspace repositories. These tasks handle cloning workspace repositories and pulling updates.
 
 ## Task Reference
 
@@ -16,7 +16,6 @@ The `workspace:` namespace provides tools for initializing and managing workspac
 |------|-------------|
 | [`instantiate`](#instantiate) | Instantiate a new workspace by cloning the workspace repository |
 | [`overwrite`](#overwrite) | Overwrite `tasks/` and `bin/` in a destination workspace with contents from a source workspace |
-| [`clean`](#clean) | Clean up Docker images and containers (convenience task) |
 
 ## Tasks
 
@@ -95,40 +94,6 @@ task workspace:overwrite -- ~/forest-shadows ~/my-project
 
 **Warning:** This destructively replaces `tasks/` and `bin/` in the destination. Any local changes in those directories will be lost.
 
-### `clean`
-
-Clean up Docker images and containers. This is a convenience task that calls Docker cleanup commands.
-
-**Usage:**
-
-```bash
-task workspace:clean
-```
-
-**What it does:**
-
-1. Kills all running containers (`docker kill $(docker ps -q)`)
-2. Prunes the entire Docker system (`docker system prune -af`)
-
-**Warning:** This command will:
-
-- Stop and remove all running containers
-- Remove all stopped containers
-- Remove all unused images (not just dangling ones)
-- Remove all unused networks
-- Remove all unused volumes
-- Remove all build cache
-
-**Use with caution:** This is a destructive operation that removes all unused Docker resources.
-
-**Example:**
-
-```bash
-task workspace:clean
-```
-
-**Note:** This is the same as `task docker:clean`. The task exists in the workspace namespace for convenience.
-
 ## Prerequisites
 
 ### For `instantiate`:
@@ -142,11 +107,6 @@ task workspace:clean
 
 - Source workspace must contain `tasks/` and `bin/` directories
 - Write permissions to the destination workspace
-
-### For `clean`:
-
-- Docker installed and running
-- Docker daemon accessible
 
 ## Workflow Example
 

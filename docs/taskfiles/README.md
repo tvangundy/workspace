@@ -17,7 +17,7 @@ task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--works
 ## Namespace Overview
 
 - **`device:`** - Physical device preparation, disk image management, and Talos cluster configuration for bare-metal deployments
-- **`sops:`** - Secrets management using SOPS with AWS KMS, including Terraform infrastructure for key and state management
+- **`sops:`** - Secrets management using SOPS for encrypting and decrypting secrets files
 - **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
 - **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners (`--runner`)
 - **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
@@ -65,24 +65,13 @@ Device management for preparing physical devices, managing disk images, and conf
 
 ### 🔐 SOPS (`sops:`)
 
-Secrets management using SOPS (Secrets Operations) with AWS KMS.
-
-**Context Setup:**
-
-- `task sops:set-context` - Initialize the SOPS context with AWS S3 backend
-
-**Terraform Operations:**
-
-- `task sops:init` - Initialize Terraform for SOPS infrastructure
-- `task sops:plan` - Plan deployment to AWS
-- `task sops:apply` - Deploy SOPS resources to AWS (KMS key and state bucket)
-- `task sops:output` - Print SOPS Terraform state
-- `task sops:destroy` - Destroy the AWS SOPS infrastructure
+Secrets management using SOPS (Secrets Operations).
 
 **SOPS Operations:**
 
 - `task sops:generate-secrets-file` - Generate a new secrets file template for the current context
 - `task sops:encrypt-secrets-file` - Encrypt the secrets file using SOPS
+- `task sops:decrypt-secrets-file` - Decrypt the secrets file
 
 **Help:**
 
@@ -137,7 +126,6 @@ Workspace initialization and management.
 
 - `task workspace:instantiate -- <workspace-name> <workspace-path>` - Instantiate a new workspace by cloning the workspace repository
 - `task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>` - Overwrite `tasks/` and `bin/` in destination with contents from source
-- `task workspace:clean` - Clean up Docker images and containers
 
 **Help:**
 

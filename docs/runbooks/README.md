@@ -67,7 +67,6 @@ Instructions for bootstrapping Talos clusters and Operating Systems to prepar de
 - **[Intel NUC BIOS Update](./bootstrapping/nuc-bios.md)**: Update BIOS on Intel NUC before Ubuntu or Talos
 - **[Raspberry Pi](./bootstrapping/rpi-talos.md)**: Bootstrapping Talos clusters on Raspberry Pi devices (ARM64)
 - **[Intel NUC](./bootstrapping/nuc-talos.md)**: Bootstrapping Talos clusters on Intel NUC devices (x86_64)
-- **[Sidero Omni](./bootstrapping/omni.md)**: Bootstrapping Talos clusters using Sidero Omni for bare metal provisioning
 - **[Ubuntu Setup](./bootstrapping/nuc-ubuntu.md)**
 
 Complete guide for installing and configuring Ubuntu on Intel NUC devices, including BIOS configuration, boot media preparation, installation process, and post-installation setup for development and server workloads.

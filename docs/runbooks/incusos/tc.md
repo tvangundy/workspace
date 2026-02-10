@@ -40,9 +40,6 @@ Add to `contexts/<context>/windsor.yaml`:
 
 ```yaml
 environment:
-  INCUS_REMOTE_NAME: "nuc"
-  INCUS_SERVER_IP: 192.168.2.101
-  CLUSTER_NAME: "talos-vm-cluster"
   CONTROL_PLANE_VM: "talos-cp"
   WORKER_0_VM: "talos-worker-0"
   WORKER_1_VM: "talos-worker-1"
@@ -50,9 +47,6 @@ environment:
   TALOS_IMAGE_VERSION: "v1.12.0"
   TALOS_IMAGE_ARCH: "metal-amd64"
   STORAGE_POOL: "local"
-  TALOSCONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.talos/talosconfig
-  KUBECONFIG_FILE: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config
-  KUBECONFIG: $WINDSOR_PROJECT_ROOT/contexts/$WINDSOR_CONTEXT/.kube/config
 ```
 
 Leave `CONTROL_PLANE_IP`, `WORKER_0_IP`, `WORKER_1_IP` empty for a new cluster. The instantiate task will create the VMs, get DHCP IPs, update your config, and continue with Talos.

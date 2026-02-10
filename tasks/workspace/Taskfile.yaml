@@ -103,11 +103,6 @@ tasks:
         echo "Workspace initialized successfully."
     silent: true
 
-  clean:
-    desc: Clean up Docker images and containers
-    cmds:
-      - docker kill $(docker ps -q) && docker system prune -af
-
   #-----------------------------------------------------------------------------------------------------------------------
   # workspace
   #-----------------------------------------------------------------------------------------------------------------------
@@ -121,6 +116,4 @@ tasks:
         echo "    task workspace:instantiate -- <workspace-name> <workspace-path>"
         echo ""
         echo "    task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
-        echo ""
-        echo "    task workspace:clean"
     silent: true

@@ -152,7 +152,6 @@ Add or update the `environment` section in `contexts/nuc-incusos/windsor.yaml`:
 
 ```yaml
 environment:
-  INCUS_REMOTE_NAME: "nuc"
   USB_DISK: "/dev/disk4"
 
   # Path to the downloaded IncusOS image file (from Step 1)

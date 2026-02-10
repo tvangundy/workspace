@@ -17,7 +17,6 @@ nav:
       - Talos Cluster:
         - Raspberry Pi: runbooks/bootstrapping/rpi-talos.md
         - Intel NUC: runbooks/bootstrapping/nuc-talos.md
-        - Sidero Omni: runbooks/bootstrapping/omni.md
     - Apps:
       - Introduction: runbooks/apps/README.md
       - GitHub Actions Runners:

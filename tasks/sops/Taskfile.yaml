@@ -11,79 +11,7 @@ vars:
   SECRETS_YAML: "{{.CONTEXTS_ROOT}}/{{.CONTEXT}}/secrets.yaml"
   ENC_SECRETS_YAML: "{{.CONTEXTS_ROOT}}/{{.CONTEXT}}/secrets.enc.yaml"
 
-env:
-  TF_PROJECT_SRC: "{{.TERRAFORM_ROOT}}/sops"
-
 tasks:
-
-  #-----------------------------------------------------------------------------------------------------------------------
-  # Context
-  #-----------------------------------------------------------------------------------------------------------------------
-
-  set-context:
-    desc: "Sets the sops context"
-    cmds: 
-      - |
-        windsor init --context sops --backend s3 --config-dir {{.CONTEXTS_ROOT}}/sops/sops --aws-profile {{.DEFAULT_AWS_PROFILE}}
-    silent: true
-
-  #-----------------------------------------------------------------------------------------------------------------------
-  # Terraform
-  #-----------------------------------------------------------------------------------------------------------------------
-
-  init:
-    desc: "Init deployment to AWS"
-    cmds: 
-      - |
-        cd $TF_PROJECT_SRC
-        eval "$(windsor env)"
-        terraform init -upgrade
-    silent: true
-
-  plan:
-    desc: "Plan deployment to AWS"
-    cmds: 
-      - |
-        cd $TF_PROJECT_SRC
-        eval "$(windsor env)"
-        terraform init -upgrade
-        terraform plan
-    silent: true
-
-  apply:
-    desc: "Deploys the sops resources to AWS"
-    cmds: 
-      - |
-        cd $TF_PROJECT_SRC
-        eval "$(windsor env)"
-        terraform init -upgrade 
-        terraform plan
-        terraform apply 
-    silent: true
-    
-  output:
-    desc: "Prints out sops state"
-    cmds: 
-      - |
-        cd $TF_PROJECT_SRC
-        eval "$(windsor env)"
-        terraform init
-        terraform output
-    silent: true  
-
-  destroy:
-    desc: "Takes down the AWS sops infrastructure"
-    cmds: 
-      - |
-        cd $TF_PROJECT_SRC
-        eval "$(windsor env)"
-        terraform init
-        terraform destroy
-    silent: true
-
-  #---------------------------------------------------------------------------------------------------------------------
-  # sops
-  #---------------------------------------------------------------------------------------------------------------------
 
   generate-secrets-file:
     desc: Generates a new secrets file for the current context
@@ -113,15 +41,10 @@ tasks:
     cmds:
       - |
         echo ""
-        echo " KMS Key and state bucket"
-        echo "    task sops:set-context"
-        echo "    task sops:apply"
-        echo "    task sops:destroy"
-        echo ""
         echo " SOPS Operations"
         echo "  task sops:generate-secrets-file"
         echo "  task sops:encrypt-secrets-file"
         echo "  task sops:decrypt-secrets-file"
-        echo ""      
+        echo ""
     silent: true
 

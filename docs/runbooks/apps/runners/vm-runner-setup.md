@@ -37,7 +37,6 @@ Add to `contexts/<context>/windsor.yaml`:
 
 ```yaml
 environment:
-  INCUS_REMOTE_NAME: your-remote-name
   VM_INSTANCE_NAME: github-runner
   VM_MEMORY: 4GB
   VM_CPU: 4

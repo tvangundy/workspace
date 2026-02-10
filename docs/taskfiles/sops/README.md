@@ -1,207 +1,22 @@
 ---
 title: "SOPS Tasks"
-description: "Secrets management using SOPS (Secrets Operations) with AWS KMS tasks for context setup, Terraform operations, and secret file management"
+description: "Secrets management using SOPS for generating, encrypting, and decrypting secrets files"
 ---
 # SOPS Tasks (`sops:`)
 
-Secrets management using SOPS (Secrets Operations) with AWS KMS.
+Secrets management using SOPS (Secrets Operations).
 
 ## Overview
 
-The `sops:` namespace provides tools for managing encrypted secrets using SOPS with AWS KMS encryption. These tasks handle context setup, Terraform infrastructure deployment, and secret file generation and encryption.
+The `sops:` namespace provides tools for managing encrypted secrets using SOPS. These tasks handle secret file generation, encryption, and decryption for the current Windsor context.
 
 ## Task Reference
 
 | Task | Description |
 |------|-------------|
-| [`set-context`](#set-context) | Initialize the SOPS context with AWS S3 backend |
-| [`init`](#init) | Initialize Terraform for SOPS infrastructure |
-| [`plan`](#plan) | Plan deployment to AWS |
-| [`apply`](#apply) | Deploy SOPS resources to AWS (KMS key and state bucket) |
-| [`output`](#output) | Print SOPS Terraform state output |
-| [`destroy`](#destroy) | Destroy the AWS SOPS infrastructure |
 | [`generate-secrets-file`](#generate-secrets-file) | Generate a new secrets file template for the current context |
 | [`encrypt-secrets-file`](#encrypt-secrets-file) | Encrypt the secrets file using SOPS |
-
-## Context Setup
-
-### `set-context`
-
-Initialize the SOPS context with AWS S3 backend.
-
-**Usage:**
-
-```bash
-task sops:set-context
-```
-
-**Environment Variables:**
-
-- `WINDSOR_PROJECT_ROOT`: Windsor project root directory (auto-detected)
-
-**What it does:**
-
-1. Initializes Windsor context for SOPS with S3 backend
-2. Uses AWS profile `public` by default
-3. Configures context in `contexts/sops/sops/`
-
-**Example:**
-
-```bash
-task sops:set-context
-```
-
-**Note:** This sets up the SOPS infrastructure context. You'll need to run `sops:apply` to actually create the AWS resources.
-
-## Terraform Operations
-
-### `init`
-
-Initialize Terraform for SOPS infrastructure.
-
-**Usage:**
-
-```bash
-task sops:init
-```
-
-**Environment Variables:**
-
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-
-**What it does:**
-
-1. Changes to `$TERRAFORM_ROOT/sops` directory
-2. Sets up Windsor environment
-3. Runs `terraform init -upgrade`
-
-**Example:**
-
-```bash
-task sops:init
-```
-
-### `plan`
-
-Plan deployment to AWS.
-
-**Usage:**
-
-```bash
-task sops:plan
-```
-
-**Environment Variables:**
-
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-
-**What it does:**
-
-1. Changes to `$TERRAFORM_ROOT/sops` directory
-2. Sets up Windsor environment
-3. Runs `terraform init -upgrade`
-4. Runs `terraform plan`
-
-**Example:**
-
-```bash
-task sops:plan
-```
-
-**Output:** Shows what Terraform will create or modify in AWS.
-
-### `apply`
-
-Deploy SOPS resources to AWS (KMS key and state bucket).
-
-**Usage:**
-
-```bash
-task sops:apply
-```
-
-**Environment Variables:**
-
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-
-**What it does:**
-
-1. Changes to `$TERRAFORM_ROOT/sops` directory
-2. Sets up Windsor environment
-3. Runs `terraform init -upgrade`
-4. Runs `terraform plan`
-5. Runs `terraform apply` (requires confirmation)
-
-**Example:**
-
-```bash
-task sops:apply
-```
-
-**Warning:** This creates AWS resources that may incur costs.
-
-**Output:**
-
-- Creates AWS KMS key for SOPS encryption
-- Creates S3 bucket for Terraform state storage
-
-### `output`
-
-Print SOPS Terraform state output.
-
-**Usage:**
-
-```bash
-task sops:output
-```
-
-**Environment Variables:**
-
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-
-**What it does:**
-
-1. Changes to `$TERRAFORM_ROOT/sops` directory
-2. Sets up Windsor environment
-3. Runs `terraform init`
-4. Runs `terraform output`
-
-**Example:**
-
-```bash
-task sops:output
-```
-
-**Output:** Shows Terraform outputs like KMS key ARN, bucket name, etc.
-
-### `destroy`
-
-Destroy the AWS SOPS infrastructure.
-
-**Usage:**
-
-```bash
-task sops:destroy
-```
-
-**Environment Variables:**
-
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-
-**What it does:**
-
-1. Changes to `$TERRAFORM_ROOT/sops` directory
-2. Sets up Windsor environment
-3. Runs `terraform init`
-4. Runs `terraform destroy` (requires confirmation)
-
-**Example:**
-
-```bash
-task sops:destroy
-```
-
-**Warning:** This permanently destroys the KMS key and S3 bucket. All encrypted secrets using this infrastructure will become unusable.
+| [`decrypt-secrets-file`](#decrypt-secrets-file) | Decrypt the secrets file using SOPS |
 
 ## SOPS Operations
 
@@ -253,13 +68,13 @@ task sops:encrypt-secrets-file
 **Prerequisites:**
 
 - `secrets.yaml` file exists in `contexts/<context>/`
-- SOPS infrastructure deployed (`task sops:apply`)
-- AWS credentials configured with access to KMS key
+- SOPS configured with appropriate encryption keys (e.g., AWS KMS)
+- AWS credentials configured with access to KMS key (when using KMS)
 
 **What it does:**
 
 1. Reads `contexts/<context>/secrets.yaml`
-2. Encrypts it using SOPS with AWS KMS
+2. Encrypts it using SOPS
 3. Writes encrypted content to `contexts/<context>/secrets.enc.yaml`
 
 **Example:**
@@ -272,47 +87,75 @@ task sops:encrypt-secrets-file
 
 **Note:** The encrypted file can be safely committed to version control.
 
+### `decrypt-secrets-file`
+
+Decrypt the secrets file using SOPS.
+
+**Usage:**
+
+```bash
+task sops:decrypt-secrets-file
+```
+
+**Environment Variables:**
+
+- `WINDSOR_PROJECT_ROOT`: Windsor project root directory (auto-detected)
+- `WINDSOR_CONTEXT`: Current Windsor context (auto-detected)
+
+**Prerequisites:**
+
+- `secrets.enc.yaml` file exists in `contexts/<context>/`
+- SOPS configured with decryption keys
+- AWS credentials configured with access to KMS key (when using KMS)
+
+**What it does:**
+
+1. Reads `contexts/<context>/secrets.enc.yaml`
+2. Decrypts it using SOPS
+3. Writes decrypted content to `contexts/<context>/secrets.yaml`
+
+**Example:**
+
+```bash
+task sops:decrypt-secrets-file
+```
+
+**Warning:** Do not commit decrypted `secrets.yaml` to version control.
+
 ## Environment Variables
 
 The following environment variables are used:
 
 - `WINDSOR_PROJECT_ROOT`: Windsor project root directory (auto-detected)
 - `WINDSOR_CONTEXT`: Current Windsor context (auto-detected via `windsor context get`)
-- `TERRAFORM_ROOT`: Root directory for Terraform configurations
-- `DEFAULT_AWS_PROFILE`: AWS profile to use (default: `public`)
 
 ## Workflow Example
 
-Complete SOPS setup workflow:
+Secrets management workflow:
 
 ```bash
-# 1. Set up SOPS context
-task sops:set-context
-
-# 2. Deploy AWS infrastructure (KMS key and S3 bucket)
-task sops:apply
-
-# 3. Generate secrets file template
+# 1. Generate secrets file template
 task sops:generate-secrets-file
 
-# 4. Edit secrets.yaml with your actual secrets
+# 2. Edit secrets.yaml with your actual secrets
 vim contexts/<context>/secrets.yaml
 
-# 5. Encrypt the secrets file
+# 3. Encrypt the secrets file
 task sops:encrypt-secrets-file
 
-# 6. Commit encrypted file to version control
+# 4. Commit encrypted file to version control
 git add contexts/<context>/secrets.enc.yaml
 git commit -m "Add encrypted secrets"
+
+# 5. When you need to decrypt (e.g., for local use)
+task sops:decrypt-secrets-file
 ```
 
 ## Prerequisites
 
-- AWS account with appropriate permissions
-- AWS CLI configured with credentials
-- Terraform installed
 - SOPS installed
 - Windsor CLI configured
+- Encryption keys configured (e.g., AWS KMS with credentials when using KMS)
 
 ## Help
 

@@ -15,7 +15,7 @@ This is the critical first step that enables all subsequent deployment operation
 
 ## Bootstrapping Methods
 
-This section covers two primary bootstrapping approaches, each suited to different use cases:
+This section covers Talos bootstrapping for bare metal and edge devices:
 
 ### Talos Bootstrapping
 
@@ -38,32 +38,18 @@ Talos Linux is a minimal, immutable Linux distribution designed specifically for
 
 This method provides simplicity and direct control, making it ideal for learning, prototyping, and smaller-scale deployments where you want hands-on control over the bootstrapping process.
 
-### [Omni Bootstrapping](./omni.md)
-
-**Best for**: Multi-node clusters, production environments, automated provisioning, and large-scale deployments
-
-Sidero Omni provides a management plane for Talos-based Kubernetes clusters, offering:
-
-- Automated provisioning and lifecycle management
-- Centralized cluster configuration and management
-- Hardware discovery and inventory management
-- API-driven cluster operations
-- Support for heterogeneous hardware environments
-
-This method is ideal for production deployments where you need automation, scalability, and centralized management of multiple clusters and nodes.
-
 ## Choosing the Right Method
 
 Consider the following when selecting a bootstrapping approach:
 
-| Factor | Talos Bootstrapping | Omni Bootstrapping |
-|--------|-------------------|-------------------|
-| **Scale** | Single to few nodes | Many nodes/clusters |
-| **Automation** | Manual/interactive | Automated |
-| **Complexity** | Lower | Higher |
-| **Use Case** | Development, edge, small deployments | Production, enterprise |
-| **Management** | Per-node configuration | Centralized management |
-| **Learning Curve** | Easier to start | Requires more setup |
+| Factor | Talos Bootstrapping |
+|--------|-------------------|
+| **Scale** | Single to few nodes |
+| **Automation** | Manual/interactive |
+| **Complexity** | Lower |
+| **Use Case** | Development, edge, small deployments |
+| **Management** | Per-node configuration |
+| **Learning Curve** | Easier to start |
 
 ## Prerequisites
 
@@ -75,16 +61,10 @@ Before bootstrapping, ensure you have:
 - **Access**: Physical or remote access to the device
 - **Storage**: SD card or disk for the device
 
-For Omni bootstrapping, you'll also need:
-
-- A management server or VM
-- Network access to target devices
-- Understanding of Sidero Omni architecture
-
 ## Next Steps
 
 1. **Review the prerequisites**: Ensure you have all required tools and access
-2. **Choose your method**: Select Talos or Omni bootstrapping based on your needs
+2. **Choose your method**: Select the appropriate Talos bootstrapping guide for your device
 3. **Follow the guide**: Use the appropriate bootstrapping guide for step-by-step instructions
 4. **Verify your cluster**: Once bootstrapped, verify your cluster is operational
 5. **Proceed to deployment**: After bootstrapping, you can proceed with application deployments
@@ -93,6 +73,5 @@ For Omni bootstrapping, you'll also need:
 
 - **Documentation**: [Documentation Site](https://tvangundy.github.io)
 - **Talos Documentation**: [Talos Linux Docs](https://www.talos.dev/)
-- **Sidero Omni Documentation**: [Sidero Omni Docs](https://omni.sidero.dev/)
 - **Issues**: [GitHub Issues](https://github.com/tvangundy/workspace/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/tvangundy/workspace/discussions)
