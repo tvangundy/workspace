@@ -28,5 +28,4 @@ nav:
       - sops: taskfiles/sops/README.md
       - tc: taskfiles/tc/README.md
       - vm: taskfiles/vm/README.md
-      - workspace: taskfiles/workspace/README.md      
-  - Troubleshooting: troubleshooting.md
+      - workspace: taskfiles/workspace/README.md

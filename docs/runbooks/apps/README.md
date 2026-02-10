@@ -18,7 +18,7 @@ These runbooks focus on deploying specific applications and services. Each runbo
 
 ## Available Application Runbooks
 
-### 🏃 [Self-Hosted GitHub Actions Runners](runners/)
+### 🏃 [Self-Hosted GitHub Actions Runners](runners/vm-runner-setup.md)
 Step-by-step guides for setting up GitHub Actions runners on various platforms:
 
 - **[VM Runner Setup](runners/vm-runner-setup.md)**: Deploy a GitHub Actions runner on an Ubuntu VM running on IncusOS. Leverages the standard VM creation workflow for consistent, manageable runner deployments. Recommended for most use cases.
@@ -35,8 +35,8 @@ Step-by-step guides for setting up GitHub Actions runners on various platforms:
 
 Most application runbooks require:
 
-- **Workspace initialized**: Follow the [Initialize Workspace](../../workspace/init.md) runbook if you haven't already
-- **Secrets management**: Configure encrypted secrets using [SOPS](../../secrets/secrets.md) for sensitive configuration
+- **Workspace initialized**: Follow the [Initialize Workspace](../workspace/init.md) runbook if you haven't already
+- **Secrets management**: Configure encrypted secrets using [SOPS](../secrets/secrets.md) for sensitive configuration
 - **Windsor CLI**: Installed and configured on your local machine
 - **Network access**: Proper network configuration for the application to function
 

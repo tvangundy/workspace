@@ -23,7 +23,7 @@ The `tc:` namespace provides tasks for creating and managing Talos Kubernetes cl
 | [`instantiate:create-cluster-vms`](#instantiatecreate-cluster-vms) | Create cluster VMs via Terraform |
 | [`instantiate:wait-for-vms`](#instantiatewait-for-vms) | Wait for all VMs to be running |
 | [`instantiate:get-ip-addresses`](#instantiateget-ip-addresses) | Get IPs from Terraform, update windsor.yaml |
-| [`instantiate:regenerate-tfvars-with-ips`](#instantiategenerate-tfvars-with-ips) | Regenerate tfvars with IPs and apply Talos config |
+| [`instantiate:regenerate-tfvars-with-ips`](#instantiate-regenerate-tfvars-with-ips) | Regenerate tfvars with IPs and apply Talos config |
 | [`instantiate:retrieve-kubeconfig`](#instantiateretrieve-kubeconfig) | Retrieve kubeconfig from cluster |
 | [`instantiate:final-summary`](#instantiatefinal-summary) | Print success summary |
 | [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Destroy cluster unless --keep was set |
