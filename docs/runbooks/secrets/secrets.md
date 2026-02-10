@@ -18,23 +18,32 @@ This runbook walks you through setting up and managing encrypted secrets using S
 
 The secrets management process involves:
 
-1. **Create a secrets context** using `windsor init <context>`
+1. **Create or set the context** — either create a new context with `windsor init <context>` or switch to an existing one with `windsor context set <context>`
 2. **Generate a secrets file** using `task sops:generate-secrets-file`
 3. **Edit the secrets file** with your actual secret values
 4. **Encrypt the secrets file** using `task sops:encrypt-secrets-file`
 5. **Configure  contexts/windsor.yaml** to reference the secrets
 6. **Verify secrets** are available using `windsor env`
 
-## Step 1: Create the Secrets Context
+## Step 1: Create or Set the Context
 
-First, navigate to your workspace directory and create a new context called "secrets":
+First, navigate to your workspace directory. Then either create a new context or switch to an existing one:
+
+**To create a new context** (e.g., for a new environment or project):
 
 ```bash
 cd /path/to/your/workspace
 windsor init <context>
 ```
 
-This command creates a new context directory structure under `contexts/$WINDSOR_CONTEXT/` with the necessary configuration files.
+**To use an existing context** (if you already have a context defined):
+
+```bash
+cd /path/to/your/workspace
+windsor context set <context>
+```
+
+The secrets file will be created under `contexts/<context>/` for whichever context is active.
 
 ## Step 2: Generate the Secrets File
 
@@ -167,8 +176,8 @@ Here's a complete example of the entire process:
 # Step 1: Navigate to workspace
 cd /Users/$USER/Developer/my-workspace
 
-# Step 2: Create secrets context
-windsor init <context>
+# Step 2: Create or set context (new: windsor init <context> | existing: windsor context set <context>)
+windsor context set <context>   # or: windsor init <context>
 
 # Step 3: Generate secrets file template
 task sops:generate-secrets-file
@@ -256,10 +265,11 @@ If you encounter encryption errors:
 
 ### Context Not Found
 
-If `windsor init <context>` fails:
+If `windsor init <context>` or `windsor context set <context>` fails:
 
 1. **Verify workspace**: Ensure you're in a valid Windsor workspace directory
 2. **Check for parent .windsor**: Ensure you're not nested under another workspace (see [Initialize Workspace](../workspace/init.md) for details)
+3. **For existing contexts**: Verify the context exists under `contexts/<context>/` before using `windsor context set`
 
 ## Related Documentation
 

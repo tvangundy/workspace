@@ -1,11 +1,13 @@
 ---
-title: "Initialize Workspace"
+title: "Workspace"
 description: "Step-by-step guide for initializing a new workspace"
 ---
 
-# Initialize Workspace
+# Workspace
 
 This runbook walks you through initializing a new workspace using the workspace initialization task and Windsor CLI.
+
+
 
 ## Prerequisites
 
@@ -44,6 +46,8 @@ Before initializing a new workspace, ensure that:
 - Each workspace is created at the same directory level or in completely separate locations
 
 ## Overview
+
+A workspace is fundamentally composed of two directories: `bin/` and `tasks/`. The `bin/` folder contains executable scripts and helpers, while the `tasks/` folder holds Taskfile definitions that orchestrate workflow automation. This design makes the environment easy to replicate—cloning or overwriting these directories brings the entire operational toolkit with it. It also keeps all workspace activities organized in one place, and allows each workspace to add or customize functionality by extending or replacing scripts and tasks without affecting others.
 
 Initializing a workspace involves these steps:
 
@@ -85,42 +89,6 @@ After initializing your workspace:
 3. Use `windsor up` to start your deployment
 4. Refer to other runbooks for specific deployment scenarios
 
-## Troubleshooting
-
-### Workspace Already Exists
-
-If the workspace path already exists, you may need to:
-
-- Choose a different path
-- Remove the existing directory if it's safe to do so
-
-### Windsor Not Generating Files Locally
-
-If `windsor init` runs but doesn't generate files in your workspace directory:
-
-- **Check for parent `.windsor` folders**: Windsor searches up the directory tree for `.windsor` folders. If one exists in a parent directory, Windsor will use that environment instead of creating a new one.
-
-  ```bash
-  # Check for .windsor folders in parent directories
-  find <workspace-path> -name ".windsor" -type d
-  ```
-
-- **Solution**: Create your workspace in a location that is not nested under another workspace. Ensure no parent directory contains a `.windsor` folder.
-
-### Windsor Context Not Found
-
-If Windsor reports that a context is not found:
-
-- Verify the context name is correct
-- Check that the context configuration exists in your Windsor setup
-- Review the [Windsor CLI documentation](https://windsorcli.github.io/latest/) for context management
-
-### Permission Errors
-
-If you encounter permission errors:
-
-- Ensure you have write permissions to the workspace path
-- Check that the directory structure can be created
 
 ## Related Documentation
 

@@ -10,27 +10,25 @@ Create a three-node Talos Kubernetes cluster on a remote IncusOS server using `t
 - At least 8GB RAM and 100GB storage on the IncusOS host for 3 VMs
 - Network with DHCP for the VMs
 
-## Step 1: Install Tools
+## Step 1: Create or Set the Context
 
-Ensure `aqua.yaml` includes:
+First, navigate to your workspace directory. Then either create a new context or switch to an existing one:
 
-```yaml
-packages:
-- name: hashicorp/terraform@v1.10.3
-- name: siderolabs/talos@v1.9.1
-- name: kubernetes/kubectl@v1.32.0
-- name: lxc/incus@v6.20.0
-- name: helm/helm@v3.17.3
-- name: fluxcd/flux2@v2.5.1
-- name: derailed/k9s@v0.50.3
-- name: go-task/task@v3.42.1
-```
-
-Then run:
+**To create a new context** (e.g., for a new environment or project):
 
 ```bash
-aqua install
+cd /path/to/your/workspace
+windsor init <context>
 ```
+
+**To use an existing context** (if you already have a context defined):
+
+```bash
+cd /path/to/your/workspace
+windsor context set <context>
+```
+
+Cluster configuration will be read from `contexts/<context>/windsor.yaml` for whichever context is active.
 
 ## Step 2: Configure Environment
 

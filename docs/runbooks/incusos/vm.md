@@ -8,23 +8,25 @@ Create and manage Ubuntu VMs on a remote IncusOS server using `task vm:instantia
 - Incus CLI on your machine, remote configured (`incus remote add`)
 - Workspace initialized and context set (see [Initialize Workspace](../workspace/init.md))
 
-## Step 1: Install Tools
+## Step 1: Create or Set the Context
 
-Ensure `aqua.yaml` includes:
+First, navigate to your workspace directory. Then either create a new context or switch to an existing one:
 
-```yaml
-packages:
-- name: hashicorp/terraform@v1.10.3
-- name: lxc/incus@v6.20.0
-- name: docker/cli@v27.4.1
-- name: docker/compose@v2.32.1
-```
-
-Then run:
+**To create a new context** (e.g., for a new environment or project):
 
 ```bash
-aqua install
+cd /path/to/your/workspace
+windsor init <context>
 ```
+
+**To use an existing context** (if you already have a context defined):
+
+```bash
+cd /path/to/your/workspace
+windsor context set <context>
+```
+
+VM configuration will be read from `contexts/<context>/windsor.yaml` for whichever context is active.
 
 ## Step 2: Configure Environment
 
