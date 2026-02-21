@@ -78,15 +78,14 @@ wait_for_condition() {
   return 1
 }
 
-# Safe source of environment file
+# Safe source of environment file. Returns 0 if file is missing (optional env) or after sourcing.
 source_env_file() {
   local env_file="$1"
   if [ -f "${env_file}" ]; then
     set +u
     source "${env_file}"
     set -u
-    return 0
   fi
-  return 1
+  return 0
 }
 

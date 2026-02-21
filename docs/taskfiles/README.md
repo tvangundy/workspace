@@ -9,9 +9,10 @@ description: "Task automation for workspace operations"
 
 Tasks are organized into namespaces, each focusing on a specific area of infrastructure management. This organization makes it easy to discover and use the right tool for each task.
 
-For example, to create a virtual machine:
+For example, to create a virtual machine or instantiate a new workspace:
 ```bash
-task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--workspace] [--windsor-up]
+task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--runner] [--workspace] [--windsor-up]
+task workspace:instantiate -- <workspace-path>
 ```
 
 ## Namespace Overview
@@ -20,7 +21,7 @@ task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--works
 - **`sops:`** - Secrets management using SOPS for encrypting and decrypting secrets files
 - **`tc:`** - Talos Kubernetes cluster management for creating and managing three-node Talos clusters on Incus using Terraform
 - **`vm:`** - Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform, including development environments and GitHub Actions runners (`--runner`)
-- **`workspace:`** - Workspace initialization, cloning, and general workspace maintenance
+- **`workspace:`** - Workspace initialization and shared bin/tasks layout (`.workspace/`), including bootstrap (link/populate), instantiate, and overwrite
 
 ## Task Namespaces
 
@@ -99,7 +100,7 @@ Talos Kubernetes cluster management for creating and managing three-node Talos L
 Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus using Terraform.
 
 **Instance Creation:**
-- `task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--runner] [--workspace] [--windsor-up]` - Create an Ubuntu VM instance using Terraform with complete developer environment setup
+- `task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--runner] [--workspace] [--windsor-up]` - Create an Ubuntu VM instance using Terraform with complete developer environment setup
 
 **Terraform Operations:**
 - `task vm:generate-tfvars` - Generate terraform.tfvars from environment variables
@@ -120,12 +121,18 @@ Ubuntu virtual machine management for creating and managing Ubuntu VMs on Incus 
 
 ### 📁 Workspace (`workspace:`)
 
-Workspace initialization and management.
+Workspace initialization and management. Repos that use shared bin/tasks keep them in `.workspace/` (symlinked or populated from private-workspace). A minimal bootstrap in `tasks/workspace` provides link/populate/ensure so the repo can load all namespaces from `.workspace/tasks/`.
+
+**Bootstrap (when using this repo from another, e.g. forest-shadows):**
+
+- `task workspace:link` - Create `.workspace/bin` and `.workspace/tasks` symlinks to private-workspace (set `PRIVATE_WORKSPACE_ROOT` or use sibling `../private-workspace`)
+- `task workspace:populate` - Copy bin/ and tasks/ into `.workspace` (from `PRIVATE_WORKSPACE_ROOT`, or set `WORKSPACE_TARBALL_URL` to download)
+- `task workspace:ensure` - Check that `.workspace/tasks` and `.workspace/bin` exist; prints instructions if missing
 
 **Operations:**
 
-- `task workspace:instantiate -- <workspace-name> <workspace-path>` - Instantiate a new workspace by cloning the workspace repository
-- `task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>` - Overwrite `tasks/` and `bin/` in destination with contents from source
+- `task workspace:instantiate -- <workspace-path>` - Instantiate a new workspace at the given path: clone the workspace repo, apply the `.workspace` layout (bootstrap + root Taskfile), and populate `.workspace/` from the current repo. Workspace name is derived from the path (e.g. `my-workspace` from `~/workspaces/my-workspace`).
+- `task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>` - Populate destination `.workspace/` and root `tasks/` and `bin/` from source (source can use `.workspace/` or root `tasks/` and `bin/`).
 
 **Help:**
 

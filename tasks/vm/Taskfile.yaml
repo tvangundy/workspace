@@ -232,7 +232,7 @@ tasks:
         
         # If VM exists, unregister GitHub Actions runner first (if installed)
         if [ "${VM_EXISTS}" = "true" ]; then
-          RUNNER_SCRIPTS="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts/runner"
+          RUNNER_SCRIPTS="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts/runner"
           if [ -x "${RUNNER_SCRIPTS}/unregister-from-github.sh" ]; then
             REMOTE="${REMOTE}" VM_NAME="${INSTANCE_NAME_ARG}" "${RUNNER_SCRIPTS}/unregister-from-github.sh" 2>/dev/null || true
           fi
@@ -358,7 +358,7 @@ tasks:
     desc: "List all Ubuntu VMs"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/list.sh"
 
   instantiate:
@@ -385,7 +385,7 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         # Source the script to export variables to this shell
         source "${SCRIPT_DIR}/parse-args.sh" "{{.CLI_ARGS}}"
 
@@ -394,7 +394,7 @@ tasks:
     desc: "Install tools jq, Homebrew, aqua, docker, and windsor"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/install-tools.sh"
 
   instantiate:initialize-context:
@@ -402,7 +402,7 @@ tasks:
     desc: "Initialize Windsor context for instantiate"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/initialize-context.sh"
 
   instantiate:verify-remote:
@@ -410,7 +410,7 @@ tasks:
     desc: "Verify remote connection exists"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/verify-remote.sh"
 
   instantiate:check-vm-image:
@@ -418,7 +418,7 @@ tasks:
     desc: "Ensure VM image is available on remote"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/check-vm-image.sh"
 
   instantiate:create-vm:
@@ -428,7 +428,7 @@ tasks:
       TERRAFORM_PATH: '{{env "TERRAFORM_PATH" | default "vm"}}'
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/create-vm.sh" "{{.TERRAFORM_PATH}}"
 
   instantiate:setup-incus:
@@ -436,7 +436,7 @@ tasks:
     desc: "Setup Incus client on the VM and configure remote connection"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/setup-incus.sh"
 
   instantiate:validate-vm:
@@ -444,7 +444,7 @@ tasks:
     desc: "Validate VM setup and functionality"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/validate-vm.sh"
 
   instantiate:setup-ssh:
@@ -452,7 +452,7 @@ tasks:
     desc: "Setup SSH access for the user on the VM"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/setup-ssh.sh"
 
   instantiate:set-incus-remote-env:
@@ -460,7 +460,7 @@ tasks:
     desc: "Set INCUS_REMOTE_NAME and INCUS_REMOTE_IP on the VM (system-wide, all users)"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         bash "${SCRIPT_DIR}/set-incus-remote-env.sh"
 
   instantiate:init-workspace:
@@ -468,7 +468,7 @@ tasks:
     desc: "Initialize workspace on the VM if VM_INIT_WORKSPACE is true"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/init-workspace.sh"
 
   instantiate:add-runner-if-requested:
@@ -476,7 +476,7 @@ tasks:
     desc: "If --runner was set, add GitHub Actions runner user and install runner on the VM"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/add-runner-if-requested.sh"
 
   instantiate:cleanup-if-needed:
@@ -484,7 +484,7 @@ tasks:
     desc: "Cleanup VM only when --destroy was set (default: keep VM)"
     cmds:
       - |
-        SCRIPT_DIR="${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin/vm/scripts"
+        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/vm/scripts"
         "${SCRIPT_DIR}/cleanup-if-needed.sh"
 
   runner:status:
@@ -532,7 +532,7 @@ tasks:
           echo "export VM_NAME='${VM_INSTANCE_NAME_VAL}'"
           [ -n "${TEST_REMOTE_NAME:-}" ] && echo "export TEST_REMOTE_NAME='${TEST_REMOTE_NAME}'" && echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
         } > "${ENV_FILE}"
-        SCRIPT_DIR="${PROJECT_ROOT}/bin/vm/scripts/runner"
+        SCRIPT_DIR="${BIN_ROOT:-${PROJECT_ROOT}/bin}/vm/scripts/runner"
         "${SCRIPT_DIR}/status-github-runner.sh"
 
   runner:help:

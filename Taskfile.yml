@@ -2,6 +2,9 @@
 
 version: '3'
 
+env:
+  BIN_ROOT: '{{.ROOT_DIR}}/bin'
+
 includes:
   workspace: ./tasks/workspace
   sops: ./tasks/sops
@@ -53,7 +56,7 @@ tasks:
         echo "    task <namespace>:<task>"
         echo ""
         echo "Example:"
-        echo "    task workspace:instantiate -- <workspace-name> <workspace-path>"
+        echo "    task workspace:instantiate -- <workspace-path>"
         echo "    task sops:decrypt -- <file>"
     silent: true
 

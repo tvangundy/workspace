@@ -1,0 +1,80 @@
+# https://taskfile.dev
+# Uses bin/ and tasks/ from .workspace (symlinked or populated from private-workspace).
+# First run: task bootstrap:link (developer) or task bootstrap:populate (others), then task.
+
+version: '3'
+
+env:
+  BIN_ROOT: '{{.ROOT_DIR}}/.workspace/bin'
+  # So bin scripts (tc, vm, etc.) resolve terraform/cluster and contexts from repo root
+  WINDSOR_PROJECT_ROOT: '{{.ROOT_DIR}}'
+
+includes:
+  bootstrap: ./tasks/workspace
+  workspace:
+    taskfile: .workspace/tasks/workspace/Taskfile.yaml
+    optional: true
+  sops:
+    taskfile: .workspace/tasks/sops/Taskfile.yaml
+    optional: true
+  device:
+    taskfile: .workspace/tasks/device/Taskfile.yaml
+    optional: true
+  docker:
+    taskfile: .workspace/tasks/docker/Taskfile.yaml
+    optional: true
+  vhs:
+    taskfile: .workspace/tasks/vhs/Taskfile.yaml
+    optional: true
+  talos:
+    taskfile: .workspace/tasks/talos/Taskfile.yaml
+    optional: true
+  tc:
+    taskfile: .workspace/tasks/tc/Taskfile.yaml
+    optional: true
+  incus:
+    taskfile: .workspace/tasks/incus/Taskfile.yaml
+    optional: true
+  vm:
+    taskfile: .workspace/tasks/vm/Taskfile.yaml
+    optional: true
+  gh:
+    taskfile: .workspace/tasks/gh/Taskfile.yaml
+    optional: true
+
+tasks:
+  help:
+    silent: true
+    desc: Workspace help
+    cmds:
+      - |
+        echo "Workspace help"
+        echo ""
+        echo "    task help"
+        echo ""
+        if [[ "$(uname)" == "Darwin" ]]; then
+          open https://tvangundy.github.io 2>/dev/null || true
+        elif [[ "$(uname)" == "Linux" ]]; then
+          xdg-open https://tvangundy.github.io 2>/dev/null || sensible-browser https://tvangundy.github.io 2>/dev/null || true
+        fi
+
+  default:
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        if [ ! -d "${ROOT}/.workspace/tasks" ] || [ ! -d "${ROOT}/.workspace/bin" ]; then
+          task bootstrap:ensure || true
+          exit 0
+        fi
+        echo ""
+        echo "Quick access: task help"
+        echo ""
+        echo "Namespaces: workspace, device, sops, docker, vhs, talos, tc, incus, vm, gh"
+        echo ""
+        echo "  task bootstrap:link     # (re)link .workspace to private-workspace"
+        echo "  task bootstrap:populate # copy bin+tasks into .workspace"
+        echo "  task workspace:instantiate -- <workspace-path>"
+        echo "  task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
+        echo ""
+    silent: true

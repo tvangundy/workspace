@@ -29,9 +29,42 @@ fi
 PROJECT_ROOT=$(get_windsor_project_root)
 
 if [ ! -d "${TERRAFORM_DIR}" ]; then
-  echo "Error: Terraform directory not found: ${TERRAFORM_DIR}"
+  echo "Terraform directory not found: ${TERRAFORM_DIR}"
   echo "  Cluster may already be destroyed or was never created."
-  exit 1
+  echo "  Attempting to destroy any cluster VMs directly via Incus..."
+  echo ""
+
+  CONTROL_PLANE_VM="${CLUSTER_NAME}-cp"
+  WORKER_0_VM="${CLUSTER_NAME}-worker-0"
+  WORKER_1_VM="${CLUSTER_NAME}-worker-1"
+
+  VMS_DESTROYED=0
+  for VM in "${CONTROL_PLANE_VM}" "${WORKER_0_VM}" "${WORKER_1_VM}"; do
+    if incus list "${REMOTE_NAME}:${VM}" --format csv -c n 2>/dev/null | grep -q "^${VM}$"; then
+      echo "  Destroying ${VM}..."
+      if incus delete "${REMOTE_NAME}:${VM}" --force 2>/dev/null; then
+        echo "  ✅ Destroyed ${VM}"
+        VMS_DESTROYED=$((VMS_DESTROYED + 1))
+      else
+        echo "  ❌ Failed to destroy ${VM}"
+      fi
+    fi
+  done
+
+  TEST_CONTEXT_DIR=$(get_tc_context_dir "${PROJECT_ROOT}" "${CLUSTER_NAME}")
+  TALOSCONFIG_PATH="${TEST_CONTEXT_DIR}/.talos/talosconfig"
+  KUBECONFIG_FILE_PATH="${TEST_CONTEXT_DIR}/.kube/config"
+  [ -f "${TALOSCONFIG_PATH}" ] && rm -f "${TALOSCONFIG_PATH}" && echo "  Removed ${TALOSCONFIG_PATH}"
+  [ -f "${KUBECONFIG_FILE_PATH}" ] && rm -f "${KUBECONFIG_FILE_PATH}" && echo "  Removed ${KUBECONFIG_FILE_PATH}"
+
+  if [ ${VMS_DESTROYED} -gt 0 ]; then
+    echo ""
+    echo "✅ Destroyed ${VMS_DESTROYED} cluster VM(s) via Incus"
+  else
+    echo "  No cluster VMs found."
+  fi
+  echo "✅ Destroy complete (no Terraform state to remove)."
+  exit 0
 fi
 
 echo ""

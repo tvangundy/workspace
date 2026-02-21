@@ -30,6 +30,7 @@ mkdir -p "${PROJECT_ROOT}/.workspace"
   echo "export SKIP_CLEANUP='true'"
 } > "${RUNNER_ENV_FILE}"
 
-RUNNER_SCRIPTS="${PROJECT_ROOT}/bin/vm/scripts/runner"
+# Use BIN_ROOT when set (workspace repo: .workspace/bin), else PROJECT_ROOT/bin
+RUNNER_SCRIPTS="${BIN_ROOT:-${PROJECT_ROOT}/bin}/vm/scripts/runner"
 "${RUNNER_SCRIPTS}/setup-runner-user.sh"
 "${RUNNER_SCRIPTS}/install-github-runner.sh"

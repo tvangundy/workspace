@@ -1,0 +1,100 @@
+# Bootstrap: link or populate .workspace from private-workspace (single source of bin/tasks)
+# Run task bootstrap:link (developer) or bootstrap:populate (others), then task again.
+
+version: '3'
+
+tasks:
+  link:
+    silent: true
+    desc: Create .workspace/bin and .workspace/tasks symlinks to private-workspace (set PRIVATE_WORKSPACE_ROOT or use ../private-workspace)
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        DEFAULT_SRC="$(cd "${ROOT}" && cd ../private-workspace 2>/dev/null && pwd)"
+        SRC="${PRIVATE_WORKSPACE_ROOT:-${DEFAULT_SRC}}"
+        if [ -z "${SRC}" ] || [ ! -d "${SRC}" ]; then
+          echo "Error: private-workspace not found. Set PRIVATE_WORKSPACE_ROOT or clone private-workspace as sibling (../private-workspace)"
+          exit 1
+        fi
+        if [ ! -d "${SRC}/tasks" ] || [ ! -d "${SRC}/bin" ]; then
+          echo "Error: ${SRC} must contain 'tasks' and 'bin' directories"
+          exit 1
+        fi
+        mkdir -p "${ROOT}/.workspace"
+        rm -f "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks" "${ROOT}/.workspace/templates"
+        ln -sf "${SRC}/bin" "${ROOT}/.workspace/bin"
+        ln -sf "${SRC}/tasks" "${ROOT}/.workspace/tasks"
+        if [ -d "${SRC}/templates" ]; then
+          ln -sf "${SRC}/templates" "${ROOT}/.workspace/templates"
+          echo "✅ .workspace/templates -> ${SRC}/templates"
+        fi
+        echo "✅ .workspace/bin -> ${SRC}/bin"
+        echo "✅ .workspace/tasks -> ${SRC}/tasks"
+        echo "Run 'task' again to load all namespaces."
+
+  populate:
+    silent: true
+    desc: Copy bin/ and tasks/ into .workspace (from PRIVATE_WORKSPACE_ROOT or WORKSPACE_TARBALL_URL)
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        DEFAULT_SRC="$(cd "${ROOT}" && cd ../private-workspace 2>/dev/null && pwd)"
+        SRC="${PRIVATE_WORKSPACE_ROOT:-${DEFAULT_SRC}}"
+        if [ -n "${SRC}" ] && [ -d "${SRC}" ] && [ -d "${SRC}/tasks" ] && [ -d "${SRC}/bin" ]; then
+          echo "Copying from ${SRC} into .workspace ..."
+          mkdir -p "${ROOT}/.workspace"
+          rm -rf "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks"
+          cp -r "${SRC}/bin" "${SRC}/tasks" "${ROOT}/.workspace/"
+          echo "✅ .workspace populated from ${SRC}"
+        elif [ -n "${WORKSPACE_TARBALL_URL:-}" ]; then
+          echo "Downloading workspace from ${WORKSPACE_TARBALL_URL} ..."
+          mkdir -p "${ROOT}/.workspace"
+          rm -rf "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks"
+          tmpdir=$(mktemp -d); trap "rm -rf ${tmpdir}" EXIT
+          curl -sSL "${WORKSPACE_TARBALL_URL}" | tar -xz -C "${tmpdir}"
+          if [ -d "${tmpdir}/bin" ] && [ -d "${tmpdir}/tasks" ]; then
+            cp -r "${tmpdir}/bin" "${tmpdir}/tasks" "${ROOT}/.workspace/"
+          else
+            for d in "${tmpdir}"/*/; do
+              [ -d "${d}bin" ] && [ -d "${d}tasks" ] && cp -r "${d}bin" "${d}tasks" "${ROOT}/.workspace/" && break
+            done
+          fi
+          [ -d "${ROOT}/.workspace/bin" ] && [ -d "${ROOT}/.workspace/tasks" ] || { echo "Error: tarball missing bin/ or tasks/"; exit 1; }
+          echo "✅ .workspace populated from tarball"
+        else
+          echo "Error: Set PRIVATE_WORKSPACE_ROOT to a path with bin/ and tasks/, or set WORKSPACE_TARBALL_URL to download."
+          exit 1
+        fi
+        echo "Run 'task' again to load all namespaces."
+
+  ensure:
+    silent: true
+    desc: Ensure .workspace/tasks and .workspace/bin exist; print instructions if missing
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        if [ -d "${ROOT}/.workspace/tasks" ] && [ -d "${ROOT}/.workspace/bin" ]; then
+          echo "✅ .workspace already present"
+          exit 0
+        fi
+        echo ".workspace not found. Run one of:"
+        echo "  task bootstrap:link     # if you have private-workspace (e.g. sibling directory)"
+        echo "  task bootstrap:populate # if you have PRIVATE_WORKSPACE_ROOT or WORKSPACE_TARBALL_URL set"
+        exit 1
+
+  help:
+    desc: Bootstrap (link/populate .workspace) and workspace commands
+    cmds:
+      - |
+        echo "Bootstrap (run first if .workspace is missing):"
+        echo "  task bootstrap:link     # symlink .workspace to private-workspace"
+        echo "  task bootstrap:populate  # copy or download bin+tasks into .workspace"
+        echo "  task bootstrap:ensure   # check .workspace and print instructions if missing"
+        echo ""
+        echo "After .workspace exists, full workspace tasks are available:"
+        echo "  task workspace:instantiate -- <workspace-path>"
+        echo "  task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
+    silent: true

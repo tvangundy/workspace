@@ -3,8 +3,88 @@
 version: '3'
 
 tasks:
+  # Link .workspace/bin and .workspace/tasks to private-workspace (for developers who have it locally)
+  link:
+    desc: Create .workspace/bin and .workspace/tasks symlinks to private-workspace (set PRIVATE_WORKSPACE_ROOT or use default ../private-workspace)
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        DEFAULT_SRC="$(cd "${ROOT}" && cd ../private-workspace 2>/dev/null && pwd)"
+        SRC="${PRIVATE_WORKSPACE_ROOT:-${DEFAULT_SRC}}"
+        if [ -z "${SRC}" ] || [ ! -d "${SRC}" ]; then
+          echo "Error: private-workspace not found. Set PRIVATE_WORKSPACE_ROOT or clone private-workspace as sibling (../private-workspace)"
+          exit 1
+        fi
+        if [ ! -d "${SRC}/tasks" ] || [ ! -d "${SRC}/bin" ]; then
+          echo "Error: ${SRC} must contain 'tasks' and 'bin' directories"
+          exit 1
+        fi
+        mkdir -p "${ROOT}/.workspace"
+        rm -f "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks" "${ROOT}/.workspace/templates"
+        ln -sf "${SRC}/bin" "${ROOT}/.workspace/bin"
+        ln -sf "${SRC}/tasks" "${ROOT}/.workspace/tasks"
+        if [ -d "${SRC}/templates" ]; then
+          ln -sf "${SRC}/templates" "${ROOT}/.workspace/templates"
+          echo "✅ .workspace/templates -> ${SRC}/templates"
+        fi
+        echo "✅ .workspace/bin -> ${SRC}/bin"
+        echo "✅ .workspace/tasks -> ${SRC}/tasks"
+
+  # Populate .workspace with copies of bin and tasks (for users without private-workspace)
+  populate:
+    desc: Copy bin/ and tasks/ into .workspace (from PRIVATE_WORKSPACE_ROOT, or set WORKSPACE_TARBALL_URL to download)
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        DEFAULT_SRC="$(cd "${ROOT}" && cd ../private-workspace 2>/dev/null && pwd)"
+        SRC="${PRIVATE_WORKSPACE_ROOT:-${DEFAULT_SRC}}"
+        if [ -n "${SRC}" ] && [ -d "${SRC}" ] && [ -d "${SRC}/tasks" ] && [ -d "${SRC}/bin" ]; then
+          echo "Copying from ${SRC} into .workspace ..."
+          mkdir -p "${ROOT}/.workspace"
+          rm -rf "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks" "${ROOT}/.workspace/templates"
+          cp -r "${SRC}/bin" "${SRC}/tasks" "${ROOT}/.workspace/"
+          if [ -d "${SRC}/templates" ]; then
+            cp -r "${SRC}/templates" "${ROOT}/.workspace/"
+          fi
+          echo "✅ .workspace populated from ${SRC} (bin, tasks, templates)"
+        elif [ -n "${WORKSPACE_TARBALL_URL:-}" ]; then
+          echo "Downloading workspace from ${WORKSPACE_TARBALL_URL} ..."
+          mkdir -p "${ROOT}/.workspace"
+          rm -rf "${ROOT}/.workspace/bin" "${ROOT}/.workspace/tasks"
+          tmpdir=$(mktemp -d); trap "rm -rf ${tmpdir}" EXIT
+          curl -sSL "${WORKSPACE_TARBALL_URL}" | tar -xz -C "${tmpdir}"
+          if [ -d "${tmpdir}/bin" ] && [ -d "${tmpdir}/tasks" ]; then
+            cp -r "${tmpdir}/bin" "${tmpdir}/tasks" "${ROOT}/.workspace/"
+          else
+            cp -r "${tmpdir}"/*/bin "${tmpdir}"/*/tasks "${ROOT}/.workspace/" 2>/dev/null || true
+            [ -d "${ROOT}/.workspace/bin" ] || { echo "Error: tarball missing bin/ or tasks/"; exit 1; }
+          fi
+          echo "✅ .workspace populated from tarball"
+        else
+          echo "Error: Set PRIVATE_WORKSPACE_ROOT to a path with bin/ and tasks/, or set WORKSPACE_TARBALL_URL to download."
+          exit 1
+        fi
+
+  # Ensure .workspace exists; run link or populate if needed
+  ensure:
+    desc: Ensure .workspace/tasks and .workspace/bin exist (run link or populate if missing)
+    cmds:
+      - |
+        set -euo pipefail
+        ROOT="{{.ROOT_DIR}}"
+        if [ -d "${ROOT}/.workspace/tasks" ] && [ -d "${ROOT}/.workspace/bin" ]; then
+          echo "✅ .workspace already present"
+          exit 0
+        fi
+        echo ".workspace not found. Run one of:"
+        echo "  task workspace:link     # if you have private-workspace (e.g. sibling directory)"
+        echo "  task workspace:populate # if you have PRIVATE_WORKSPACE_ROOT or WORKSPACE_TARBALL_URL set"
+        exit 1
+
   overwrite:
-    desc: Overwrite tasks/ and bin/ in dst-workspace with contents from src-workspace
+    desc: Overwrite shared bin/tasks in dst; populates .workspace/ and optionally root tasks/ and bin/
     cmds:
       - |
         set -euo pipefail
@@ -28,63 +108,93 @@ tasks:
           exit 1
         fi
 
-        # Resolve . to absolute paths
         SRC_ABS=$(cd "${SRC_PATH}" && pwd)
         DST_ABS=$(cd "${DST_PATH}" && pwd)
-
-        if [ ! -d "${SRC_ABS}/tasks" ] || [ ! -d "${SRC_ABS}/bin" ]; then
-          echo "Error: src workspace must contain 'tasks' and 'bin' directories"
-          echo "  Source: ${SRC_ABS}"
-          exit 1
-        fi
 
         if [ "${SRC_ABS}" = "${DST_ABS}" ]; then
           echo "Error: src and dst paths are the same (${SRC_ABS})"
           exit 1
         fi
 
-        echo "Overwriting tasks/ and bin/ in ${DST_ABS} with contents from ${SRC_ABS}"
+        # Prefer src .workspace/ if present; else use root tasks/ and bin/
+        if [ -d "${SRC_ABS}/.workspace/tasks" ] && [ -d "${SRC_ABS}/.workspace/bin" ]; then
+          SRC_TASKS="${SRC_ABS}/.workspace/tasks"
+          SRC_BIN="${SRC_ABS}/.workspace/bin"
+          echo "Using src .workspace/tasks and .workspace/bin"
+        elif [ -d "${SRC_ABS}/tasks" ] && [ -d "${SRC_ABS}/bin" ]; then
+          SRC_TASKS="${SRC_ABS}/tasks"
+          SRC_BIN="${SRC_ABS}/bin"
+          echo "Using src tasks/ and bin/"
+        else
+          echo "Error: src must have either .workspace/tasks and .workspace/bin, or tasks/ and bin/"
+          echo "  Source: ${SRC_ABS}"
+          exit 1
+        fi
+
+        # 1) Populate dst/.workspace/ (new shared layout; include templates so dst can run instantiate)
+        echo "Populating ${DST_ABS}/.workspace/ ..."
+        mkdir -p "${DST_ABS}/.workspace"
+        rm -rf "${DST_ABS}/.workspace/bin" "${DST_ABS}/.workspace/tasks" "${DST_ABS}/.workspace/templates"
+        cp -r "${SRC_BIN}" "${SRC_TASKS}" "${DST_ABS}/.workspace/"
+        if [ -d "${SRC_ABS}/.workspace/templates" ]; then
+          cp -r "${SRC_ABS}/.workspace/templates" "${DST_ABS}/.workspace/"
+        elif [ -d "${SRC_ABS}/templates" ]; then
+          cp -r "${SRC_ABS}/templates" "${DST_ABS}/.workspace/"
+        fi
+        echo "✅ .workspace/ populated (bin, tasks, templates)"
+
+        # 2) Overwrite root-level tasks/ and bin/ for backward compatibility
+        echo "Overwriting root tasks/ and bin/ in ${DST_ABS} ..."
         rm -rf "${DST_ABS}/tasks" "${DST_ABS}/bin"
-        cp -r "${SRC_ABS}/tasks" "${SRC_ABS}/bin" "${DST_ABS}/"
+        cp -r "${SRC_TASKS}" "${SRC_BIN}" "${DST_ABS}/"
         echo "✅ Done"
   instantiate:
-    desc: Instantiate the workspace
+    silent: true
+    desc: "Instantiate the workspace at the given path (clone/pull repo, apply .workspace layout, populate .workspace). Usage: task workspace:instantiate -- <workspace-path>"
     cmds:
-      - | 
+      - |
         set -euo pipefail
 
-        # Parse CLI_ARGS - use eval to properly handle quoted arguments
         CLI_ARGS_STR="{{.CLI_ARGS}}"
-        
-        # Both workspace-name and workspace-path are required
         if [ -z "${CLI_ARGS_STR}" ]; then
-          echo "Error: <workspace-name> and <workspace-path> are required"
-          echo "Usage: task workspace:instantiate -- <workspace-name> <workspace-path>"
-          echo "Example: task workspace:instantiate -- my-workspace ~/workspaces/my-workspace"
+          echo "Error: <workspace-path> is required"
+          echo "Usage: task workspace:instantiate -- <workspace-path>"
+          echo "Example: task workspace:instantiate -- ~/workspaces/my-workspace"
           exit 1
         fi
-        
-        eval set -- ${CLI_ARGS_STR}
-        WORKSPACE_NAME="${1:-}"
-        WORKSPACE_PATH="${2:-}"
-        
-        if [ -z "${WORKSPACE_NAME}" ] || [ -z "${WORKSPACE_PATH}" ]; then
-          echo "Error: <workspace-name> and <workspace-path> are required"
-          echo "Usage: task workspace:instantiate -- <workspace-name> <workspace-path>"
-          echo "Example: task workspace:instantiate -- my-workspace ~/workspaces/my-workspace"
-          exit 1
-        fi
-        
-        WORKSPACE_REPO_URL="https://github.com/tvangundy/workspace.git"
 
-        echo "Initializing workspace..."
+        eval set -- ${CLI_ARGS_STR}
+        WORKSPACE_PATH="${1:-}"
+
+        if [ -z "${WORKSPACE_PATH}" ]; then
+          echo "Error: <workspace-path> is required"
+          echo "Usage: task workspace:instantiate -- <workspace-path>"
+          exit 1
+        fi
+
+        # Derive workspace name from the last component of the path
+        WORKSPACE_NAME=$(basename "${WORKSPACE_PATH}")
+
+        WORKSPACE_REPO_URL="https://github.com/tvangundy/workspace.git"
+        PRIVATE_WORKSPACE_ROOT="{{.ROOT_DIR}}"
+        # Templates: from .workspace when running from an instantiated workspace, else from root (private-workspace)
+        if [ -d "${PRIVATE_WORKSPACE_ROOT}/.workspace/templates/workspace-repo" ]; then
+          TEMPLATE_DIR="${PRIVATE_WORKSPACE_ROOT}/.workspace/templates/workspace-repo"
+        else
+          TEMPLATE_DIR="${PRIVATE_WORKSPACE_ROOT}/templates/workspace-repo"
+        fi
+        if [ ! -d "${TEMPLATE_DIR}" ] || [ ! -f "${TEMPLATE_DIR}/Taskfile.yml" ]; then
+          echo "Error: template not found at ${TEMPLATE_DIR}. Run from private-workspace or a workspace with .workspace populated (including templates)."
+          exit 1
+        fi
+
+        echo "Initializing workspace (always using .workspace layout)..."
         echo "Workspace name: ${WORKSPACE_NAME}"
         echo "Workspace path: ${WORKSPACE_PATH}"
         echo ""
 
         mkdir -p "${WORKSPACE_PATH}"
 
-        # If it's already a git repo, pull latest. Otherwise, clone into an empty directory.
         if [ -d "${WORKSPACE_PATH}/.git" ]; then
           echo "Existing git repository detected. Pulling latest changes..."
           git -C "${WORKSPACE_PATH}" pull --ff-only
@@ -94,26 +204,58 @@ tasks:
             echo "Refusing to overwrite. Choose an empty directory or remove existing contents."
             exit 1
           fi
-
           echo "Cloning ${WORKSPACE_REPO_URL} into ${WORKSPACE_PATH}..."
           git clone "${WORKSPACE_REPO_URL}" "${WORKSPACE_PATH}"
         fi
 
+        # Ignore source repo's root bin/ and tasks/; apply .workspace layout from template
+        echo "Applying .workspace layout (bootstrap + shared bin/tasks in .workspace/)..."
+        rm -rf "${WORKSPACE_PATH}/bin" "${WORKSPACE_PATH}/tasks"
+        cp "${TEMPLATE_DIR}/Taskfile.yml" "${WORKSPACE_PATH}/Taskfile.yml"
+        mkdir -p "${WORKSPACE_PATH}/tasks/workspace"
+        cp "${TEMPLATE_DIR}/tasks/workspace/Taskfile.yaml" "${WORKSPACE_PATH}/tasks/workspace/Taskfile.yaml"
+
+        # Populate .workspace/ from this repo (bin, tasks, templates so the new workspace can run instantiate too)
+        SRC_WS="${PRIVATE_WORKSPACE_ROOT}"
+        if [ -d "${PRIVATE_WORKSPACE_ROOT}/.workspace/bin" ] && [ -d "${PRIVATE_WORKSPACE_ROOT}/.workspace/tasks" ]; then
+          SRC_WS="${PRIVATE_WORKSPACE_ROOT}/.workspace"
+        elif [ -d "${PRIVATE_WORKSPACE_ROOT}/tasks" ] && [ -d "${PRIVATE_WORKSPACE_ROOT}/bin" ]; then
+          SRC_WS="${PRIVATE_WORKSPACE_ROOT}"
+        fi
+        if [ -d "${SRC_WS}/tasks" ] && [ -d "${SRC_WS}/bin" ]; then
+          mkdir -p "${WORKSPACE_PATH}/.workspace"
+          rm -rf "${WORKSPACE_PATH}/.workspace/bin" "${WORKSPACE_PATH}/.workspace/tasks" "${WORKSPACE_PATH}/.workspace/templates"
+          cp -r "${SRC_WS}/bin" "${SRC_WS}/tasks" "${WORKSPACE_PATH}/.workspace/"
+          if [ -d "${SRC_WS}/templates" ]; then
+            cp -r "${SRC_WS}/templates" "${WORKSPACE_PATH}/.workspace/"
+          elif [ -d "${PRIVATE_WORKSPACE_ROOT}/templates" ]; then
+            cp -r "${PRIVATE_WORKSPACE_ROOT}/templates" "${WORKSPACE_PATH}/.workspace/"
+          fi
+          echo "✅ .workspace/ populated (bin, tasks, templates)"
+        else
+          echo "⚠️  Could not populate .workspace (missing bin/ or tasks/ in current repo)."
+          echo "   Run from the new workspace: task bootstrap:link or task bootstrap:populate"
+        fi
+
         echo ""
-        echo "Workspace initialized successfully."
-    silent: true
+        echo "Workspace initialized successfully (bootstrap in tasks/workspace, shared content in .workspace/)."
 
   #-----------------------------------------------------------------------------------------------------------------------
   # workspace
   #-----------------------------------------------------------------------------------------------------------------------
 
   help:
-    desc: Workspace releated commands
+    desc: Workspace related commands
     cmds:
       - |
         echo "Workspace"
         echo ""
-        echo "    task workspace:instantiate -- <workspace-name> <workspace-path>"
+        echo "  Bootstrap (when using this repo from another, e.g. forest-shadows):"
+        echo "    task workspace:link      # symlink .workspace to private-workspace (developer)"
+        echo "    task workspace:populate  # copy bin+tasks into .workspace (or set WORKSPACE_TARBALL_URL)"
+        echo "    task workspace:ensure   # create .workspace if missing (runs link or prompts populate)"
         echo ""
+        echo "  Overwrite / instantiate:"
+        echo "    task workspace:instantiate -- <workspace-path>"
         echo "    task workspace:overwrite -- <src-workspace-path> <dst-workspace-path>"
     silent: true
