@@ -23,5 +23,7 @@ fi
 mkdir -p "${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/.talos"
 mkdir -p "${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}"
 cd "${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}"
-talosctl gen config "${CLUSTER_NAME}" "https://${CONTROL_PLANE_IP}:6443" --install-disk "${INSTALL_DISK}"
+talosctl gen config "${CLUSTER_NAME}" "https://${CONTROL_PLANE_IP}:6443" --install-disk "${INSTALL_DISK}" --force
+
+TALOSCONFIG="${TALOSCONFIG:-${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/.talos/talosconfig}"
 mv talosconfig "${TALOSCONFIG}"

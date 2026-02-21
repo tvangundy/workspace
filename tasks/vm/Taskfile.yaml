@@ -18,6 +18,16 @@ tasks:
         echo "Step: Generate terraform.tfvars"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         
+        # Source .vm-instantiate.env so VM_NETWORK_NAME (and VM_IMAGE, etc.) from initialize-context are available
+        # (generate-tfvars is invoked by create-vm.sh via 'task vm:generate-tfvars' in a new shell)
+        PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
+        if [ -f "${ENV_FILE}" ]; then
+          set +u
+          source "${ENV_FILE}" 2>/dev/null || true
+          set -u
+        fi
+        
         # Reload Windsor environment to get latest values (including VM_NETWORK_NAME set by initialize-context.sh)
         if command -v windsor > /dev/null 2>&1; then
           set +e  # Temporarily disable exit on error

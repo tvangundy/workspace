@@ -324,12 +324,13 @@ else
   } > "${TEST_WINDSOR_YAML}"
 fi
 
-# Write VM_IMAGE to .workspace/.vm-instantiate.env so check-vm-image and other scripts get it
-# (parse-args creates the file but doesn't include VM_IMAGE; each task runs in a new shell)
+# Write VM_IMAGE and VM_NETWORK_NAME to .workspace/.vm-instantiate.env so check-vm-image,
+# generate-tfvars (run via task from create-vm.sh), and other scripts get them (each task runs in a new shell)
 mkdir -p "${PROJECT_ROOT}/.workspace"
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
   echo "export VM_IMAGE='${VM_IMAGE}'" >> "${ENV_FILE}"
+  [ -n "${VM_NETWORK_NAME:-}" ] && echo "export VM_NETWORK_NAME='${VM_NETWORK_NAME}'" >> "${ENV_FILE}"
 fi
 
 # Export environment variables

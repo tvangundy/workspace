@@ -59,7 +59,7 @@ environment:
 
   CLUSTER_NAME: "rpi-talos-cluster"
 
-  CONTROL_PLANE_IP: "192.168.2.31"
+  CONTROL_PLANE_IP: "192.168.2.32"
   WORKER_0_IP: "192.168.2.111"
   WORKER_1_IP: "192.168.2.125"
 

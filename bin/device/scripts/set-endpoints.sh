@@ -8,6 +8,7 @@ load_device_env
 
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 CLI_ARGS="${1:-}"
+TALOSCONFIG="${TALOSCONFIG:-${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/.talos/talosconfig}"
 
 cd "${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}"
-talosctl config endpoints ${CLI_ARGS}
+talosctl --talosconfig "${TALOSCONFIG}" config endpoints ${CLI_ARGS}

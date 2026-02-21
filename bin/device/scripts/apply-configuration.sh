@@ -31,9 +31,30 @@ if ! ping -c 1 -W 2 "${CONTROL_PLANE_IP}" >/dev/null 2>&1; then
 fi
 
 CLUSTER_DIR="${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/clusters/${CLUSTER_NAME}"
+TALOSCONFIG="${TALOSCONFIG:-${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT}/.talos/talosconfig}"
+TALOS_API_PORT=50000
+MAX_WAIT="${APPLY_CONFIG_MAX_WAIT:-600}"
+INTERVAL=15
 
+echo "Waiting for control plane Talos API on ${CONTROL_PLANE_IP}:${TALOS_API_PORT} (ensure node is booted from Talos image)..."
+ELAPSED=0
+while [ "${ELAPSED}" -lt "${MAX_WAIT}" ]; do
+  if nc -z -w 3 "${CONTROL_PLANE_IP}" "${TALOS_API_PORT}" 2>/dev/null; then
+    echo "Control plane API is reachable (after ${ELAPSED}s)"
+    break
+  fi
+  echo "  waiting... (${ELAPSED}s / ${MAX_WAIT}s max)"
+  sleep "${INTERVAL}"
+  ELAPSED=$((ELAPSED + INTERVAL))
+done
+if ! nc -z -w 3 "${CONTROL_PLANE_IP}" "${TALOS_API_PORT}" 2>/dev/null; then
+  echo "Error: Control plane API at ${CONTROL_PLANE_IP}:${TALOS_API_PORT} did not become reachable within ${MAX_WAIT}s"
+  echo "Ensure the node is powered on and booted from the Talos image."
+  exit 1
+fi
+
+echo ""
 echo "Applying control plane configuration to: ${CONTROL_PLANE_IP}"
-echo "Note: Nodes must be running Talos (booted from the image) for this to work"
 talosctl apply-config --insecure --talosconfig "${TALOSCONFIG}" --nodes "${CONTROL_PLANE_IP}" --file "${CLUSTER_DIR}/controlplane.yaml"
 
 shift
@@ -54,6 +75,24 @@ if [ $# -gt 0 ]; then
   done
 else
   echo "No worker nodes specified"
+fi
+
+echo ""
+echo "Waiting for control plane API on ${CONTROL_PLANE_IP}:${TALOS_API_PORT} (nodes will reboot)..."
+ELAPSED=0
+while [ "${ELAPSED}" -lt "${MAX_WAIT}" ]; do
+  if nc -z -w 3 "${CONTROL_PLANE_IP}" "${TALOS_API_PORT}" 2>/dev/null; then
+    echo "Control plane API is up after ${ELAPSED}s"
+    break
+  fi
+  echo "  waiting... (${ELAPSED}s / ${MAX_WAIT}s max)"
+  sleep "${INTERVAL}"
+  ELAPSED=$((ELAPSED + INTERVAL))
+done
+if ! nc -z -w 3 "${CONTROL_PLANE_IP}" "${TALOS_API_PORT}" 2>/dev/null; then
+  echo "Warning: Control plane API did not become reachable within ${MAX_WAIT}s"
+  echo "You may need to run bootstrap or set-endpoints later once the node is up"
+  exit 1
 fi
 
 echo ""
