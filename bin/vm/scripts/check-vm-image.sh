@@ -2,25 +2,13 @@
 # Ensure VM image is available on remote
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
 TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
-
-# VM_IMAGE: from env, or from windsor.yaml (initialize-context writes to .workspace/.vm-instantiate.env)
-if [ -z "${VM_IMAGE:-}" ]; then
-  ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "${WINDSOR_CONTEXT:-}")
-  if [ -n "${ACTIVE_CONTEXT}" ]; then
-    WINDSOR_YAML="${PROJECT_ROOT}/contexts/${ACTIVE_CONTEXT}/windsor.yaml"
-    if [ -f "${WINDSOR_YAML}" ]; then
-      VM_IMAGE=$(grep -E '^\s+VM_IMAGE:' "${WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_IMAGE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
-    fi
-  fi
-fi
 VM_IMAGE="${VM_IMAGE:-ubuntu/25.04}"
 
 # Check if image exists and is a VM

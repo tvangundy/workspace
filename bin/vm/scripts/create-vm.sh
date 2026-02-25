@@ -2,12 +2,11 @@
 # Create VM using Terraform
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file (see docs/runbooks/workspace/instantiate-env-and-windsor-env.md)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"
 VM_NAME="${VM_NAME:-vm}"
@@ -15,6 +14,12 @@ TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
 
 # TERRAFORM_PATH: subdir under terraform/ (e.g. vm). From first arg or env, default "vm"
 TERRAFORM_PATH="${1:-${TERRAFORM_PATH:-vm}}"
+
+# Fallback: if terraform/$TERRAFORM_PATH has no .tf config (e.g. repo uses single terraform/vm), use vm
+if [ ! -d "${PROJECT_ROOT}/terraform/${TERRAFORM_PATH}" ] || [ -z "$(find "${PROJECT_ROOT}/terraform/${TERRAFORM_PATH}" -maxdepth 1 -name '*.tf' -print 2>/dev/null)" ]; then
+  TERRAFORM_PATH=vm
+fi
+export TERRAFORM_PATH
 
 # Check Terraform state first to see if there's a VM managed by Terraform with a different name
 TERRAFORM_DIR="${PROJECT_ROOT}/terraform/${TERRAFORM_PATH}"

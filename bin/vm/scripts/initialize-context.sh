@@ -24,13 +24,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 CONTEXTS_DIR="${PROJECT_ROOT}/contexts"
 
 # Determine which context directory to use
-# If there's an active context, use that directory; otherwise use VM_NAME
+# Prefer WINDSOR_CONTEXT when set (caller's intent); else use windsor context get; else VM_NAME
 ACTIVE_CONTEXT=""
-if command -v windsor > /dev/null 2>&1; then
+if [ -n "${WINDSOR_CONTEXT:-}" ]; then
+  ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
+elif command -v windsor > /dev/null 2>&1; then
   ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-  fi
 fi
 
 if [ -n "${ACTIVE_CONTEXT}" ]; then
@@ -46,18 +45,21 @@ TEST_WINDSOR_YAML="${TEST_CONTEXT_DIR}/windsor.yaml"
 mkdir -p "${TEST_CONTEXT_DIR}"
 
 # Preserve values from existing windsor.yaml when updating (don't overwrite user's VM_IMAGE etc.)
+# Use || true so missing keys (e.g. in blueprint-created windsor.yaml) don't exit under set -e
 if [ -f "${TEST_WINDSOR_YAML}" ]; then
-  EXISTING_VM_IMAGE=$(grep -E '^\s+VM_IMAGE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_IMAGE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
-  EXISTING_VM_MEMORY=$(grep -E '^\s+VM_MEMORY:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_MEMORY:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
-  EXISTING_VM_CPU=$(grep -E '^\s+VM_CPU:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_CPU:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
-  EXISTING_VM_DISK_SIZE=$(grep -E '^\s+VM_DISK_SIZE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_DISK_SIZE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ')
+  EXISTING_VM_IMAGE=$(grep -E '^\s+VM_IMAGE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_IMAGE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
+  EXISTING_VM_MEMORY=$(grep -E '^\s+VM_MEMORY:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_MEMORY:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
+  EXISTING_VM_CPU=$(grep -E '^\s+VM_CPU:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_CPU:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
+  EXISTING_VM_DISK_SIZE=$(grep -E '^\s+VM_DISK_SIZE:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_DISK_SIZE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
+  EXISTING_VM_STORAGE_POOL=$(grep -E '^\s+VM_STORAGE_POOL:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_STORAGE_POOL:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
+  EXISTING_VM_AUTOSTART=$(grep -E '^\s+VM_AUTOSTART:' "${TEST_WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_AUTOSTART:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true
 fi
 
-# Get default values for environment variables (preserve existing from windsor.yaml when updating)
-VM_IMAGE="${VM_IMAGE:-${EXISTING_VM_IMAGE:-ubuntu/25.04}}"
-VM_MEMORY="${VM_MEMORY:-${EXISTING_VM_MEMORY:-16GB}}"
-VM_CPU="${VM_CPU:-${EXISTING_VM_CPU:-4}}"
-VM_DISK_SIZE="${VM_DISK_SIZE:-${EXISTING_VM_DISK_SIZE:-100GB}}"
+# Get default values: when windsor.yaml exists, prefer its values over env so the file is not overwritten by .vm-instantiate.env
+VM_IMAGE="${EXISTING_VM_IMAGE:-${VM_IMAGE:-ubuntu/25.04}}"
+VM_MEMORY="${EXISTING_VM_MEMORY:-${VM_MEMORY:-16GB}}"
+VM_CPU="${EXISTING_VM_CPU:-${VM_CPU:-4}}"
+VM_DISK_SIZE="${EXISTING_VM_DISK_SIZE:-${VM_DISK_SIZE:-100GB}}"
 
 # Function to ensure physical network is configured
 ensure_physical_network() {
@@ -197,25 +199,19 @@ if [ -z "${VM_NETWORK_NAME:-}" ]; then
   ensure_physical_network
 fi
 
-VM_STORAGE_POOL="${VM_STORAGE_POOL:-local}"
-VM_AUTOSTART="${VM_AUTOSTART:-false}"
+VM_STORAGE_POOL="${EXISTING_VM_STORAGE_POOL:-${VM_STORAGE_POOL:-local}}"
+VM_AUTOSTART="${EXISTING_VM_AUTOSTART:-${VM_AUTOSTART:-false}}"
 
-# Set workspace initialization based on flag (default: skip unless --workspace was passed)
-if [ "${SKIP_WORKSPACE:-false}" = "true" ]; then
-  VM_INIT_WORKSPACE="false"
-else
-  VM_INIT_WORKSPACE="${VM_INIT_WORKSPACE:-false}"
-fi
+# VM_INIT_WORKSPACE is set only by the vm:instantiate CLI (--workspace flag) via parse-args → .vm-instantiate.env; not stored in windsor.yaml
 
 # Check if windsor.yaml already exists
 if [ -f "${TEST_WINDSOR_YAML}" ]; then
   echo "ℹ️  Found existing windsor.yaml, updating environment variables"
   
-  # Create a temporary file with new environment variables
+  # Create a temporary file with new environment variables (exclude VM_INIT_WORKSPACE - CLI-only)
   TEMP_ENV=$(mktemp)
   {
     echo "  INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
-    echo "  VM_INIT_WORKSPACE: ${VM_INIT_WORKSPACE}"
     echo "  VM_INSTANCE_NAME: ${VM_NAME}"
     echo "  VM_IMAGE: ${VM_IMAGE}"
     echo "  VM_MEMORY: ${VM_MEMORY}"
@@ -253,6 +249,9 @@ if [ -f "${TEST_WINDSOR_YAML}" ]; then
         gsub(/^[[:space:]]+/, "", original_line)
         split(original_line, parts, ":")
         var_name = parts[1]
+        if (var_name == "VM_INIT_WORKSPACE") {
+          next
+        }
         if (var_name in new_vars) {
           next
         }
@@ -303,13 +302,12 @@ AWK_SCRIPT
   fi
   rm -f "${TEMP_ENV}"
 else
-  # Create new windsor.yaml
+  # Create new windsor.yaml (VM_INIT_WORKSPACE is CLI-only, not stored)
   {
     echo "id: ${VM_NAME}-VM"
     echo "provider: generic"
     echo "environment:"
     echo "  INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
-    echo "  VM_INIT_WORKSPACE: ${VM_INIT_WORKSPACE}"
     echo "  VM_INSTANCE_NAME: ${VM_NAME}"
     echo "  VM_IMAGE: ${VM_IMAGE}"
     echo "  VM_MEMORY: ${VM_MEMORY}"
@@ -324,14 +322,8 @@ else
   } > "${TEST_WINDSOR_YAML}"
 fi
 
-# Write VM_IMAGE and VM_NETWORK_NAME to .workspace/.vm-instantiate.env so check-vm-image,
-# generate-tfvars (run via task from create-vm.sh), and other scripts get them (each task runs in a new shell)
-mkdir -p "${PROJECT_ROOT}/.workspace"
-ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  echo "export VM_IMAGE='${VM_IMAGE}'" >> "${ENV_FILE}"
-  [ -n "${VM_NETWORK_NAME:-}" ] && echo "export VM_NETWORK_NAME='${VM_NETWORK_NAME}'" >> "${ENV_FILE}"
-fi
+# Session file .vm-instantiate.env is written by parse-args only (CLI/computed vars).
+# Context config (VM_IMAGE, VM_NETWORK_NAME, VM_DISK_SIZE, etc.) comes from windsor env in each script/task.
 
 # Export environment variables
 export INCUS_REMOTE_NAME="${TEST_REMOTE_NAME}"
@@ -351,10 +343,11 @@ export VM_NAME="${VM_NAME}"
 # Only initialize Windsor context if it doesn't already exist
 # Don't switch contexts - keep the active context if one exists
 if command -v windsor > /dev/null 2>&1; then
-  # Check if there's an active context
-  ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-  if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
+  # Prefer WINDSOR_CONTEXT when set (caller's intent); else use windsor context get
+  if [ -n "${WINDSOR_CONTEXT:-}" ]; then
     ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
+  else
+    ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
   fi
   
   if [ -n "${ACTIVE_CONTEXT}" ]; then

@@ -2,15 +2,13 @@
 # Setup runner user with same SSH keys as the main user
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then shared session file (.vm-instantiate.env; no .runner-instantiate.env)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --decrypt 2>/dev/null)" || true; fi
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
-# Use INCUS_REMOTE_NAME and INCUS_REMOTE_IP from .runner-instantiate.env (set by parse-args from CLI)
-INCUS_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}}"
+INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}"
 INCUS_REMOTE_IP="${INCUS_REMOTE_IP:-}"
 VM_INSTANCE_NAME="${VM_INSTANCE_NAME:-${VM_NAME:-runner}}"
 RUNNER_USER="${RUNNER_USER:-runner}"

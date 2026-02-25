@@ -25,7 +25,7 @@ The `vm:` namespace provides tasks for creating and managing Ubuntu VMs on Incus
 | [`instantiate:add-runner-if-requested`](#instantiateadd-runner-if-requested) | If `--runner`, setup runner user and install GitHub Actions runner |
 | [`instantiate:validate-vm`](#instantiatevalidate-vm) | Validate VM setup and functionality |
 | [`instantiate:setup-ssh`](#instantiatesetup-ssh) | Setup SSH access for the user on the VM |
-| [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if VM_INIT_WORKSPACE is true |
+| [`instantiate:init-workspace`](#instantiateinit-workspace) | Initialize workspace on the VM if `--workspace` was passed to vm:instantiate |
 | [`instantiate:install-tools`](#instantiateinstall-tools) | Install tools jq, Homebrew, aqua, docker, and windsor |
 | [`instantiate:cleanup-if-needed`](#instantiatecleanup-if-needed) | Cleanup VM if --keep flag was not set |
 | [`generate-tfvars`](#generate-tfvars) | Generate terraform.tfvars from environment variables |
@@ -211,7 +211,7 @@ task vm:instantiate:install-tools
 
 ### `instantiate:init-workspace`
 
-Initialize workspace on the VM if `VM_INIT_WORKSPACE` is true. Copies workspace contents to the user's home directory.
+Initialize workspace on the VM when `--workspace` was passed to `vm:instantiate`. Copies workspace contents to the user's home directory. Workspace init is controlled only by the CLI flag, not by context/windsor.yaml.
 
 **Usage:**
 
@@ -353,7 +353,7 @@ The following environment variables can be set in your `contexts/<context>/winds
 - `VM_NETWORK_NAME`: Physical network interface for direct network access (e.g., `eno1`, `enp5s0`). Leave empty to use default Incus network
 - `VM_STORAGE_POOL`: Storage pool name. Default: `local`
 - `VM_AUTOSTART`: Whether to start the VM automatically on host boot. Default: `false`
-- `VM_INIT_WORKSPACE`: Whether to initialize workspace contents during creation. Default: `false` (or `true` in test task)
+- Workspace initialization is controlled only by the `--workspace` flag on `vm:instantiate` (not stored in windsor.yaml).
 - `DOCKER_HOST`: Docker socket path. Default: `unix:///var/run/docker.sock`
 
 **Runner-specific** (when using `--runner`):

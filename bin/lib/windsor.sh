@@ -8,7 +8,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-# Load Windsor environment variables
+# Load Windsor environment from the active context (no context switch).
+# Use at the start of scripts so context config (windsor.yaml) is the source of truth.
+# Optional: pass --decrypt to include SOPS-decrypted secrets (e.g. for runner token).
+load_windsor_env_for_shell() {
+  local decrypt_flag=""
+  [ "${1:-}" = "--decrypt" ] && decrypt_flag="--decrypt"
+  local windsor_env_output
+  windsor_env_output=$(windsor env ${decrypt_flag} 2>/dev/null || echo "")
+  if [ -n "${windsor_env_output}" ]; then
+    eval "${windsor_env_output}" || true
+  fi
+}
+
+# Load Windsor environment variables (optionally set context first)
 load_windsor_env() {
   local context="${1:-${WINDSOR_CONTEXT:-}}"
   

@@ -32,7 +32,12 @@ load_tc_env() {
   WORKER_0_VM="${WORKER_0_VM:-}"
   WORKER_1_VM="${WORKER_1_VM:-}"
   
-  TERRAFORM_DIR="${project_root}/terraform/cluster"
+  # Use terraform/<cluster> if it has .tf config; else fall back to terraform/cluster (single dir + workspaces)
+  if [ -d "${project_root}/terraform/${CLUSTER_NAME}" ] && [ -n "$(find "${project_root}/terraform/${CLUSTER_NAME}" -maxdepth 1 -name '*.tf' -print 2>/dev/null)" ]; then
+    TERRAFORM_DIR="${project_root}/terraform/${CLUSTER_NAME}"
+  else
+    TERRAFORM_DIR="${project_root}/terraform/cluster"
+  fi
   
   export TEST_REMOTE_NAME REMOTE_NAME CLUSTER_NAME
   export CONTROL_PLANE_VM WORKER_0_VM WORKER_1_VM TERRAFORM_DIR

@@ -3,6 +3,9 @@
 
 version: '3'
 
+vars:
+  TC_SCRIPT_DIR_SETUP: 'SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"'
+
 tasks:
 
   instantiate:
@@ -28,7 +31,7 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         source "${SCRIPT_DIR}/parse-args.sh" "{{.CLI_ARGS}}"
 
   instantiate:initialize-context:
@@ -36,7 +39,7 @@ tasks:
     desc: "Initialize Windsor context and create windsor.yaml"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/initialize-context.sh"
 
   instantiate:verify-remote:
@@ -44,7 +47,7 @@ tasks:
     desc: "Verify Incus remote exists and is reachable"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/verify-remote.sh"
 
   instantiate:check-existing-vms:
@@ -52,7 +55,7 @@ tasks:
     desc: "Fail if cluster VMs already exist"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/check-existing-vms.sh"
 
   instantiate:check-talos-image:
@@ -60,7 +63,7 @@ tasks:
     desc: "Ensure Talos image is available (warn only)"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/check-talos-image.sh"
 
   instantiate:create-cluster-vms:
@@ -68,7 +71,7 @@ tasks:
     desc: "Create cluster VMs via Terraform"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/create-cluster-vms.sh"
 
   instantiate:wait-for-vms:
@@ -76,7 +79,7 @@ tasks:
     desc: "Wait for all VMs to be running"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/wait-for-vms.sh"
 
   instantiate:get-ip-addresses:
@@ -84,7 +87,7 @@ tasks:
     desc: "Get IPs from Terraform, update windsor.yaml"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/get-ip-addresses.sh"
 
   instantiate:regenerate-tfvars-with-ips:
@@ -92,7 +95,7 @@ tasks:
     desc: "Regenerate tfvars with IPs and apply Talos config"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/regenerate-tfvars-with-ips.sh"
 
   instantiate:retrieve-kubeconfig:
@@ -100,7 +103,7 @@ tasks:
     desc: "Retrieve kubeconfig from cluster"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/retrieve-kubeconfig.sh"
 
   instantiate:final-summary:
@@ -108,7 +111,7 @@ tasks:
     desc: "Print success summary"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/final-summary.sh"
 
   instantiate:cleanup-if-needed:
@@ -116,7 +119,7 @@ tasks:
     desc: "Destroy cluster if --destroy was set"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/cleanup-if-needed.sh"
 
   destroy:
@@ -124,7 +127,7 @@ tasks:
     desc: "Destroy the Talos cluster. Usage: task tc:destroy [-- <cluster-name>]"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/destroy.sh" "{{.CLI_ARGS}}"
 
   delete:
@@ -233,7 +236,7 @@ tasks:
     desc: "List all Talos clusters"
     cmds:
       - |
-        SCRIPT_DIR="${BIN_ROOT:-${WINDSOR_PROJECT_ROOT:-$(pwd)}/bin}/tc/scripts"
+        {{.TC_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/list.sh"
 
   help:

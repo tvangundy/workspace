@@ -4,9 +4,16 @@ version: '3'
 
 tasks:
   clean:
-    desc: Clean up Docker images and containers
+    desc: Clean up Docker containers, images, and volumes (e.g. Windsor local cluster)
     cmds:
-      - docker kill $(docker ps -q) && docker system prune -af
+      - docker kill $(docker ps -q) 2>/dev/null || true
+      - docker rm -f $(docker ps -aq) 2>/dev/null || true
+      - docker system prune -af
+      - |
+        for v in $(docker volume ls -q | grep -E '^(controlplane_1_|worker_1_|windsor_controlplane_1_|windsor_worker_1_)' || true); do
+          docker volume rm "$v" 2>/dev/null || true
+        done
+      - docker volume prune -f
 
   #-----------------------------------------------------------------------------------------------------------------------
   # Docker

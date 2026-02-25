@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Initialize workspace on the VM if VM_INIT_WORKSPACE is true
+# Initialize workspace on the VM when --workspace was passed to vm:instantiate (VM_INIT_WORKSPACE from session file)
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"
 VM_NAME="${VM_NAME:-vm}"
@@ -62,10 +61,15 @@ chown -R ${CURRENT_UID}:${CURRENT_GID} ${INIT_PATH} 2>/dev/null || \
 
 # Copy workspace contents using tar archive (more reliable)
 echo "  Creating archive..."
-TEMP_ARCHIVE=$(mktemp /tmp/workspace-XXXXXX.tar.gz)
+# Use template ending in XXXXXX (required by BSD mktemp on macOS); then add .tar.gz
+TEMP_ARCHIVE=$(mktemp /tmp/workspace-XXXXXX)
+TEMP_ARCHIVE="${TEMP_ARCHIVE}.tar.gz"
 set +e  # Temporarily disable exit on error
 
-# Create tar archive excluding common directories
+# On macOS, prevent tar from including AppleDouble/resource-fork files (._*)
+[ "$(uname -s)" = "Darwin" ] && export COPYFILE_DISABLE=1
+
+# Create tar archive excluding common directories and macOS cruft
 cd "${PROJECT_ROOT}"
 tar --exclude='.git' \
     --exclude='.volumes' \
@@ -75,6 +79,8 @@ tar --exclude='.git' \
     --exclude='.terraform' \
     --exclude='.terraform.tfstate*' \
     --exclude='terraform.tfstate*' \
+    --exclude='.DS_Store' \
+    --exclude='._*' \
     -czf "${TEMP_ARCHIVE}" . 2>/dev/null
 
 if [ -f "${TEMP_ARCHIVE}" ]; then
@@ -191,13 +197,14 @@ if [ -f "${CONTEXT_WINDSOR_YAML}" ]; then
 else
   # If context windsor.yaml doesn't exist, create one with environment variables
   # Create windsor.yaml content on host first using printf
-  TEMP_WINDSOR_YAML=$(mktemp /tmp/windsor-XXXXXX.yaml)
+  # Template must end with XXXXXX for BSD mktemp (macOS); then add .yaml
+  TEMP_WINDSOR_YAML=$(mktemp /tmp/windsor-XXXXXX)
+  TEMP_WINDSOR_YAML="${TEMP_WINDSOR_YAML}.yaml"
   {
     echo "id: ${VM_NAME}-VM"
     echo "provider: generic"
     echo "environment:"
     echo "  INCUS_REMOTE_NAME: ${TEST_REMOTE_NAME}"
-    echo "  VM_INIT_WORKSPACE: ${VM_INIT_WORKSPACE}"
     echo "  VM_INSTANCE_NAME: ${VM_NAME}"
     echo "  VM_IMAGE: ${VM_IMAGE:-ubuntu/25.04}"
     echo "  VM_MEMORY: ${VM_MEMORY:-16GB}"

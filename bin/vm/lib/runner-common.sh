@@ -11,19 +11,19 @@ source "${LIB_DIR}/common.sh"
 source "${LIB_DIR}/windsor.sh"
 source "${LIB_DIR}/incus.sh"
 
-# Load runner-specific environment
+# Load runner-specific environment: Windsor context (with secrets) first, then shared VM session file.
+# No .runner-instantiate.env; reuses .vm-instantiate.env. See docs/runbooks/workspace/instantiate-env-and-windsor-env.md
 load_runner_env() {
   local project_root
   project_root=$(get_windsor_project_root)
-  local env_file="${project_root}/.workspace/.runner-instantiate.env"
-  
-  source_env_file "${env_file}"
-  
-  # CLI remote overrides windsor.yaml - apply priority
+  load_windsor_env_for_shell --decrypt
+  source_env_file "${project_root}/.workspace/.vm-instantiate.env"
+
+  # CLI remote override from session file (INCUS_REMOTE_FROM_CLI set when --runner used with vm:instantiate)
   INCUS_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${INCUS_REMOTE_NAME:-}}"
   TEST_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME:-}}}"
-  
-  # Set defaults (VM_INSTANCE_NAME is the Incus instance name = runner VM name)
+
+  # Defaults (VM_INSTANCE_NAME = Incus instance name = runner VM name)
   VM_INSTANCE_NAME="${VM_INSTANCE_NAME:-${VM_NAME:-runner}}"
   RUNNER_USER="${RUNNER_USER:-runner}"
   RUNNER_HOME="${RUNNER_HOME:-/home/${RUNNER_USER}}"
@@ -31,7 +31,7 @@ load_runner_env() {
   GITHUB_RUNNER_TOKEN="${GITHUB_RUNNER_TOKEN:-}"
   GITHUB_RUNNER_VERSION="${GITHUB_RUNNER_VERSION:-}"
   GITHUB_RUNNER_ARCH="${GITHUB_RUNNER_ARCH:-x64}"
-  
+
   export TEST_REMOTE_NAME VM_INSTANCE_NAME VM_NAME RUNNER_USER RUNNER_HOME
   export GITHUB_RUNNER_REPO_URL GITHUB_RUNNER_TOKEN GITHUB_RUNNER_VERSION GITHUB_RUNNER_ARCH
 }

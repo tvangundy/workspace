@@ -23,17 +23,17 @@ TARGET_VM="${VM_INSTANCE_NAME}"
 RUNNER_USER="${RUNNER_USER:-runner}"
 RUNNER_HOME="${RUNNER_HOME:-/home/${RUNNER_USER}}"
 
-# Load token from .runner-instantiate.env or Windsor if available
+# Windsor context first (for token), then session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  set +e
-  source "${ENV_FILE}" 2>/dev/null || true
-  set -e
-fi
 if command -v windsor > /dev/null 2>&1; then
   set +e
   eval "$(windsor env --decrypt 2>/dev/null)" || true
+  set -e
+fi
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
+if [ -f "${ENV_FILE}" ]; then
+  set +e
+  source "${ENV_FILE}" 2>/dev/null || true
   set -e
 fi
 

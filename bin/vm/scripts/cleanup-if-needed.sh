@@ -2,14 +2,14 @@
 # Cleanup (destroy) VM only if --destroy was set; default is to keep the VM.
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file (SKIP_CLEANUP from parse-args)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then
-  # Source the file to load variables
-  set +u  # Temporarily allow unset variables while sourcing
+  set +u
   source "${ENV_FILE}"
-  set -u  # Re-enable strict checking
+  set -u
 fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"

@@ -34,6 +34,12 @@ if [ ! -d "${TERRAFORM_DIR}" ]; then
   echo "  Attempting to destroy any cluster VMs directly via Incus..."
   echo ""
 
+  if [ -z "${REMOTE_NAME}" ]; then
+    echo "  Error: Incus remote name is not set (no .tc-instantiate.env and INCUS_REMOTE_NAME unset)."
+    echo "  Set INCUS_REMOTE_NAME in the environment or run tc:instantiate first so the remote is recorded."
+    exit 1
+  fi
+
   CONTROL_PLANE_VM="${CLUSTER_NAME}-cp"
   WORKER_0_VM="${CLUSTER_NAME}-worker-0"
   WORKER_1_VM="${CLUSTER_NAME}-worker-1"
@@ -94,6 +100,12 @@ else
   echo "⚠️  Warning: Terraform workspace '${CLUSTER_NAME}' does not exist."
   echo "   Attempting to destroy cluster VMs directly via Incus..."
   
+  if [ -z "${REMOTE_NAME}" ]; then
+    echo "   Error: Incus remote name is not set (no .tc-instantiate.env and INCUS_REMOTE_NAME unset)."
+    echo "   Set INCUS_REMOTE_NAME in the environment or run tc:instantiate first so the remote is recorded."
+    exit 1
+  fi
+
   # Try to destroy VMs directly
   CONTROL_PLANE_VM="${CLUSTER_NAME}-cp"
   WORKER_0_VM="${CLUSTER_NAME}-worker-0"

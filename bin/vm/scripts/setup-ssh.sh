@@ -2,12 +2,11 @@
 # Setup SSH access for the user on the VM
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME}}"
 VM_NAME="${VM_NAME:-vm}"
@@ -354,7 +353,7 @@ ensure_physical_network
 # Wait for VM IP address to be available using incus list
 set +e  # Temporarily disable exit on error for IP extraction
 VM_IP=""
-MAX_WAIT=120  # Increased timeout since we're waiting for 192.168.2.x specifically
+MAX_WAIT="${VM_IP_WAIT_SECONDS:-180}"  # Configurable; default 180s for DHCP on physical network
 ELAPSED=0
 
 echo "  Waiting for VM IP address (192.168.2.x)..."
@@ -414,6 +413,17 @@ set -e  # Re-enable exit on error
 echo ""
 if [ -z "${VM_IP}" ] || [ "${VM_IP}" = "-" ]; then
   echo "❌ Error: VM did not receive a 192.168.2.x IP address within ${MAX_WAIT} seconds"
+  # Show any IP the VM has (helps distinguish wrong subnet vs no DHCP)
+  ANY_IP=$(incus list "${TEST_REMOTE_NAME}:${VM_NAME}" --format json 2>/dev/null | \
+    jq -r '.[0].state.network | to_entries[] | .value.addresses[]? | select(.family=="inet" and .address != "127.0.0.1") | .address' 2>/dev/null | head -1 || true)
+  if [ -z "${ANY_IP}" ] || [ "${ANY_IP}" = "null" ]; then
+    ANY_IP=$(incus list "${TEST_REMOTE_NAME}:${VM_NAME}" --format csv -c n,IPv4 2>/dev/null | grep "^${VM_NAME}," | cut -d',' -f3 | awk '{print $1}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+  fi
+  if [ -n "${ANY_IP}" ]; then
+    echo "   VM has IP ${ANY_IP} (expected 192.168.2.x from physical network/DHCP)"
+  else
+    echo "   VM has no IPv4 address yet"
+  fi
   echo ""
   echo "   This usually means:"
   echo "   1. The physical network is not properly configured"
@@ -424,6 +434,7 @@ if [ -z "${VM_IP}" ] || [ "${VM_IP}" = "-" ]; then
   echo "   - Check network config: task incus:check-network-config"
   echo "   - Check VM status: incus list ${TEST_REMOTE_NAME}:${VM_NAME}"
   echo "   - Restart VM: incus restart ${TEST_REMOTE_NAME}:${VM_NAME}"
+  echo "   - Increase wait: VM_IP_WAIT_SECONDS=300 task vm:instantiate -- ..."
   echo ""
   exit 1
 fi

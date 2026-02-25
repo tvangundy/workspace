@@ -17,7 +17,8 @@ Installing IncusOS on an Intel NUC involves:
 9. **Connecting to Incus**: Setting up the Incus CLI client and connecting to the server
 10. **Configuring network**: Setting up direct network attachment for VMs
 11. **Accessing web UI**: Setting up and accessing the Incus web interface
-12. **Getting certificates**: Retrieving client certificates (optional)
+12. **Creating storage pool**: Creating an optional ZFS pool for faster VM disk I/O
+13. **Getting certificates**: Retrieving client certificates (optional)
 
 IncusOS provides a complete, dedicated operating system optimized for running Incus, making it ideal for production deployments where you want a minimal, purpose-built platform.
 
@@ -516,7 +517,96 @@ Once the certificate is imported and you've restarted your browser, you can:
 
 The web UI provides a graphical interface for all Incus operations, making it easy to manage your infrastructure without using the command line.
 
-## Step 12: Get client certificate (optional)
+## Step 12: Create ZFS storage pool for VMs
+
+The NUC uses the **`local`** pool for the system (IncusOS). For VMs (e.g. windsor-vm, dev-vm, test-runner) you need a second pool, **`fast`**, on a **second physical disk**. That gives you enough space (e.g. 120GB per VM) and allows ZFS block mode for better disk I/O. This step is required if you plan to run VMs from this NUC.
+
+**Prerequisite:** The NUC must have two physical disks—one for IncusOS (backs `local`), one for the `fast` pool. If it has only one disk, you cannot create `fast`; you would run VMs on `local` and be limited by that pool’s free space.
+
+All commands below run from your laptop; the Incus daemon on the NUC resolves paths. No SSH required.
+
+### 1. Switch to the NUC remote
+
+Use the remote name you added for this NUC (e.g. `nuc` or `nuc-2`):
+
+```bash
+incus remote switch <remote-name>
+```
+
+Example:
+
+```bash
+incus remote switch nuc-2
+```
+
+### 2. List host disks and find the second disk
+
+IncusOS exposes host storage via the Incus API. Run:
+
+```bash
+incus admin os system storage show
+```
+
+In the output, find **`state.drives`**. You will see one drive per physical disk, for example:
+
+```yaml
+state:
+  drives:
+  - boot: true
+    id: /dev/disk/by-id/nvme-WDC_WDS500G2B0C-00PXH0_201016803494
+    member_pool: local
+    model_name: WDC WDS500G2B0C-00PXH0
+    ...
+  - boot: false
+    id: /dev/disk/by-id/wwn-0x500a0751e6115323
+    model_name: CT500MX500SSD1
+    ...
+```
+
+- The disk with **`boot: true`** and **`member_pool: local`** is the system disk. **Do not use it** for `fast`.
+- The disk with **`boot: false`** and **no `member_pool`** (or not in a pool) is the second disk. Copy its **`id`** value—that is the full-disk by-id path you will use in step 4.
+
+Use the **full** `id` path. Do **not** use any path ending in **`-partN`** (those are partitions of the system disk and will fail).
+
+### 3. Create the `fast` pool on that disk
+
+Create the pool using the second disk’s by-id (the `id` from step 2):
+
+```bash
+incus storage create fast zfs source=/dev/disk/by-id/<second-disk-by-id>
+```
+
+Example (second disk is a Crucial MX500):
+
+```bash
+incus storage create fast zfs source=/dev/disk/by-id/wwn-0x500a0751e6115323
+```
+
+The pool size will be the size of that disk (minus a small ZFS overhead).
+
+### 4. Verify
+
+```bash
+incus storage list
+incus storage info fast
+```
+
+You should see `fast` in the list and **total space** roughly equal to the second disk’s capacity.
+
+### Troubleshooting
+
+| Error | Cause | Fix |
+|-------|--------|-----|
+| **"is part of active pool 'local'"** | You used a **partition** (e.g. a path ending in `-part11`) or the system disk. | Use the **full-disk** by-id of the **second** drive from `incus admin os system storage show` (the one with `boot: false` and no `member_pool`). |
+| **"is in use and contains a unknown filesystem"** | You used the **system disk** (the one that backs `local`). | Use the **other** physical disk. If the NUC has only one disk, add a second drive or run VMs on `local` with limited space. |
+
+For a device inventory (which disk backs `fast` on each NUC), see the deployment repo’s device reference (e.g. forest-shadows `docs/runbooks/device-reference.md`).
+
+### Using the pool with VMs
+
+After the pool exists, set your Windsor context (e.g. windsor-vm, dev-vm, test-runner) to use it. In the context’s `windsor.yaml`, set **`VM_STORAGE_POOL: fast`** and, for better disk I/O, **`VM_DISK_ZFS_BLOCK_MODE: "true"`**. See your workspace’s runbook on Incus VM disk performance (e.g. `docs/runbooks/debug/incus-vm-disk-performance.md`) for full options.
+
+## Step 13: Get client certificate (optional)
 
 If you need to retrieve the client certificate for authentication or documentation purposes:
 
@@ -644,8 +734,8 @@ After wiping, reboot and install IncusOS from USB again.
 
 After successfully installing IncusOS:
 
-1. **Create storage pools**: Set up storage pools for your instances
-2. **Configure networks**: Set up bridge networks for instance connectivity
+1. **Create storage pools**: If you skipped Step 12, set up a ZFS storage pool (e.g. `fast`) for better VM disk I/O, or use the default `local` pool
+2. **Configure networks**: Set up bridge networks for instance connectivity (Step 10 covers direct physical network attachment)
 3. **Launch instances**: Create containers and virtual machines
 4. **Set up profiles**: Create instance profiles for common configurations
 5. **Configure backups**: Set up automated backups for your instances

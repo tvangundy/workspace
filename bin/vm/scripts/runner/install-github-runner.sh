@@ -2,35 +2,27 @@
 # Install and configure GitHub Actions runner
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first (with decryption for SOPS secrets), then shared session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-ENV_FILE="${PROJECT_ROOT}/.workspace/.runner-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
-
-# Load Windsor environment if available (with decryption for SOPS secrets)
-# Filter out Windsor error placeholders (e.g. <ERROR: secret not found: X>) to avoid eval syntax errors
 if command -v windsor > /dev/null 2>&1; then
   set +e
   WINDSOR_ENV_OUTPUT=$(windsor env --decrypt 2>/dev/null || echo "")
   set -e
   if [ -n "${WINDSOR_ENV_OUTPUT}" ]; then
-    # Only eval lines that look like valid assignments and don't contain Windsor error placeholders
     while IFS= read -r line; do
-      # Skip lines with <ERROR (Windsor placeholder when decryption fails)
       case "${line}" in *"<ERROR"*) continue ;; esac
-      # Require VAR=value format
       if [[ "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
         eval "export ${line}" 2>/dev/null || true
       fi
     done <<< "${WINDSOR_ENV_OUTPUT}"
   fi
 fi
+ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
-# CLI remote overrides windsor.yaml (windsor env may have overwritten INCUS_REMOTE_NAME)
-TEST_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}}"
-INCUS_REMOTE_NAME="${INCUS_REMOTE_FROM_CLI:-${INCUS_REMOTE_NAME}}"
+# Session file (from parse-args) supplies CLI remote/VM name
+TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
+INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME:-${TEST_REMOTE_NAME}}"
 VM_INSTANCE_NAME="${VM_INSTANCE_NAME:-${VM_NAME:-runner}}"
 RUNNER_USER="${RUNNER_USER:-runner}"
 RUNNER_HOME="/home/${RUNNER_USER}"
@@ -103,12 +95,32 @@ fi
 echo ""
 echo "  Validating GitHub token and repository URL..."
 
+# Detect placeholder or error value (so we can give a clearer message)
+_is_placeholder() {
+  local v="${1:-}"
+  [[ -z "${v}" ]] && return 0
+  [[ "${v}" =~ ^\*+$ ]] && return 0
+  [[ "${v}" == *"<ERROR"* ]] && return 0
+  [[ "${v}" =~ [Rr][Ee][Dd][Aa][Cc][Tt][Ee][Dd] ]] && return 0
+  return 1
+}
+
 # Validate repository URL format
 if [[ ! "${REPO_URL}" =~ ^https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(/)?$ ]]; then
-  echo "  ❌ Error: Invalid repository URL format: ${REPO_URL}"
+  echo "  ❌ Error: Invalid repository URL format."
   echo "     Expected format: https://github.com/owner/repository"
+  if _is_placeholder "${REPO_URL}"; then
+    echo "     Current value looks like a placeholder. Set the real URL in:"
+    echo "       contexts/${ACTIVE_CONTEXT}/secrets.yaml"
+    echo "       or contexts/${ACTIVE_CONTEXT}/secrets.enc.yaml (with SOPS)"
+    echo "     Key: GITHUB_RUNNER_REPO_URL"
+  else
+    echo "     Got: ${REPO_URL}"
+  fi
+  unset -f _is_placeholder 2>/dev/null || true
   exit 1
 fi
+unset -f _is_placeholder 2>/dev/null || true
 
 # Extract repository path
 REPO_PATH="${REPO_URL#https://github.com/}"

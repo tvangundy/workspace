@@ -41,7 +41,6 @@ environment:
   VM_NETWORK_NAME: enp5s0   # Physical interface for direct network; leave empty for default
   VM_STORAGE_POOL: local
   VM_AUTOSTART: false
-  VM_INIT_WORKSPACE: true   # Set false to skip workspace copy
   DOCKER_HOST: unix:///var/run/docker.sock
 ```
 
@@ -56,13 +55,14 @@ windsor env | grep INCUS_REMOTE_NAME
 ## Step 4: Create the VM
 
 ```bash
-task vm:instantiate -- <remote-name> [<vm-name>] [--keep] [--no-workspace] [--windsor-up]
+task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace]
 ```
 
 - `<remote-name>` (required): Incus remote (e.g. `nuc`)
+- `<remote-ip>` (required): IP address of the Incus remote
 - `<vm-name>` (optional): VM name (default: `vm`)
-- `--keep`: Do not destroy VM after creation (use for real deployments)
-- `--no-workspace`: Skip workspace initialization
+- `--destroy`: Destroy VM at end of instantiate (default: keep VM)
+- `--workspace`: Copy and initialize workspace on the VM (omit to skip workspace init)
 - `--windsor-up`: Run `windsor init` and `windsor up` after workspace setup
 
 Instantiate will: verify remote, ensure image, generate tfvars, run Terraform, set up SSH, install tools (Git, Docker, etc.), create your user and copy SSH keys, and optionally initialize workspace. Allow a few minutes for the VM to boot and get a DHCP address.

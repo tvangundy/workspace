@@ -45,7 +45,6 @@ environment:
   VM_AUTOSTART: true
   VM_NETWORK_NAME: eno1
   VM_DISK_SIZE: 50GB
-  VM_INIT_WORKSPACE: false
   DOCKER_HOST: unix:///var/run/docker.sock
   RUNNER_USER: "runner"
   RUNNER_HOME: "/home/runner"

@@ -2,12 +2,11 @@
 # Install tools jq, Homebrew, aqua, docker, and windsor
 set -euo pipefail
 
-# Load environment variables from file if it exists
+# Windsor context first, then session file
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-if [ -f "${ENV_FILE}" ]; then
-  source "${ENV_FILE}"
-fi
+if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
 VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME:-vm}}"
 TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME}}"
@@ -221,16 +220,17 @@ BREWWRAPEOF
 install_aqua() {
   echo "  Installing aqua package manager..."
   
+  local brew_prefix
+  brew_prefix=$(get_brew_prefix)
+  
   # Check if already installed
   if exec_in_vm "sudo -u ${CURRENT_USER} bash -c 'command -v aqua >/dev/null 2>&1'" 2>/dev/null; then
     echo '✅ aqua already installed'
+    install_aqua_packages_from_yaml "${brew_prefix}"
     return 0
   fi
   
   # Homebrew is required - check it's available
-  local brew_prefix
-  brew_prefix=$(get_brew_prefix)
-  
   if [ -z "${brew_prefix}" ]; then
     echo '❌ Homebrew is required but not found. Cannot install aqua.'
     exit 1
@@ -281,6 +281,43 @@ install_aqua() {
     echo "❌ Failed to install aqua - Homebrew is required"
     exit 1
   }
+
+  install_aqua_packages_from_yaml "${brew_prefix}"
+}
+
+# Copy workspace aqua.yaml to VM user's home and run aqua install.
+# brew_prefix can be empty for --windsor-src VMs where aqua may not be installed.
+install_aqua_packages_from_yaml() {
+  local brew_prefix="${1:-}"
+  local aqua_yaml_source
+  if [ -f "${PROJECT_ROOT}/.workspace/aqua.yaml" ]; then
+    aqua_yaml_source="${PROJECT_ROOT}/.workspace/aqua.yaml"
+  elif [ -f "${PROJECT_ROOT}/aqua.yaml" ]; then
+    aqua_yaml_source="${PROJECT_ROOT}/aqua.yaml"
+  fi
+  if [ -z "${aqua_yaml_source:-}" ]; then
+    echo "  (No aqua.yaml found at PROJECT_ROOT/.workspace/aqua.yaml or PROJECT_ROOT/aqua.yaml, skipping aqua package install)"
+    return 0
+  fi
+  echo '  Copying aqua.yaml to VM and installing aqua packages...'
+  incus file push "${aqua_yaml_source}" "${TEST_REMOTE_NAME}:${VM_NAME}/tmp/aqua.yaml" || {
+    echo "⚠️  Could not push aqua.yaml to VM, skipping aqua install"
+    return 0
+  }
+  exec_in_vm "chown ${CURRENT_USER}:${CURRENT_GID} /tmp/aqua.yaml && sudo -u ${CURRENT_USER} cp /tmp/aqua.yaml /home/${CURRENT_USER}/aqua.yaml && rm /tmp/aqua.yaml" || true
+  exec_in_vm "
+    sudo -u ${CURRENT_USER} env BREW_PREFIX='${brew_prefix}' bash -c '
+      set -eu
+      export PATH=\"\${BREW_PREFIX}/bin:\${PATH}\"
+      [ -n \"\${BREW_PREFIX}\" ] && [ -f \"\${BREW_PREFIX}/bin/brew\" ] && eval \"\$(\\\"\${BREW_PREFIX}/bin/brew\\\" shellenv 2>/dev/null)\" 2>/dev/null || true
+      export PATH=\"\${AQUA_ROOT_DIR:-\${XDG_DATA_HOME:-\$HOME/.local/share}/aquaproj-aqua}/bin:\${PATH}\"
+      cd ~
+      if [ -f ~/aqua.yaml ] && command -v aqua >/dev/null 2>&1; then
+        aqua install -c ~/aqua.yaml || { echo \"⚠️  aqua install had non-zero exit\"; exit 0; }
+        echo \"✅ aqua packages installed from ~/aqua.yaml\"
+      fi
+    '
+  " || echo "⚠️  aqua install from ~/aqua.yaml failed or was skipped"
 }
 
 install_jq() {
@@ -394,13 +431,73 @@ configure_br_netfilter() {
   " || echo "⚠️  Warning: br_netfilter configuration may have failed"
 }
 
+# Install Windsor by cloning windsorcli/cli, building with Go, and installing to /usr/local/bin.
+# Used when vm:instantiate is run with --windsor-src.
+install_windsor_from_src() {
+  exec_in_vm "
+    set -euo pipefail
+    echo '  Installing Go (required to build Windsor)...'
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq golang-go git > /dev/null 2>&1 || {
+      echo '❌ Failed to install golang-go and git'
+      exit 1
+    }
+    echo '  ✅ Go and git installed'
+    BUILD_DIR=\"/tmp/windsor-cli-build\"
+    rm -rf \"\${BUILD_DIR}\"
+    echo '  Cloning windsorcli/cli...'
+    git clone --depth 1 https://github.com/windsorcli/cli.git \"\${BUILD_DIR}\" || {
+      echo '❌ Failed to clone windsorcli/cli'
+      exit 1
+    }
+    echo '  ✅ Repository cloned'
+    echo '  Building Windsor...'
+    cd \"\${BUILD_DIR}\"
+    go build -o windsor ./cmd/windsor/main.go || {
+      echo '❌ go build failed'
+      exit 1
+    }
+    echo '  Installing windsor to /usr/local/bin...'
+    sudo mv windsor /usr/local/bin/windsor
+    sudo chmod 755 /usr/local/bin/windsor
+    rm -rf \"\${BUILD_DIR}\"
+    if command -v windsor >/dev/null 2>&1; then
+      echo '✅ Windsor installed successfully from source'
+      windsor version 2>&1 || true
+    else
+      echo '❌ Windsor binary not in PATH after install'
+      exit 1
+    fi
+    # Add Windsor hook to .bashrc for ${CURRENT_USER}
+    sudo -u ${CURRENT_USER} bash -c '
+      if ! grep -q \"windsor hook bash\" ~/.bashrc 2>/dev/null; then
+        echo \"\" >> ~/.bashrc
+        echo \"# Windsor CLI hook\" >> ~/.bashrc
+        echo \"eval \\\"\\\$(windsor hook bash)\\\"\" >> ~/.bashrc
+        echo \"✅ Windsor hook added to ~/.bashrc\"
+      else
+        echo \"✅ Windsor hook already present in ~/.bashrc\"
+      fi
+    '
+  " || {
+    echo "❌ Windsor install from source failed"
+    exit 1
+  }
+}
+
 install_windsor() {
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Step: Install Windsor"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  
+
+  # --windsor-src: clone windsorcli/cli, build and install from source (no Homebrew)
+  if [ "${WINDSOR_INSTALL_FROM_SRC:-false}" = "true" ]; then
+    install_windsor_from_src
+    return
+  fi
+
   local brew_prefix
   brew_prefix=$(get_brew_prefix)
   

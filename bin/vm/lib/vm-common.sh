@@ -11,15 +11,15 @@ source "${LIB_DIR}/common.sh"
 source "${LIB_DIR}/windsor.sh"
 source "${LIB_DIR}/incus.sh"
 
-# Load VM-specific environment
+# Load VM-specific environment: Windsor context first (single source of truth), then session file (CLI/computed vars).
+# See docs/runbooks/workspace/instantiate-env-and-windsor-env.md
 load_vm_env() {
   local project_root
   project_root=$(get_windsor_project_root)
-  local env_file="${project_root}/.workspace/.vm-instantiate.env"
-  
-  source_env_file "${env_file}"
-  
-  # Set defaults
+  load_windsor_env_for_shell
+  source_env_file "${project_root}/.workspace/.vm-instantiate.env"
+
+  # Defaults only for vars still unset (session file and windsor env may have set them)
   TEST_REMOTE_NAME="${TEST_REMOTE_NAME:-${INCUS_REMOTE_NAME:-}}"
   VM_NAME="${VM_NAME:-${VM_INSTANCE_NAME:-vm}}"
   VM_IMAGE="${VM_IMAGE:-ubuntu/25.04}"
@@ -29,9 +29,8 @@ load_vm_env() {
   VM_NETWORK_NAME="${VM_NETWORK_NAME:-}"
   VM_STORAGE_POOL="${VM_STORAGE_POOL:-local}"
   VM_AUTOSTART="${VM_AUTOSTART:-false}"
-  VM_INIT_WORKSPACE="${VM_INIT_WORKSPACE:-false}"
-  
+
   export TEST_REMOTE_NAME VM_NAME VM_IMAGE VM_MEMORY VM_CPU VM_DISK_SIZE
-  export VM_NETWORK_NAME VM_STORAGE_POOL VM_AUTOSTART VM_INIT_WORKSPACE
+  export VM_NETWORK_NAME VM_STORAGE_POOL VM_AUTOSTART
 }
 

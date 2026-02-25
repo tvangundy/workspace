@@ -18,10 +18,9 @@ provider "incus" {
 # Local values for common configuration
 locals {
   remote_name = var.incus_remote_name != "" ? var.incus_remote_name : "local"
-  
-  # Build disk properties conditionally
-  # Only include size if vm_disk_size is set (variable declared in variables.tf)
-  root_disk_properties = length(var.vm_disk_size) > 0 ? {
+
+  # Base root disk properties (pool, path, optional size)
+  base_root_disk = length(var.vm_disk_size) > 0 ? {
     pool            = var.storage_pool
     path            = "/"
     "boot.priority" = "1"
@@ -31,6 +30,14 @@ locals {
     path            = "/"
     "boot.priority" = "1"
   }
+
+  # Optional disk performance options (see docs/runbooks/debug/incus-vm-disk-performance.md)
+  optional_disk_opts = merge(
+    var.vm_disk_zfs_block_mode ? { "initial.zfs.block_mode" = "true" } : {},
+    var.vm_disk_io_bus != "" ? { "io.bus" = var.vm_disk_io_bus } : {},
+    var.vm_disk_io_cache != "" ? { "io.cache" = var.vm_disk_io_cache } : {}
+  )
+  root_disk_properties = merge(local.base_root_disk, local.optional_disk_opts)
 }
 
 # Ubuntu VM

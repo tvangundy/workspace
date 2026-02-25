@@ -14,7 +14,7 @@ A workspace is a **repeatable environment** for building and managing infrastruc
 
 **🔄 Repeatability and Persistence**: Deploy infrastructure, save to disk or S3, then retrieve and resume exactly where you left off for maintenance or upgrades.
 
-**🛠️ Tool Adoption and Abstraction**: Adopt new tools quickly while maintaining legacy systems. **Runbooks** provide step-by-step guidance, while **taskfiles** abstract complex tasks . Modify underlying tools without impacting workflows, with flexibility across cloud providers and bare-metal. Native support for Terraform, Kubernetes, Incus, Docker, and more.
+**🛠️ Tool Adoption and Abstraction**: Adopt new tools quickly while maintaining legacy systems. **Runbooks** provide step-by-step guidance, while **taskfiles** abstract complex tasks. Modify underlying tools without impacting workflows, with flexibility across cloud providers and bare-metal. Native support for Terraform, Kubernetes, Incus, Docker, and more.
 
 **🔒 Security Built-In**: Security is fundamental, not an afterthought. [Windsor CLI](https://github.com/windsorcli/cli) provides encrypted secret management with SOPS, context-based isolation, secure credential handling, and environment variable protection. Secrets are never stored in plain text.
 
@@ -69,17 +69,21 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 
 ### Available Runbooks
 
-- **[Workspace Initialization](./runbooks/workspace/init.md)**: Guide for initializing a new workspace
-- **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing secrets with SOPS
+- **[Workspace Initialization](./runbooks/workspace/init.md)**: Step-by-step guide for initializing a new workspace with Windsor CLI
+- **[Secrets Management](./runbooks/secrets/secrets.md)**: Guide for managing encrypted secrets with SOPS
 - **[IncusOS Server](./runbooks/bootstrapping/nuc-incusos.md)**: Complete guide for installing and configuring IncusOS on Intel NUC devices
-- **[Ubuntu Virtual Machines](./runbooks/incusos/vm.md)**: Create and manage Ubuntu VMs for development, CI/CD runners, or any workload
-- **[Talos Kubernetes Cluster](./runbooks/incusos/tc.md)**: Deploy a Talos Kubernetes cluster using VMs on IncusOS with Terraform Infrastructure as Code
-- **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters on Raspberry Pi and Intel NUC devices
+- **[Ubuntu Virtual Machines](./runbooks/incusos/vm.md)**: Create and manage Ubuntu VMs for development, CI/CD runners, or any workload using the `vm:` task namespace
+- **[Talos Kubernetes Cluster](./runbooks/incusos/tc.md)**: Deploy a Talos Kubernetes cluster using VMs on Incus with Terraform (the `tc:` task namespace)
+- **[Bootstrapping Nodes](./runbooks/bootstrapping/README.md)**: Instructions for bootstrapping Talos clusters and operating systems (Raspberry Pi, Intel NUC, BIOS, Ubuntu)
+- **[Application Deployment](./runbooks/apps/README.md)**: End-to-end guides for deploying self-hosted applications and services
+- **Self-hosted GitHub Actions runners**: [VM runner](./runbooks/apps/runners/vm-runner-setup.md) (Incus VM) and [bare metal runner](./runbooks/apps/runners/bare-metal-runner-setup.md) (Raspberry Pi or NUC)
+
+For the full runbook list and usage patterns, see the [Runbooks README](./runbooks/README.md).
 
 
 ## Taskfiles
 
-[Taskfile](https://taskfile.dev) organizes and automates common operations through namespaced tasks (e.g., `dev:`, `talos:`, `docker:`) stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml` that groups related tasks together, making it easy to discover functionality and add new capabilities as needed.
+[Taskfile](https://taskfile.dev) organizes and automates common operations through namespaced tasks (e.g., `tc:`, `vm:`, `talos:`, `docker:`) stored in the `./tasks` folder. Each namespace has its own `Taskfile.yaml` that groups related tasks together, making it easy to discover functionality and add new capabilities as needed.
 
 ### Available Taskfiles
 
@@ -89,9 +93,10 @@ The [runbooks](./runbooks/README.md) provide comprehensive, step-by-step guides 
 - **docker**: Docker-related tasks for container management and operations
 - **vhs**: VHS terminal recording tasks for creating animated terminal recordings
 - **talos**: Talos cluster tasks for Kubernetes cluster management and operations
+- **tc**: Talos cluster on Incus—create and destroy Talos clusters on a remote Incus server (`tc:instantiate`, `tc:destroy`)
 - **incus**: Incus container and VM management tasks
-- **runner**: GitHub Actions runner tasks for setting up and managing self-hosted runners
-- **dev**: Development environment tasks for creating and managing Incus-based development containers and VMs
+- **vm**: Ubuntu VMs on Incus—create and manage Ubuntu VMs for development, runners, or any workload (`vm:instantiate`, `vm:destroy`)
+- **gh**: GitHub CLI and workflow helper tasks
 
 ### Taskfile Organization
 
@@ -157,7 +162,7 @@ Namespace sensitive tasks
 
 Available namespaces
 
-workspace, device, sops, docker, vhs, talos, incus, runner, dev
+workspace, device, sops, docker, vhs, talos, tc, incus, vm, gh
 ```
 
 **See all available tasks:**

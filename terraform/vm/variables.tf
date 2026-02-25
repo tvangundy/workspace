@@ -51,3 +51,21 @@ variable "vm_disk_size" {
   default     = ""
 }
 
+# Optional: faster disk I/O when using a ZFS storage pool (see docs/runbooks/debug/incus-vm-disk-performance.md)
+variable "vm_disk_zfs_block_mode" {
+  description = "Use ZFS block mode for root disk (VM gets VirtIO block device). Only effective when storage_pool is ZFS. Set to true for better disk performance."
+  type        = bool
+  default     = false
+}
+
+variable "vm_disk_io_bus" {
+  description = "Override VM disk bus: virtio-scsi (default), virtio-blk, or nvme. Only for block devices. Leave empty for default."
+  type        = string
+  default     = ""
+}
+
+variable "vm_disk_io_cache" {
+  description = "Override VM disk cache: none (default), writeback, or unsafe. writeback can improve write throughput. Leave empty for default."
+  type        = string
+  default     = ""
+}

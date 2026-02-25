@@ -6,7 +6,7 @@ CLI_ARGS_STR="${1:-}"
 
 if [ -z "${CLI_ARGS_STR}" ]; then
   echo "Error: INCUS_REMOTE_NAME and INCUS_REMOTE_IP are required"
-  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner]"
+  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--windsor-src]"
   echo ""
   echo "Arguments:"
   echo "  <incus-remote-name>    Required: Name of the Incus remote"
@@ -18,6 +18,7 @@ if [ -z "${CLI_ARGS_STR}" ]; then
   echo "  --windsor-up            Run windsor init and windsor up after workspace setup"
   echo "  --workspace             Copy and initialize workspace on the VM (default: skip workspace init)"
   echo "  --runner                Add a GitHub Actions runner to the VM at the end (runner user + install-github-runner)"
+  echo "  --windsor-src           On the VM, clone windsorcli/cli, build and install Windsor from source instead of Homebrew"
   echo ""
   echo "Examples:"
   echo "  task vm:instantiate -- nuc 192.168.2.100"
@@ -25,6 +26,7 @@ if [ -z "${CLI_ARGS_STR}" ]; then
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --destroy"
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace"
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --runner"
+  echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --windsor-src"
   exit 1
 fi
 
@@ -34,6 +36,7 @@ SKIP_CLEANUP=true
 RUN_WINDSOR_UP=false
 VM_INIT_WORKSPACE=false
 VM_ADD_RUNNER=false
+WINDSOR_INSTALL_FROM_SRC=false
 VM_NAME_ARG=""
 
 # Parse arguments
@@ -44,7 +47,7 @@ shift || true
 # Remote IP is required (second positional argument)
 if [ $# -eq 0 ] || [[ "${1}" =~ ^-- ]]; then
   echo "Error: <remote-ip> is required"
-  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner]"
+  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--windsor-src]"
   exit 1
 fi
 INCUS_REMOTE_IP_ARG="${1}"
@@ -75,6 +78,10 @@ while [ $# -gt 0 ]; do
       VM_ADD_RUNNER=true
       shift
       ;;
+    --windsor-src)
+      WINDSOR_INSTALL_FROM_SRC=true
+      shift
+      ;;
     *)
       echo "⚠️  Warning: Unknown argument '${1}', ignoring"
       shift
@@ -91,15 +98,12 @@ if [ -n "${VM_NAME_ARG}" ]; then
   VM_NAME="${VM_NAME_ARG}"
   VM_INSTANCE_NAME="${VM_NAME_ARG}"
 else
-  # Check for active Windsor context
+  # Prefer WINDSOR_CONTEXT when set (caller's intent); else use windsor context get
   ACTIVE_CONTEXT=""
-  if command -v windsor > /dev/null 2>&1; then
-    # Try to get current context
+  if [ -n "${WINDSOR_CONTEXT:-}" ]; then
+    ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
+  elif command -v windsor > /dev/null 2>&1; then
     ACTIVE_CONTEXT=$(windsor context get 2>/dev/null || echo "")
-    # Also check if WINDSOR_CONTEXT is set in environment
-    if [ -z "${ACTIVE_CONTEXT}" ] && [ -n "${WINDSOR_CONTEXT:-}" ]; then
-      ACTIVE_CONTEXT="${WINDSOR_CONTEXT}"
-    fi
   fi
   
   if [ -n "${ACTIVE_CONTEXT}" ]; then
@@ -154,25 +158,15 @@ export SKIP_CLEANUP
 export RUN_WINDSOR_UP
 export VM_INIT_WORKSPACE
 export VM_ADD_RUNNER
+export WINDSOR_INSTALL_FROM_SRC
 export INCUS_REMOTE_NAME="${TEST_REMOTE_NAME}"
 export VM_NAME
 export VM_INSTANCE_NAME
 
-# Write variables to a file for subsequent scripts to source
+# Write CLI/session-only vars for subsequent scripts (context config comes from windsor env)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 mkdir -p "${PROJECT_ROOT}/.workspace"
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
-
-# Read VM_IMAGE from windsor.yaml (context dir from active context or VM_NAME)
-# Must be in initial write so check-vm-image gets it (each task runs in new shell)
-VM_IMAGE_FOR_ENV=""
-ACTIVE_CTX=$(windsor context get 2>/dev/null || echo "${WINDSOR_CONTEXT:-}")
-CONTEXT_DIR="${ACTIVE_CTX:-${VM_NAME}}"
-WINDSOR_YAML="${PROJECT_ROOT}/contexts/${CONTEXT_DIR}/windsor.yaml"
-if [ -f "${WINDSOR_YAML}" ]; then
-  VM_IMAGE_FOR_ENV=$( (grep -E '^\s+VM_IMAGE:' "${WINDSOR_YAML}" 2>/dev/null | head -1 | sed -E 's/.*VM_IMAGE:[[:space:]]*["]?([^"]*)["]?.*/\1/' | tr -d ' ') || true)
-fi
-VM_IMAGE_FOR_ENV="${VM_IMAGE_FOR_ENV:-ubuntu/25.04}"
 
 {
   echo "export TEST_REMOTE_NAME='${TEST_REMOTE_NAME}'"
@@ -181,10 +175,10 @@ VM_IMAGE_FOR_ENV="${VM_IMAGE_FOR_ENV:-ubuntu/25.04}"
   echo "export RUN_WINDSOR_UP='${RUN_WINDSOR_UP}'"
   echo "export VM_INIT_WORKSPACE='${VM_INIT_WORKSPACE}'"
   echo "export VM_ADD_RUNNER='${VM_ADD_RUNNER}'"
+  echo "export WINDSOR_INSTALL_FROM_SRC='${WINDSOR_INSTALL_FROM_SRC}'"
   echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
   echo "export VM_NAME='${VM_NAME}'"
   echo "export VM_INSTANCE_NAME='${VM_NAME}'"
-  echo "export VM_IMAGE='${VM_IMAGE_FOR_ENV}'"
 } > "${ENV_FILE}"
 
 # Always report which VM name is being used so the user can spot wrong-context mistakes
