@@ -40,6 +40,8 @@ tasks:
         VM_AUTOSTART="${VM_AUTOSTART:-false}"
         VM_DISK_SIZE="${VM_DISK_SIZE:-{{.VM_DISK_SIZE}}}"
         PHYSICAL_NETWORK_NAME="${VM_NETWORK_NAME:-{{.VM_NETWORK_NAME}}}"
+        VM_IP="${VM_IP:-{{.VM_IP}}}"
+        VM_MAC="${VM_MAC:-{{.VM_MAC}}}"
         STORAGE_POOL="${VM_STORAGE_POOL:-local}"
         VM_DISK_ZFS_BLOCK_MODE="${VM_DISK_ZFS_BLOCK_MODE:-{{.VM_DISK_ZFS_BLOCK_MODE}}}"
         VM_DISK_IO_BUS="${VM_DISK_IO_BUS:-{{.VM_DISK_IO_BUS}}}"
@@ -76,6 +78,16 @@ tasks:
             printf "physical_network_name = \"${PHYSICAL_NETWORK_NAME}\"\n"
           else
             printf "# physical_network_name = \"\"  # Uses default Incus network if empty\n"
+          fi
+          if [ -n "${VM_IP}" ]; then
+            printf "vm_ip = \"${VM_IP}\"\n"
+          else
+            printf "# vm_ip = \"\"  # Optional static IPv4 (e.g. 192.168.2.151)\n"
+          fi
+          if [ -n "${VM_MAC}" ]; then
+            printf "vm_mac = \"${VM_MAC}\"\n"
+          else
+            printf "# vm_mac = \"\"  # Optional MAC (e.g. 10:66:6a:61:62:c6)\n"
           fi
           printf "\n"
           printf "# Storage configuration\n"
@@ -390,12 +402,14 @@ tasks:
       - task: instantiate:create-vm
       - task: instantiate:setup-ssh
       - task: instantiate:expand-root-disk
+      - task: instantiate:set-timezone
       - task: instantiate:set-incus-remote-env
       - task: instantiate:setup-incus
       - task: instantiate:install-tools
       - task: instantiate:init-workspace
       - task: instantiate:validate-vm
       - task: instantiate:add-runner-if-requested
+      - task: instantiate:add-service-user-if-requested
       - task: instantiate:cleanup-if-needed
 
   instantiate:parse-args:
@@ -481,6 +495,14 @@ tasks:
         {{.VM_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/expand-root-disk.sh"
 
+  instantiate:set-timezone:
+    silent: true
+    desc: "Set VM timezone and current time to match the deploying host"
+    cmds:
+      - |
+        {{.VM_SCRIPT_DIR_SETUP}}
+        "${SCRIPT_DIR}/set-timezone.sh"
+
   instantiate:set-incus-remote-env:
     silent: true
     desc: "Set INCUS_REMOTE_NAME and INCUS_REMOTE_IP on the VM (system-wide, all users)"
@@ -505,6 +527,14 @@ tasks:
         {{.VM_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/add-runner-if-requested.sh"
 
+  instantiate:add-service-user-if-requested:
+    silent: true
+    desc: "If --mailu was set, add service user (e.g. mailu) to the VM (no GitHub runner install)"
+    cmds:
+      - |
+        {{.VM_SCRIPT_DIR_SETUP}}
+        "${SCRIPT_DIR}/add-service-user-if-requested.sh"
+
   # Thin wrapper: parse args then vm:instantiate with --runner (single code path for "create VM + add runner").
   runner:instantiate:
     desc: "Create a runner VM: parse args then run vm:instantiate with --runner (TERRAFORM_PATH=runner-name). Usage: task vm:runner:instantiate -- <remote-name> <remote-ip> [runner-name] [--destroy]"
@@ -518,6 +548,34 @@ tasks:
         DESTROY_ARG=""
         [ "${SKIP_CLEANUP}" = "false" ] && DESTROY_ARG="--destroy"
         task vm:instantiate -- "${TEST_REMOTE_NAME}" "${INCUS_REMOTE_IP}" "${VM_NAME}" --runner ${DESTROY_ARG}
+
+  # Thin wrapper: parse args then vm:instantiate with --mailu (create VM + add mailu service user only).
+  mailu:instantiate:
+    desc: "Create a mailu VM: parse args then run vm:instantiate with --mailu (TERRAFORM_PATH=mailu-name). Usage: task vm:mailu:instantiate -- <remote-name> <remote-ip> [mailu-name] [--destroy]"
+    cmds:
+      - |
+        set -euo pipefail
+        PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        {{.VM_SCRIPT_DIR_SETUP}}
+        source "${SCRIPT_DIR}/parse-args.sh" "{{.CLI_ARGS}} --mailu"
+        export TERRAFORM_PATH="${VM_NAME}"
+        DESTROY_ARG=""
+        [ "${SKIP_CLEANUP}" = "false" ] && DESTROY_ARG="--destroy"
+        task vm:instantiate -- "${TEST_REMOTE_NAME}" "${INCUS_REMOTE_IP}" "${VM_NAME}" --mailu ${DESTROY_ARG}
+
+  # Thin wrapper: parse args then vm:instantiate with --vpn (create VM + add vpn service user only).
+  vpn:instantiate:
+    desc: "Create a VPN (WireGuard) VM: parse args then run vm:instantiate with --vpn (TERRAFORM_PATH=vpn-name). Usage: task vm:vpn:instantiate -- <remote-name> <remote-ip> [vpn-name] [--destroy]"
+    cmds:
+      - |
+        set -euo pipefail
+        PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        {{.VM_SCRIPT_DIR_SETUP}}
+        source "${SCRIPT_DIR}/parse-args.sh" "{{.CLI_ARGS}} --vpn"
+        export TERRAFORM_PATH="${VM_NAME}"
+        DESTROY_ARG=""
+        [ "${SKIP_CLEANUP}" = "false" ] && DESTROY_ARG="--destroy"
+        task vm:instantiate -- "${TEST_REMOTE_NAME}" "${INCUS_REMOTE_IP}" "${VM_NAME}" --vpn ${DESTROY_ARG}
 
   instantiate:cleanup-if-needed:
     silent: true

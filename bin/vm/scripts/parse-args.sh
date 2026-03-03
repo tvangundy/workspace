@@ -6,7 +6,7 @@ CLI_ARGS_STR="${1:-}"
 
 if [ -z "${CLI_ARGS_STR}" ]; then
   echo "Error: INCUS_REMOTE_NAME and INCUS_REMOTE_IP are required"
-  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--windsor-src]"
+  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--mailu] [--windsor-src]"
   echo ""
   echo "Arguments:"
   echo "  <incus-remote-name>    Required: Name of the Incus remote"
@@ -18,6 +18,8 @@ if [ -z "${CLI_ARGS_STR}" ]; then
   echo "  --windsor-up            Run windsor init and windsor up after workspace setup"
   echo "  --workspace             Copy and initialize workspace on the VM (default: skip workspace init)"
   echo "  --runner                Add a GitHub Actions runner to the VM at the end (runner user + install-github-runner)"
+  echo "  --mailu                 Add a 'mailu' service user to the VM (same setup as runner user, no GitHub runner install)"
+  echo "  --vpn                   Add a 'vpn' service user to the VM (WireGuard server; same setup as runner user, no GitHub runner install)"
   echo "  --windsor-src           On the VM, clone windsorcli/cli, build and install Windsor from source instead of Homebrew"
   echo ""
   echo "Examples:"
@@ -26,6 +28,7 @@ if [ -z "${CLI_ARGS_STR}" ]; then
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --destroy"
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --workspace"
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --runner"
+  echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --mailu"
   echo "  task vm:instantiate -- nuc 192.168.2.100 my-vm --windsor-src"
   exit 1
 fi
@@ -36,6 +39,9 @@ SKIP_CLEANUP=true
 RUN_WINDSOR_UP=false
 VM_INIT_WORKSPACE=false
 VM_ADD_RUNNER=false
+VM_ADD_MAILU_USER=false
+VM_ADD_VPN_USER=false
+VM_SERVICE_USER=""
 WINDSOR_INSTALL_FROM_SRC=false
 VM_NAME_ARG=""
 
@@ -47,7 +53,7 @@ shift || true
 # Remote IP is required (second positional argument)
 if [ $# -eq 0 ] || [[ "${1}" =~ ^-- ]]; then
   echo "Error: <remote-ip> is required"
-  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--windsor-src]"
+  echo "Usage: task vm:instantiate -- <incus-remote-name> <remote-ip> [<vm-name>] [--destroy] [--windsor-up] [--workspace] [--runner] [--mailu] [--windsor-src]"
   exit 1
 fi
 INCUS_REMOTE_IP_ARG="${1}"
@@ -76,6 +82,16 @@ while [ $# -gt 0 ]; do
       ;;
     --runner)
       VM_ADD_RUNNER=true
+      shift
+      ;;
+    --mailu)
+      VM_ADD_MAILU_USER=true
+      VM_SERVICE_USER="mailu"
+      shift
+      ;;
+    --vpn)
+      VM_ADD_VPN_USER=true
+      VM_SERVICE_USER="vpn"
       shift
       ;;
     --windsor-src)
@@ -175,6 +191,9 @@ ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
   echo "export RUN_WINDSOR_UP='${RUN_WINDSOR_UP}'"
   echo "export VM_INIT_WORKSPACE='${VM_INIT_WORKSPACE}'"
   echo "export VM_ADD_RUNNER='${VM_ADD_RUNNER}'"
+  echo "export VM_ADD_MAILU_USER='${VM_ADD_MAILU_USER}'"
+  echo "export VM_ADD_VPN_USER='${VM_ADD_VPN_USER}'"
+  echo "export VM_SERVICE_USER='${VM_SERVICE_USER}'"
   echo "export WINDSOR_INSTALL_FROM_SRC='${WINDSOR_INSTALL_FROM_SRC}'"
   echo "export INCUS_REMOTE_NAME='${TEST_REMOTE_NAME}'"
   echo "export VM_NAME='${VM_NAME}'"
@@ -190,4 +209,10 @@ else
 fi
 if [ "${VM_ADD_RUNNER}" = "true" ]; then
   echo "Runner will be added to this VM at the end of instantiate."
+fi
+if [ "${VM_ADD_MAILU_USER}" = "true" ]; then
+  echo "Service user '${VM_SERVICE_USER}' will be added to this VM at the end of instantiate."
+fi
+if [ "${VM_ADD_VPN_USER}" = "true" ]; then
+  echo "Service user '${VM_SERVICE_USER}' will be added to this VM at the end of instantiate."
 fi
