@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Windsor context first, then shared session file (.vm-instantiate.env; no .runner-instantiate.env)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --decrypt 2>/dev/null)" || true; fi
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --hook --decrypt 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
@@ -148,6 +148,92 @@ if [ ${SSH_KEYS_COPIED} -eq 0 ]; then
   echo "     incus exec ${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME} -- bash -c 'echo \"<your-public-key>\" >> ${RUNNER_HOME}/.ssh/authorized_keys'"
 else
   echo "✅ SSH keys copied to ${RUNNER_USER} user"
+fi
+
+# Copy SOPS PGP key to VM and import into runner user's keyring (so CI jobs can run windsor env --decrypt without workflow secret)
+# Set SOPS_PGP_PRIVATE_KEY (content) or SOPS_PGP_PRIVATE_KEY_FILE (path on host, e.g. contexts/test-runner/sops-pgp.asc) in env or windsor context
+SOPS_KEY_HOST_FILE=""
+if [ -n "${SOPS_PGP_PRIVATE_KEY:-}" ]; then
+  SOPS_KEY_HOST_FILE=$(mktemp)
+  echo "${SOPS_PGP_PRIVATE_KEY}" > "${SOPS_KEY_HOST_FILE}"
+  trap "rm -f '${SOPS_KEY_HOST_FILE}'" EXIT
+elif [ -n "${SOPS_PGP_PRIVATE_KEY_FILE:-}" ]; then
+  if [ -f "${SOPS_PGP_PRIVATE_KEY_FILE}" ]; then
+    SOPS_KEY_HOST_FILE="${SOPS_PGP_PRIVATE_KEY_FILE}"
+  elif [ -f "${PROJECT_ROOT}/${SOPS_PGP_PRIVATE_KEY_FILE}" ]; then
+    SOPS_KEY_HOST_FILE="${PROJECT_ROOT}/${SOPS_PGP_PRIVATE_KEY_FILE}"
+  fi
+  if [ -z "${SOPS_KEY_HOST_FILE}" ] || [ ! -f "${SOPS_KEY_HOST_FILE}" ]; then
+    echo "❌ SOPS_PGP_PRIVATE_KEY_FILE is set to '${SOPS_PGP_PRIVATE_KEY_FILE}' but the file was not found (tried current dir and PROJECT_ROOT=${PROJECT_ROOT})."
+    echo "   Place the PGP private key at that path so the runner can decrypt context secrets (e.g. test-mailu) in CI. See docs/runbooks/apps/runners/vm-runner-setup.md."
+    exit 1
+  fi
+fi
+if [ -n "${SOPS_KEY_HOST_FILE}" ] && [ -f "${SOPS_KEY_HOST_FILE}" ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Step: Install SOPS PGP key on runner (for Windsor decrypt in CI)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  incus file push "${SOPS_KEY_HOST_FILE}" "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}/tmp/sops-pgp.key"
+  incus exec "${INCUS_REMOTE_NAME}:${VM_INSTANCE_NAME}" -- bash -c "
+    set -euo pipefail
+    RUNNER_USER=\"${RUNNER_USER}\"
+    RUNNER_HOME=\"/home/\${RUNNER_USER}\"
+    if ! command -v gpg >/dev/null 2>&1; then
+      echo \"  Installing gnupg on VM...\"
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq && apt-get install -y gnupg
+    fi
+    # Always replace keyring with current key file so re-export (e.g. passphrase-less) is applied on next instantiate
+    echo \"  Replacing \${RUNNER_USER} keyring with key from host...\"
+    rm -rf \${RUNNER_HOME}/.gnupg
+    mkdir -p \${RUNNER_HOME}/.gnupg
+    RUNNER_UID=\$(id -u \${RUNNER_USER})
+    RUNNER_GID=\$(id -g \${RUNNER_USER})
+    chown \${RUNNER_UID}:\${RUNNER_GID} \${RUNNER_HOME}/.gnupg
+    chmod 700 \${RUNNER_HOME}/.gnupg
+    chmod 644 /tmp/sops-pgp.key
+    echo \"  Importing SOPS PGP key into \${RUNNER_USER} keyring...\"
+    GPG_OUT=\$(sudo -u \${RUNNER_USER} env HOME=\${RUNNER_HOME} GNUPGHOME=\${RUNNER_HOME}/.gnupg gpg --batch --import /tmp/sops-pgp.key 2>&1); GPG_RC=\$?
+    if [ \${GPG_RC} -ne 0 ]; then
+      echo \"  ❌ SOPS PGP import failed (exit \${GPG_RC}). Ensure the key file is a valid secret key (e.g. passphrase-less for CI).\"
+      echo \"\${GPG_OUT}\" | sed 's/^/     /'
+      rm -f /tmp/sops-pgp.key
+      exit 1
+    fi
+    rm -f /tmp/sops-pgp.key
+    SECRET_COUNT=\$(sudo -u \${RUNNER_USER} env HOME=\${RUNNER_HOME} GNUPGHOME=\${RUNNER_HOME}/.gnupg gpg --list-secret-keys --with-colons 2>/dev/null | grep -c '^sec:' || echo 0)
+    SECRET_COUNT=\$(echo \"\${SECRET_COUNT}\" | head -1 | tr -d '[:space:]' | grep -E '^[0-9]+\$' || echo 0)
+    if [ \"\${SECRET_COUNT}\" -eq 0 ]; then
+      echo \"  ❌ No secret keys in \${RUNNER_USER} keyring; SOPS decrypt will fail in CI.\"
+      echo \"  Ensure the key file is the secret key (run: task test-runner:export-sops-key from forest-shadows and use contexts/test-runner/sops-pgp.asc).\"
+      exit 1
+    fi
+    echo \"  ✅ \${SECRET_COUNT} secret key(s) in keyring\"
+    # SOPS Go library expects legacy pubring.gpg; GnuPG 2.1+ uses pubring.kbx by default
+    echo \"  Creating legacy pubring.gpg for SOPS compatibility...\"
+    sudo -u \${RUNNER_USER} env HOME=\${RUNNER_HOME} GNUPGHOME=\${RUNNER_HOME}/.gnupg bash -c \"gpg --export > \${RUNNER_HOME}/.gnupg/pubring.gpg\"
+    if [ ! -s \${RUNNER_HOME}/.gnupg/pubring.gpg ]; then
+      echo \"  ❌ pubring.gpg missing or empty; SOPS decrypt may fail in CI.\"
+      exit 1
+    fi
+    echo \"  ✅ Legacy pubring.gpg created\"
+  " || {
+    echo "❌ SOPS PGP key could not be installed on runner. Fix the error above, then re-run instantiate."
+    exit 1
+  }
+  if [ -n "${SOPS_PGP_PRIVATE_KEY:-}" ]; then
+    rm -f "${SOPS_KEY_HOST_FILE}"
+    trap - EXIT
+  fi
+  echo "✅ SOPS PGP key installed on runner; jobs can run windsor env --decrypt without workflow secret."
+else
+  echo ""
+  echo "⚠️  SOPS PGP key was not installed (no SOPS_PGP_PRIVATE_KEY or SOPS_PGP_PRIVATE_KEY_FILE with a valid file)."
+  echo "   CI jobs that need secrets (e.g. windsor env --decrypt for test-mailu) will fail with 'No secret key'."
+  echo "   To fix: run task test-runner:export-sops-key (or vm:runner:export-sops-key), ensure the key file exists at"
+  echo "   the path in your context (e.g. contexts/test-runner/sops-pgp.asc), then re-run instantiate from the repo that has that path."
+  echo ""
 fi
 
 # Get VM IP address for display

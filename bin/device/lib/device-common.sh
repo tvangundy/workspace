@@ -19,7 +19,7 @@ load_device_env() {
   # Load Windsor environment if available
   if command -v windsor >/dev/null 2>&1; then
     local windsor_env_output
-    windsor_env_output=$(windsor env 2>/dev/null || echo "")
+    windsor_env_output=$(windsor env --hook 2>/dev/null || echo "")
     if [ -n "${windsor_env_output}" ]; then
       set +u
       eval "${windsor_env_output}" || true

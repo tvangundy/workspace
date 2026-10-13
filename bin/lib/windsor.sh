@@ -10,12 +10,12 @@ source "${SCRIPT_DIR}/common.sh"
 
 # Load Windsor environment from the active context (no context switch).
 # Use at the start of scripts so context config (windsor.yaml) is the source of truth.
-# Optional: pass --decrypt to include SOPS-decrypted secrets (e.g. for runner token).
+# Uses --hook so child processes inherit the same env. Optional: pass --decrypt for secrets.
 load_windsor_env_for_shell() {
   local decrypt_flag=""
   [ "${1:-}" = "--decrypt" ] && decrypt_flag="--decrypt"
   local windsor_env_output
-  windsor_env_output=$(windsor env ${decrypt_flag} 2>/dev/null || echo "")
+  windsor_env_output=$(windsor env --hook ${decrypt_flag} 2>/dev/null || echo "")
   if [ -n "${windsor_env_output}" ]; then
     eval "${windsor_env_output}" || true
   fi
@@ -39,9 +39,9 @@ load_windsor_env() {
     fi
   fi
   
-  # Load environment variables
+  # Load environment variables (--hook so child processes inherit)
   local windsor_env_output
-  windsor_env_output=$(windsor env 2>/dev/null || echo "")
+  windsor_env_output=$(windsor env --hook 2>/dev/null || echo "")
   
   if [ -n "${windsor_env_output}" ]; then
     eval "${windsor_env_output}" || return 1

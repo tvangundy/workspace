@@ -6,7 +6,7 @@ set -euo pipefail
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 if command -v windsor > /dev/null 2>&1; then
   set +e
-  WINDSOR_ENV_OUTPUT=$(windsor env --decrypt 2>/dev/null || echo "")
+  WINDSOR_ENV_OUTPUT=$(windsor env --hook --decrypt 2>/dev/null || echo "")
   set -e
   if [ -n "${WINDSOR_ENV_OUTPUT}" ]; then
     while IFS= read -r line; do

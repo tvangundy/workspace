@@ -27,7 +27,7 @@ RUNNER_HOME="${RUNNER_HOME:-/home/${RUNNER_USER}}"
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
 if command -v windsor > /dev/null 2>&1; then
   set +e
-  eval "$(windsor env --decrypt 2>/dev/null)" || true
+  eval "$(windsor env --hook --decrypt 2>/dev/null)" || true
   set -e
 fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
@@ -51,17 +51,23 @@ if [ "${RUNNER_INSTALLED}" != "true" ]; then
   exit 0
 fi
 
-echo "  Removing runner from GitHub repository..."
 TOKEN="${GITHUB_RUNNER_TOKEN:-}"
 if [ -z "${TOKEN}" ]; then
-  echo "  ⚠️  GITHUB_RUNNER_TOKEN not set; runner may remain in GitHub Settings → Actions → Runners"
+  echo "  Skipping runner removal (GITHUB_RUNNER_TOKEN not set); runner may remain in GitHub Settings → Actions → Runners"
 else
+  echo "  Removing runner from GitHub repository..."
   set +e
-  incus exec "${TARGET_REMOTE}:${TARGET_VM}" -- bash -c "
-    cd ${RUNNER_HOME}/actions-runner 2>/dev/null || exit 0
+  REMOVE_OUTPUT=$(incus exec "${TARGET_REMOTE}:${TARGET_VM}" -- bash -c "
+    cd ${RUNNER_HOME}/actions-runner 2>/dev/null || exit 1
     if [ -f ./svc.sh ]; then sudo ./svc.sh stop 2>/dev/null || true; sudo ./svc.sh uninstall 2>/dev/null || true; fi
-    if [ -f ./config.sh ]; then sudo -u ${RUNNER_USER} ./config.sh remove --token '${TOKEN}' 2>&1; fi
-  "
+    if [ -f ./config.sh ]; then sudo -u ${RUNNER_USER} ./config.sh remove --token '${TOKEN}' 2>/dev/null; exit \$?; fi
+    exit 0
+  " 2>/dev/null)
+  REMOVE_EXIT=$?
   set -e
-  echo "  ✅ Runner unregistered from GitHub"
+  if [ "${REMOVE_EXIT}" -eq 0 ]; then
+    echo "  ✅ Runner unregistered from GitHub"
+  else
+    echo "  Runner removal skipped or failed (runner may already be removed or token expired)."
+  fi
 fi

@@ -315,50 +315,33 @@ tasks:
         CLUSTER_NAME="${CLUSTER_NAME:-test-cluster}"
         WINDSOR_PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
         
-        # Try to load from Windsor if available
+        # Load Windsor env via hook so this shell and child task inherit; prefer Windsor as source of truth
         if command -v windsor > /dev/null 2>&1; then
-          set +e
-          WINDSOR_ENV_OUTPUT=$(windsor env 2>/dev/null || echo "")
-          set -e
-          if [ -n "${WINDSOR_ENV_OUTPUT}" ]; then
-            eval "${WINDSOR_ENV_OUTPUT}" || true
+          if [ -n "${CLUSTER_NAME:-}" ]; then
+            windsor context set "${CLUSTER_NAME}" 2>/dev/null || true
           fi
+          set +e
+          eval "$(windsor env --hook 2>/dev/null)" || true
+          set -e
         fi
         
-        # Derive WINDSOR_CONTEXT from CLUSTER_NAME if not set
         WINDSOR_CONTEXT="${WINDSOR_CONTEXT:-${CLUSTER_NAME}}"
+        CLUSTER_NAME="${CLUSTER_NAME:-${WINDSOR_CONTEXT}}"
+        WINDSOR_PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME:-nuc}"
+        TALOS_IMAGE_VERSION="${TALOS_IMAGE_VERSION:-v1.12.0}"
         
-        # Ensure critical variables are exported for Taskfile template evaluation
-        # These must be in the environment when Taskfile parses tc:generate-tfvars
-        export WINDSOR_CONTEXT="${WINDSOR_CONTEXT}"
-        export CLUSTER_NAME="${CLUSTER_NAME}"
-        export WINDSOR_PROJECT_ROOT="${WINDSOR_PROJECT_ROOT}"
-        
-        # Also ensure other Windsor variables are available (with defaults)
-        export INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME:-nuc}"
-        export TALOS_IMAGE_VERSION="${TALOS_IMAGE_VERSION:-v1.12.0}"
-        
-        # Debug: Verify variables are set and exported
+        # Debug: verify vars (child task inherits this shell's env from hook)
         echo "🔍 Environment variables for Taskfile:"
         echo "   WINDSOR_CONTEXT: ${WINDSOR_CONTEXT}"
         echo "   CLUSTER_NAME: ${CLUSTER_NAME}"
         echo "   WINDSOR_PROJECT_ROOT: ${WINDSOR_PROJECT_ROOT}"
         echo "   INCUS_REMOTE_NAME: ${INCUS_REMOTE_NAME}"
         echo "   TALOS_IMAGE_VERSION: ${TALOS_IMAGE_VERSION}"
+        env | grep -E "^(WINDSOR_CONTEXT|CLUSTER_NAME|WINDSOR_PROJECT_ROOT|INCUS_REMOTE_NAME|TALOS_IMAGE_VERSION)=" || true
         
-        # Verify they're actually in the environment (not just shell variables)
-        echo "🔍 Checking exported environment variables:"
-        env | grep -E "^(WINDSOR_CONTEXT|CLUSTER_NAME|WINDSOR_PROJECT_ROOT|INCUS_REMOTE_NAME|TALOS_IMAGE_VERSION)=" || echo "   ⚠️  Warning: Some variables not found in environment"
-        
-        # Pass environment variables explicitly to task command
-        # This ensures Taskfile has access to them when parsing template variables
-        # Using env command to ensure variables are passed to child process
-        env WINDSOR_CONTEXT="${WINDSOR_CONTEXT}" \
-            CLUSTER_NAME="${CLUSTER_NAME}" \
-            WINDSOR_PROJECT_ROOT="${WINDSOR_PROJECT_ROOT}" \
-            INCUS_REMOTE_NAME="${INCUS_REMOTE_NAME}" \
-            TALOS_IMAGE_VERSION="${TALOS_IMAGE_VERSION}" \
-            task tc:generate-tfvars > /tmp/test_output.log 2>&1
+        # Rely on inherited env from windsor env --hook above; no manual env wrapper
+        task tc:generate-tfvars > /tmp/test_output.log 2>&1
         
         if [ $? -eq 0 ]; then
           echo "✅ PASS: Generate terraform.tfvars"

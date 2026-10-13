@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Windsor context first, then shared session file (.vm-instantiate.env)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --decrypt 2>/dev/null)" || true; fi
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --hook --decrypt 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 

@@ -26,7 +26,7 @@ tasks:
         PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
         if command -v windsor > /dev/null 2>&1; then
           set +e
-          eval "$(windsor env 2>/dev/null)" || true
+          eval "$(windsor env --hook 2>/dev/null)" || true
           set -e
         fi
 
@@ -40,9 +40,20 @@ tasks:
         VM_AUTOSTART="${VM_AUTOSTART:-false}"
         VM_DISK_SIZE="${VM_DISK_SIZE:-{{.VM_DISK_SIZE}}}"
         PHYSICAL_NETWORK_NAME="${VM_NETWORK_NAME:-{{.VM_NETWORK_NAME}}}"
+        STORAGE_POOL="${VM_STORAGE_POOL:-local}"
+        # Only use VM_IP/VM_MAC if the context's windsor.yaml defines them; otherwise leave empty so we don't persist stale values from a previous run or other context
+        TERRAFORM_PATH_VAL="{{.TERRAFORM_PATH}}"
+        WINDSOR_CONTEXT_VAL="${WINDSOR_CONTEXT:-$(windsor context get 2>/dev/null || echo "${TERRAFORM_PATH_VAL}")}"
+        WINDSOR_YAML="${PROJECT_ROOT}/contexts/${WINDSOR_CONTEXT_VAL}/windsor.yaml"
+        if [ -f "${WINDSOR_YAML}" ]; then
+          grep -qE '^\s+VM_IP:' "${WINDSOR_YAML}" 2>/dev/null || VM_IP=""
+          grep -qE '^\s+VM_MAC:' "${WINDSOR_YAML}" 2>/dev/null || VM_MAC=""
+        else
+          VM_IP=""
+          VM_MAC=""
+        fi
         VM_IP="${VM_IP:-{{.VM_IP}}}"
         VM_MAC="${VM_MAC:-{{.VM_MAC}}}"
-        STORAGE_POOL="${VM_STORAGE_POOL:-local}"
         VM_DISK_ZFS_BLOCK_MODE="${VM_DISK_ZFS_BLOCK_MODE:-{{.VM_DISK_ZFS_BLOCK_MODE}}}"
         VM_DISK_IO_BUS="${VM_DISK_IO_BUS:-{{.VM_DISK_IO_BUS}}}"
         VM_DISK_IO_CACHE="${VM_DISK_IO_CACHE:-{{.VM_DISK_IO_CACHE}}}"
@@ -626,6 +637,17 @@ tasks:
         {{.VM_RUNNER_SCRIPT_DIR_SETUP}}
         "${SCRIPT_DIR}/status-github-runner.sh"
 
+  runner:export-sops-key:
+    desc: "Export your GPG key to contexts/<context>/sops-pgp.asc so the runner can decrypt SOPS secrets (prompts which key). Usage: task vm:runner:export-sops-key [-- context-name] (default: test-runner)"
+    cmds:
+      - |
+        set -euo pipefail
+        PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
+        {{.VM_RUNNER_SCRIPT_DIR_SETUP}}
+        CONTEXT_NAME="{{.CLI_ARGS}}"
+        [ -z "${CONTEXT_NAME}" ] && CONTEXT_NAME="test-runner"
+        "${SCRIPT_DIR}/export-sops-key.sh" "${CONTEXT_NAME}"
+
   runner:help:
     silent: true
     desc: "Help for runner-related VM commands"
@@ -643,6 +665,10 @@ tasks:
         echo "Create runner VM (direct):"
         echo "    task vm:instantiate -- <remote-name> <remote-ip> [<vm-name>] [--destroy] [--runner]"
         echo "      Set context first (e.g. windsor context set dev-runner) and TERRAFORM_PATH if needed."
+        echo ""
+        echo "Export your GPG key for runner (prompts which key):"
+        echo "    task vm:runner:export-sops-key [-- context-name]"
+        echo "      Writes your existing key to contexts/<context>/sops-pgp.asc (default: test-runner). Use the key that encrypts your secrets.enc.yaml."
         echo ""
         echo "Check runner status:"
         echo "    task vm:runner:status [-- <vm-instance-name>]"

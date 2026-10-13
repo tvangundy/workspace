@@ -126,11 +126,38 @@ incus config trust add <client-name>
 
 The script prefers `INCUS_TRUST_TOKEN` from the environment over generating a token at runtime.
 
+## SOPS PGP key (bake into runner for Windsor decrypt in CI)
+
+So the runner can decrypt context `secrets.enc.yaml` files in CI (e.g. for test-mailu), bake the **same PGP private key** used to encrypt those secrets into the runner at instantiation. Then every job on that runner can run `windsor env --hook --decrypt` and SOPS will decrypt the secrets; no workflow secret is required.
+
+**test-runner (recommended):** The test-runner context already sets `SOPS_PGP_PRIVATE_KEY_FILE` in `contexts/test-runner/windsor.yaml`. Before running `task test-runner:instantiate`, you need **your** armored PGP private key (the one that encrypts your context secrets) at **`contexts/test-runner/sops-pgp.asc`** (relative to the forest-shadows project root; already in `.gitignore`).
+
+**To export your key:** From the forest-shadows project root, run:
+
+```bash
+task test-runner:export-sops-key
+```
+
+The task will list your GPG secret keys and prompt you to choose which one to export. Pick the same key you use to encrypt `contexts/test-mailu/secrets.enc.yaml` (and any other context secrets the runner needs). It will write that key to `contexts/test-runner/sops-pgp.asc`. Then run `task test-runner:instantiate`; it will copy the key to the VM and import it into the runner user’s GPG keyring so CI jobs can run `windsor env --hook --decrypt` with your credentials.
+
+**The key must be passphrase-less for CI.** In CI there is no TTY; if the key has a passphrase, gpg will fail with "Inappropriate ioctl for device". Either export a key that has no passphrase, or remove the passphrase before exporting: `gpg --edit-key <keyid>`, then `passwd`, enter the current passphrase, then leave the new passphrase empty (press Enter twice). Re-export with `task test-runner:export-sops-key` and re-run instantiate.
+
+**Other runner contexts:** Export your key with `task vm:runner:export-sops-key -- <context-name>` (e.g. `task vm:runner:export-sops-key -- dev-runner`), which writes your chosen key to `contexts/<context-name>/sops-pgp.asc`. Or set one of these at instantiation time (env or `.workspace/.vm-instantiate.env`):
+
+- **`SOPS_PGP_PRIVATE_KEY_FILE`** — Path on the host to the armored PGP private key file (absolute or relative to project root). Example: `contexts/dev-runner/sops-pgp.asc`.
+- **`SOPS_PGP_PRIVATE_KEY`** — The armored key content (e.g. `export SOPS_PGP_PRIVATE_KEY="$(cat path/to/key.asc)"` before instantiate).
+
+The key is copied to the VM and imported into the **runner user’s** GPG keyring in `setup-runner-user.sh` (same step that copies SSH keys). After import, a legacy `pubring.gpg` is created so SOPS’s Go library (which expects the old format) can find the keyring; GnuPG 2.1+ normally uses `pubring.kbx`. `gnupg` is installed on the VM if needed. Do not commit the key file; use `contexts/**/sops-pgp.asc` and `contexts/**/sops-pgp.key` in `.gitignore`. If `SOPS_PGP_PRIVATE_KEY_FILE` is set but the file is missing, instantiate fails with a clear error.
+
+**Runner must run jobs on the host.** The key lives in `/home/runner/.gnupg` on the VM. If the runner is configured to run jobs **in a container**, the container’s `/home/runner` is not the host’s, so the keyring is empty and SOPS decrypt will fail with “No secret key”. Fix: either run jobs on the host (disable the default container in the runner’s config, e.g. `.runner` or the runner’s run script) or mount the host’s `/home/runner/.gnupg` into the job (e.g. via runner container volume mapping).
+
 ## Troubleshooting
 
+- **SOPS decrypt fails in CI ("Inappropriate ioctl for device")**: The key has a passphrase and CI has no TTY to prompt. Use a passphrase-less key for the runner (see "The key must be passphrase-less for CI" above).
 - **Runner not in GitHub**: Check token is correct and not expired; check logs: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo journalctl -u actions.runner.*.service -n 50`
 - **Service not starting**: `incus exec $INCUS_REMOTE_NAME:<runner-name> -- sudo systemctl status actions.runner.*.service`
 - **VM not starting**: `incus list $INCUS_REMOTE_NAME:`, `incus console $INCUS_REMOTE_NAME:<runner-name>`
+- **SOPS decrypt fails in CI (GNUPGHOME exists=no, “No secret key”)**: The job is not seeing the keyring where instantiate put it. **Verify on the VM:** `ssh runner@<vm-ip> 'ls -la /home/runner/.gnupg'`. If the directory exists and contains key files (e.g. `pubring.kbx`, `private-keys.d`), the job is likely running in a container or an isolated environment where the host’s `/home/runner` is not visible—run jobs on the host (no `container:` in the workflow and no default container in the runner’s config) or mount the host’s `/home/runner/.gnupg` into the job. If the directory is missing or empty on the VM, re-run instantiate and ensure the “Install SOPS PGP key on runner” step completes successfully (and that `SOPS_PGP_PRIVATE_KEY_FILE` or `SOPS_PGP_PRIVATE_KEY` is set). See “Runner must run jobs on the host” above.
 
 ## Related
 

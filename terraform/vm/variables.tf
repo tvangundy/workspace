@@ -39,6 +39,19 @@ variable "physical_network_name" {
   default     = ""
 }
 
+# Optional: static IP/MAC for documentation and external tooling; Terraform does not configure static addressing (DHCP is used)
+variable "vm_ip" {
+  description = "Optional static IPv4 for the VM (e.g. 192.168.2.151). Not applied by this module; used by scripts and for reference."
+  type        = string
+  default     = ""
+}
+
+variable "vm_mac" {
+  description = "Optional MAC address for the VM NIC (e.g. 10:66:6a:61:62:c6). Not applied by this module; used by scripts and for reference."
+  type        = string
+  default     = ""
+}
+
 variable "storage_pool" {
   description = "Name of the Incus storage pool to use for VMs"
   type        = string

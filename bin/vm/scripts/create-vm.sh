@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Windsor context first, then session file (see docs/runbooks/workspace/instantiate-env-and-windsor-env.md)
 PROJECT_ROOT="${WINDSOR_PROJECT_ROOT:-$(pwd)}"
-if command -v windsor >/dev/null 2>&1; then eval "$(windsor env 2>/dev/null)" || true; fi
+if command -v windsor >/dev/null 2>&1; then eval "$(windsor env --hook 2>/dev/null)" || true; fi
 ENV_FILE="${PROJECT_ROOT}/.workspace/.vm-instantiate.env"
 if [ -f "${ENV_FILE}" ]; then source "${ENV_FILE}"; fi
 
